@@ -1,0 +1,155 @@
+{# 34_appendix_5.j2 — Приложение 5: Схема оповещения #}
+
+## Приложение 5. Схема оповещения и порядок уведомления
+
+### Порядок оповещения по уровням тревоги
+
+<table>
+  <thead>
+    <tr>
+      <th>Уровень</th>
+      <th>Условие</th>
+      <th>Кто оповещает</th>
+      <th>Кого оповещают</th>
+      <th>Способ оповещения</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for level in notification_levels | default([]) %}
+    <tr>
+      <td>{{ level.level | default('—') }}</td>
+      <td>{{ level.condition | default('—') }}</td>
+      <td>{{ level.notifier | default('—') }}</td>
+      <td>{{ level.recipients | default('—') }}</td>
+      <td>{{ level.method | default('—') }}</td>
+      <td>{{ level.actions | default('—') }}</td>
+    </tr>
+    {% endfor %}
+    {% if notification_levels is not defined or notification_levels | length == 0 %}
+    <tr>
+      <td>1-й уровень</td>
+      <td>Загрязнение в пределах производственной площадки, отсутствие угрозы населению</td>
+      <td>Оператор (дежурный) цеха</td>
+      <td>Руководство цеха, штаб, ПАСФ</td>
+      <td>Система оповещения предприятия, служебная связь, ручная передача</td>
+      <td>Локализация источника, вывод людей из опасной зоны, оповещение внешних служб</td>
+    </tr>
+    <tr>
+      <td>2-й уровень</td>
+      <td>Загрязнение за пределами площадки, угроза населению в ближайшей зоне</td>
+      <td>Руководитель работ (директор)</td>
+      <td>Все подразделения предприятия, МЧС, администрация района</td>
+      <td>Система оповещения предприятия, телефоны связи, fax, e-mail</td>
+      <td>Эвакуация людей, привлечение внешних сил, оповещение населения</td>
+    </tr>
+    <tr>
+      <td>3-й уровень</td>
+      <td>Крупная авария с массовым поражением людей, угроза широкой территории</td>
+      <td>Руководитель работ</td>
+      <td>Все подразделения, МЧС, Минздрав, администрация региона</td>
+      <td>Все доступные средства связи</td>
+      <td>Масштабная эвакуация, привлечение всех имеющихся сил и средств</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+### Контактные данные служб оповещения
+
+<table>
+  <thead>
+    <tr>
+      <th>N п/п</th>
+      <th>Наименование службы / организации</th>
+      <th>Контактное лицо</th>
+      <th>Телефон (основной)</th>
+      <th>Телефон (резервный)</th>
+      <th>E-mail</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for contact in emergency_contacts | default([]) %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ contact.organization | default('—') }}</td>
+      <td>{{ contact.person | default('—') }}</td>
+      <td>{{ contact.phone_primary | default('—') }}</td>
+      <td>{{ contact.phone_backup | default('—') }}</td>
+      <td>{{ contact.email | default('—') }}</td>
+    </tr>
+    {% endfor %}
+    {% if emergency_contacts is not defined or emergency_contacts | length == 0 %}
+    <tr>
+      <td>1</td>
+      <td>Единая служба спасения</td>
+      <td>—</td>
+      <td>112</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Пожарная охрана</td>
+      <td>Дежурная часть</td>
+      <td>101</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Служба газовой защиты (МЧС)</td>
+      <td>Дежурная часть</td>
+      <td>104</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Администрация {{ district_name | default('района / города') }}</td>
+      <td>{{ admin_contact | default('—') }}</td>
+      <td>{{ admin_phone | default('—') }}</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Санитарно-эпидемиологическая служба</td>
+      <td>{{ sanepid_contact | default('—') }}</td>
+      <td>{{ sanepid_phone | default('—') }}</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Служба медицины катастроф</td>
+      <td>{{ med_catastrophe_contact | default('—') }}</td>
+      <td>{{ med_catastrophe_phone | default('—') }}</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Руководство предприятия</td>
+      <td>{{ director_name | default('—') }}</td>
+      <td>{{ director_phone | default('—') }}</td>
+      <td>{{ director_phone_backup | default('—') }}</td>
+      <td>{{ director_email | default('—') }}</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+### Порядок действий при оповещении
+
+{% for step in notification_procedure | default([]) %}
+{{ loop.index }}. {{ step | default('—') }}
+{% endfor %}
+{% if notification_procedure is not defined or notification_procedure | length == 0 %}
+1. При обнаружении аварии (инцидента) работник немедленно сообщает непосредственному руководителю любым доступным способом.
+2. Непосредственный руководитель докладывает руководителю цеха и дежурному по предприятию.
+3. Дежурный оповещает штаб по руководству работами, ПАСФ и при необходимости — внешние службы.
+4. Оповещение населения осуществляется через систему громкоговорящей связи, сирены, а также по телефону и через СМИ.
+5. При эвакуации руководители подразделений проводят вывод людей по намеченным маршрутам к местам сбора.
+6. Все действия фиксируются в журнале учёта оповещений.
+{% endif %}

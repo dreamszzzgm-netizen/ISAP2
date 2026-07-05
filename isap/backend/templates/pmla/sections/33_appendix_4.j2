@@ -1,0 +1,35 @@
+{# 33_appendix_4.j2 — Приложение 4: Оснащение ПАСФ #}
+
+## Приложение 4. Оснащение профессиональных аварийно-спасательных формирований
+
+### Таблица оснащения (средства индивидуальной защиты и оборудование)
+
+| N п/п | Наименование СИЗ / оборудования | Марка / тип | Единица измерения | Количество | Место хранения | Срок годности / поверки |
+|-------|--------------------------------|------------|-------------------|-----------|---------------|------------------------|
+{% for item in equipment_list | default([]) %}
+| {{ loop.index }} | {{ item.name | default('—') }} | {{ item.model | default('—') }} | {{ item.unit | default('шт.') }} | {{ item.quantity | default('—') }} | {{ item.storage_location | default('—') }} | {{ item.expiry | default('—') }} |
+{% endfor %}
+{% if equipment_list is not defined or equipment_list | length == 0 %}
+| 1 | Средства индивидуальной защиты органов дыхания (СИЗОД) | {{ sizo_model | default('ИП-4, ИП-5') }} | шт. | {{ sizo_quantity | default('—') }} | {{ sizo_storage | default('—') }} | {{ sizo_expiry | default('—') }} |
+| 2 | Средства индивидуальной защиты кожи | {{ protective_clothing_model | default('костюм химзащиты') }} | шт. | {{ protective_clothing_quantity | default('—') }} | {{ protective_clothing_storage | default('—') }} | {{ protective_clothing_expiry | default('—') }} |
+| 3 | Противогазы фильтрующие | {{ gas_mask_model | default('ПМГ, ПМК-2') }} | шт. | {{ gas_mask_quantity | default('—') }} | {{ gas_mask_storage | default('—') }} | {{ gas_mask_expiry | default('—') }} |
+| 4 | Газоанализаторы | {{ gas_analyzer_model | default('—') }} | шт. | {{ gas_analyzer_quantity | default('—') }} | {{ gas_analyzer_storage | default('—') }} | {{ gas_analyzer_expiry | default('—') }} |
+| 5 | Приборы радиационной разведки | {{ radiation_device_model | default('ДКР-05, КРМ') }} | шт. | {{ radiation_device_quantity | default('—') }} | {{ radiation_device_storage | default('—') }} | {{ radiation_device_expiry | default('—') }} |
+| 6 | Средства связи (портативные радиостанции) | {{ radio_model | default('—') }} | шт. | {{ radio_quantity | default('—') }} | {{ radio_storage | default('—') }} | {{ radio_expiry | default('—') }} |
+| 7 | Аптечки первой помощи (медицинские) | {{ first_aid_model | default('Аптечка ПМ-1') }} | шт. | {{ first_aid_quantity | default('—') }} | {{ first_aid_storage | default('—') }} | {{ first_aid_expiry | default('—') }} |
+| 8 | Огнетушители | {{ fire_extinguisher_model | default('ОП-5, ОУ-3') }} | шт. | {{ fire_extinguisher_quantity | default('—') }} | {{ fire_extinguisher_storage | default('—') }} | {{ fire_extinguisher_expiry | default('—') }} |
+| 9 | Переносные светильники (фонари аварийные) | {{ flashlight_model | default('—') }} | шт. | {{ flashlight_quantity | default('—') }} | {{ flashlight_storage | default('—') }} | {{ flashlight_expiry | default('—') }} |
+| 10 | Предупредительные плакаты и знаки | {{ sign_model | default('—') }} | комплект | {{ sign_quantity | default('—') }} | {{ sign_storage | default('—') }} | {{ sign_expiry | default('—') }} |
+{% endif %}
+
+### Порядок хранения и проверки оснащения
+
+{% for item in storage_rules | default([]) %}
+{{ loop.index }}. {{ item | default('—') }}
+{% endfor %}
+{% if storage_rules is not defined or storage_rules | length == 0 %}
+1. Все средства индивидуальной защиты и оборудование хранятся в специально оборудованных помещениях (кладовых, шкафах), обеспечивающих их сохранность и исправность.
+2. Проверка наличия и исправности СИЗ и оборудования проводится ежесменно перед началом смены.
+3. Плановая проверка сроков годности проводится ежемесячно ответственным лицом.
+4. По результатам проверки составляется акт; испорченные или просроченные средства заменяются в установленном порядке.
+{% endif %}

@@ -1,0 +1,47 @@
+{# 20_special_section.j2 — Специальный раздел (оперативная часть) #}
+
+## Специальный раздел (оперативная часть)
+
+### Перечень сценариев развития аварийных ситуаций
+
+Для каждого сценария, определённого в матрице рисков, приводятся опознавательные признаки, способы защиты и порядок действий персонала.
+
+<table>
+  <thead>
+    <tr>
+      <th>N п/п</th>
+      <th>Наименование сценария</th>
+      <th>Опознавательные признаки</th>
+      <th>Способы защиты</th>
+      <th>Действия персонала</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for scenario in scenario_list | default([]) %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ scenario.name | default('—') }}</td>
+      <td>{{ scenario.signs | default('—') }}</td>
+      <td>{{ scenario.protection | default('—') }}</td>
+      <td>{{ scenario.actions | default('—') }}</td>
+    </tr>
+    {% endfor %}
+    {% if scenario_list is not defined or scenario_list | length == 0 %}
+    <tr>
+      <td colspan="5">Сценарии не определены</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+### Описания действий по сценариям
+
+{% for scenario in scenario_list | default([]) %}
+#### {{ loop.index }}. {{ scenario.name | default('Сценарий') }}
+
+{{ llm_content | default('Описание действий по данному сценарию не сформировано.') }}
+
+{% endfor %}
+{% if scenario_list is not defined or scenario_list | length == 0 %}
+Описания действий по сценариям отсутствуют.
+{% endif %}

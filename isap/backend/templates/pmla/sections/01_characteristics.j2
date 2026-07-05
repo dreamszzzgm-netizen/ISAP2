@@ -1,0 +1,114 @@
+{# sections/01_characteristics.j2 #}
+{# content_type: data — LLM не вызывается, только подстановка данных из БД #}
+{# slot_type: fact #}
+{# data_sources: organization, facility, substances, equipment #}
+
+1. ХАРАКТЕРИСТИКА ОБЪЕКТА
+
+1.1. Общие сведения об объекте
+
+Наименование объекта: {{ facility.name | default('—') }}
+
+Регистрационный номер в государственном реестре ОПО: {{ facility.reg_number | default('—') }}
+
+Класс опасности: {{ facility.hazard_class | default('—') }}
+
+Дата включения в государственный реестр ОПО: {{ facility.registration_date | default('—') }}
+
+Место расположения (адрес): {{ facility.address | default(organization.address | default('—')) }}
+
+Эксплуатирующая организация
+
+Наименование организации: {{ organization.name | default('—') }}
+
+ИНН: {{ organization.inn | default('—') }}
+
+КПП: {{ organization.kpp | default('—') }}
+
+Юридический адрес: {{ organization.legal_address | default('—') }}
+
+Фактический адрес: {{ organization.address | default('—') }}
+
+Руководитель: {{ organization.director | default('—') }}
+
+Должность руководителя: {{ organization.director_position | default('—') }}
+
+1.2. Сведения об опасных веществах
+
+{% if substances %}
+{% for s in substances %}
+{{ loop.index }}. Наименование вещества: {{ s.name | default('—') }}
+
+Химическая формула: {{ s.chemical_formula | default('—') }}
+
+Класс опасности: {{ s.hazard_class | default('—') }}
+
+Агрегатное состояние: {{ s.physical_state | default('—') }}
+
+Количество на объекте: {{ s.quantity_kg | default('—') }} кг ({{ s.quantity_tons | default('—') }} т)
+
+Пороговое количество (Приказ Ростехнадзора №531): {{ s.threshold_quantity_kg | default('—') }} кг
+
+Плотность: {{ s.density | default('—') }} кг/м³
+
+Температура кипения: {{ s.boiling_point | default('—') }} °C
+
+Температура вспышки: {{ s.flash_point | default('—') }} °C
+
+Предельно допустимая концентрация (ПДК): {{ s.pdk | default('—') }} мг/м³
+
+{% if s.hazard_properties %}
+Опасные физико-химические свойства:
+
+{% for prop in s.hazard_properties %}
+- {{ prop | default('—') }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% else %}
+Сведения об опасных веществах не предоставлены.
+{% endif %}
+
+1.3. Сведения об оборудовании
+
+{% if equipment %}
+{% for eq in equipment %}
+{{ loop.index }}. Наименование оборудования: {{ eq.name | default('—') }}
+
+Тип (марка): {{ eq.type | default('—') }}
+
+Назначение: {{ eq.purpose | default('—') }}
+
+Заводской номер: {{ eq.serial_number | default('—') }}
+
+Год изготовления: {{ eq.manufacture_year | default('—') }}
+
+Дата ввода в эксплуатацию: {{ eq.commissioning_date | default('—') }}
+
+Производитель: {{ eq.manufacturer | default('—') }}
+
+Паспортные данные: {{ eq.passport | default('—') }}
+
+Давление рабочее: {{ eq.working_pressure | default('—') }} МПа
+
+Давление пробное: {{ eq.test_pressure | default('—') }} МПа
+
+Температура рабочая: {{ eq.working_temperature | default('—') }} °C
+
+Объём (ёмкость): {{ eq.volume | default('—') }} м³
+
+Материал: {{ eq.material | default('—') }}
+
+{% if eq.specifications %}
+Дополнительные характеристики:
+
+{% for key, value in eq.specifications.items() %}
+{{ key }}: {{ value | default('—') }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% else %}
+Сведения об оборудовании не предоставлены.
+{% endif %}

@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "description": "Шаблоны служб оповещения по типу ОПО (по приказу 1437)",
+  "templates": {
+    "Сеть газопотребления": {
+      "internal": [
+        {"position": "Председатель (руководитель организации)", "order": 1},
+        {"position": "Помощник председателя / Руководитель работ по ликвидации аварии", "order": 2}
+      ],
+      "external": [
+        {"service": "ЕДДС муниципального района", "phone_primary": "112", "order": 3},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 4},
+        {"service": "Пожарная часть (ФПС ГПС МЧС России)", "phone_primary": "101", "order": 5},
+        {"service": "Станция скорой медицинской помощи", "phone_primary": "103", "order": 6},
+        {"service": "Аварийно-диспетчерская служба газораспределения", "phone_primary": "104", "order": 7},
+        {"service": "Районные электрические сети", "phone_primary": "указать местный", "order": 8},
+        {"service": "Главное управление МЧС России по субъекту РФ", "phone_primary": "указать местный", "order": 9},
+        {"service": "Территориальное управление Ростехнадзора", "phone_primary": "указать местный", "order": 10},
+        {"service": "Местная администрация", "phone_primary": "указать местный", "order": 11}
+      ]
+    },
+    "Нефтедобыча": {
+      "internal": [
+        {"position": "Начальник промысла", "order": 1},
+        {"position": "Начальник смены", "order": 2}
+      ],
+      "external": [
+        {"service": "ЕДДС муниципального района", "phone_primary": "112", "order": 3},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 4},
+        {"service": "Пожарная часть", "phone_primary": "101", "order": 5},
+        {"service": "Скорая медицинская помощь", "phone_primary": "103", "order": 6},
+        {"service": "Аварийная служба нефтепровода", "phone_primary": "указать", "order": 7},
+        {"service": "Главное управление МЧС России по субъекту РФ", "phone_primary": "указать", "order": 8},
+        {"service": "Территориальное управление Ростехнадзора", "phone_primary": "указать", "order": 9}
+      ]
+    },
+    "Нефтепереработка": {
+      "internal": [
+        {"position": "Директор завода", "order": 1},
+        {"position": "Главный инженер", "order": 2},
+        {"position": "Начальник установки", "order": 3}
+      ],
+      "external": [
+        {"service": "ЕДДС муниципального района", "phone_primary": "112", "order": 4},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 5},
+        {"service": "Пожарная часть", "phone_primary": "101", "order": 6},
+        {"service": "Скорая медицинская помощь", "phone_primary": "103", "order": 7},
+        {"service": "Военизированная газоспасательная служба", "phone_primary": "указать", "order": 8},
+        {"service": "Главное управление МЧС России по субъекту РФ", "phone_primary": "указать", "order": 9},
+        {"service": "Территориальное управление Ростехнадзора", "phone_primary": "указать", "order": 10},
+        {"service": "Роспотребнадзор", "phone_primary": "указать", "order": 11}
+      ]
+    },
+    "Химическое производство": {
+      "internal": [
+        {"position": "Директор предприятия", "order": 1},
+        {"position": "Главный технолог", "order": 2},
+        {"position": "Начальник смены", "order": 3}
+      ],
+      "external": [
+        {"service": "ЕДДС муниципального района", "phone_primary": "112", "order": 4},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 5},
+        {"service": "Пожарная часть", "phone_primary": "101", "order": 6},
+        {"service": "Скорая медицинская помощь", "phone_primary": "103", "order": 7},
+        {"service": "Военизированная газоспасательная служба", "phone_primary": "указать", "order": 8},
+        {"service": "Главное управление МЧС России по субъекту РФ", "phone_primary": "указать", "order": 9},
+        {"service": "Территориальное управление Ростехнадзора", "phone_primary": "указать", "order": 10},
+        {"service": "Роспотребнадзор", "phone_primary": "указать", "order": 11},
+        {"service": "Местная администрация (для эвакуации населения)", "phone_primary": "указать", "order": 12}
+      ]
+    },
+    "Газораспределение": {
+      "internal": [
+        {"position": "Директор филиала", "order": 1},
+        {"position": "Главный инженер", "order": 2},
+        {"position": "Начальник участка", "order": 3}
+      ],
+      "external": [
+        {"service": "ЕДДС муниципального района", "phone_primary": "112", "order": 4},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 5},
+        {"service": "Пожарная часть", "phone_primary": "101", "order": 6},
+        {"service": "Скорая медицинская помощь", "phone_primary": "103", "order": 7},
+        {"service": "Аварийно-диспетчерская служба", "phone_primary": "104", "order": 8},
+        {"service": "Главное управление МЧС России по субъекту РФ", "phone_primary": "указать", "order": 9},
+        {"service": "Территориальное управление Ростехнадзора", "phone_primary": "указать", "order": 10}
+      ]
+    },
+    "Транспортировка": {
+      "internal": [
+        {"position": "Начальник ЛПУ МГ", "order": 1},
+        {"position": "Главный инженер", "order": 2},
+        {"position": "Начальник линейной станции", "order": 3}
+      ],
+      "external": [
+        {"service": "ЕДДС муниципального района", "phone_primary": "112", "order": 4},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 5},
+        {"service": "Пожарная часть", "phone_primary": "101", "order": 6},
+        {"service": "Скорая медицинская помощь", "phone_primary": "103", "order": 7},
+        {"service": "Аварийная служба магистральных газопроводов", "phone_primary": "указать", "order": 8},
+        {"service": "Главное управление МЧС России по субъекту РФ", "phone_primary": "указать", "order": 9},
+        {"service": "Территориальное управление Ростехнадзора", "phone_primary": "указать", "order": 10},
+        {"service": "Местная администрация", "phone_primary": "указать", "order": 11}
+      ]
+    },
+    "default": {
+      "internal": [
+        {"position": "Руководитель организации", "order": 1},
+        {"position": "Ответственный за ПБ", "order": 2}
+      ],
+      "external": [
+        {"service": "ЕДДС", "phone_primary": "112", "order": 3},
+        {"service": "ПАСФ (по договору)", "phone_primary": "указать по договору", "order": 4},
+        {"service": "Пожарная часть", "phone_primary": "101", "order": 5},
+        {"service": "Скорая медицинская помощь", "phone_primary": "103", "order": 6},
+        {"service": "МЧС России", "phone_primary": "указать", "order": 7},
+        {"service": "Ростехнадзор", "phone_primary": "указать", "order": 8}
+      ]
+    }
+  }
+}

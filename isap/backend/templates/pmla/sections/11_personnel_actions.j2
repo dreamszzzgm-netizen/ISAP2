@@ -1,0 +1,31 @@
+{# sections/11_personnel_actions.j2 #}
+{# slot_type: mixed — FACT: список лиц из БД, TEXT: описания действий от LLM #}
+{# data_sources: facility, responsible_persons #}
+{# fact_slots: personnel_list #}
+{# text_slots: action_descriptions #}
+
+11. ДЕЙСТВИЯ ПРОИЗВОДСТВЕННОГО ПЕРСОНАЛА ПРИ УГРОЗЕ И ВОЗНИКНОВЕНИИ АВАРИЙ
+
+11.1. Должностные лица, ответственные за действия при авариях
+
+{% if responsible_persons %}
+| № п/п | ФИО | Должность | Телефон | Обязанности при аварии |
+|--------|-----|-----------|---------|----------------------|
+{% for person in responsible_persons %}
+| {{ loop.index }} | {{ person.full_name | default('—') }} | {{ person.position | default('—') }} | {{ person.phone | default('—') }} | {{ person.emergency_duties | default('—') }} |
+{% endfor %}
+{% elif personnel_list %}
+| № п/п | ФИО | Должность | Телефон | Обязанности при аварии |
+|--------|-----|-----------|---------|----------------------|
+{% for person in personnel_list %}
+| {{ loop.index }} | {{ person.full_name | default('—') }} | {{ person.position | default('—') }} | {{ person.phone | default('—') }} | {{ person.duties | default('—') }} |
+{% endfor %}
+{% else %}
+| № п/п | ФИО | Должность | Телефон | Обязанности при аварии |
+|--------|-----|-----------|---------|----------------------|
+| — | Данные не предоставлены | — | — | — |
+{% endif %}
+
+11.2. Действия персонала при угрозе аварии
+
+{{ llm_content | default('Описание действий персонала при угрозе аварии не сформировано.') }}

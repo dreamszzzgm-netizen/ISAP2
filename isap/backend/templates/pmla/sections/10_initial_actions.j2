@@ -1,0 +1,9 @@
+{# sections/10_initial_actions.j2 #}
+{# content_type: llm — текст генерируется LLM #}
+{# slot_type: text #}
+{# data_sources: facility, substances, responsible_persons #}
+{# rag_query: первоочередные действия локализация ликвидация аварий #}
+
+10. ПЕРВООЧЕРЕДНЫЕ ДЕЙСТВИЯ ПО ЛОКАЛИЗАЦИИ И ЛИКВИДАЦИИ АВАРИЙ
+
+{{ llm_content | default('Описание первоочередных действий по локализации и ликвидации аварий не сформировано.') }}
