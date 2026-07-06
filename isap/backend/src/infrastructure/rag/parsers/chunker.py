@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 
-from src.infrastructure.rag.parsers.models import DetectionReport, DetectedSection
+from src.infrastructure.rag.parsers.models import DetectedSection, DetectionReport
 
 
 @dataclass

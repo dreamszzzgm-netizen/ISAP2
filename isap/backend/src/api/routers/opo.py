@@ -1,14 +1,15 @@
 """Роутер для формы «Сведения об ОПО»."""
-from uuid import UUID
 from urllib.parse import quote
-from fastapi import APIRouter, Depends, HTTPException
+from uuid import UUID
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from src.api.dependencies import get_opo_details_repo, get_facility_repo
-from src.infrastructure.repositories.opo_details_repo import OpoDetailsRepository
-from src.infrastructure.repositories.facility_repo import FacilityRepository
+from src.api.dependencies import get_facility_repo, get_opo_details_repo
 from src.application.services.opo_service import OpoService
+from src.infrastructure.repositories.facility_repo import FacilityRepository
+from src.infrastructure.repositories.opo_details_repo import OpoDetailsRepository
 
 router = APIRouter()
 

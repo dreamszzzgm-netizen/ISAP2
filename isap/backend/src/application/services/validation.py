@@ -1,6 +1,5 @@
 """Автоматическая валидация ПМЛА."""
 import re
-from uuid import UUID
 
 from src.application.services.types import Issue, ValidationResult
 from src.infrastructure.repositories.regulatory_repo import RegulatoryRepository

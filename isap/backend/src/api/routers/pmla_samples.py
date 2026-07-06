@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -121,7 +121,6 @@ async def preview_sample(
     if sample.file_type == "docx":
         try:
             import docx
-            import io as _io
             d = docx.Document(sample.file_path)
             current_section = None
             for para in d.paragraphs:

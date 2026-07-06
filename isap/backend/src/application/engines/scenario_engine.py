@@ -6,7 +6,12 @@ import logging
 from pathlib import Path
 
 from src.application.engines.base import BaseEngine, DocumentContext, SectionContent
-from src.application.engines.blocks import HeadingBlock, ParagraphBlock, TableBlock, Block
+from src.application.engines.blocks import (
+    Block,
+    HeadingBlock,
+    ParagraphBlock,
+    TableBlock,
+)
 
 logger = logging.getLogger(__name__)
 

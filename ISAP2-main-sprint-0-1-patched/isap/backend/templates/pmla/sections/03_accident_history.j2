@@ -1,0 +1,56 @@
+{# sections/03_accident_history.j2 #}
+{# content_type: data — LLM не вызывается #}
+{# slot_type: fact #}
+{# data_sources: facility #}
+
+3. ХАРАКТЕРИСТИКА АВАРИЙНОСТИ НА ОБЪЕКТЕ И АНАЛОГИЧНЫХ ОБЪЕКТАХ
+
+3.1. Данные о травматизме и аварийности на объекте
+
+{% if accident_history %}
+{% if accident_history.facility_accidents is defined %}
+Сведения об авариях и инцидентах на {{ facility.name | default('объекте') }} за последние 3 года:
+
+| № п/п | Дата аварии | Вид аварии | Количество пострадавших | Причина | Последствия |
+|--------|-------------|------------|------------------------|---------|-------------|
+{% for accident in accident_history.facility_accidents %}
+| {{ loop.index }} | {{ accident.date | default('—') }} | {{ accident.type | default('—') }} | {{ accident.victims | default('—') }} | {{ accident.cause | default('—') }} | {{ accident.consequences | default('—') }} |
+{% endfor %}
+{% endif %}
+{% else %}
+Сведений о авариях и инцидентах на объекте за период эксплуатации не зарегистрировано.
+
+Несчастных случаев на производстве не зафиксировано.
+{% endif %}
+
+3.2. Аварийность на аналогичных объектах
+
+{% if accident_history %}
+{% if accident_history.similar_accidents is defined %}
+Сведения о авариях на аналогичных объектах ОПО за последние 3 года:
+
+| № п/п | Наименование объекта | Вид деятельности | Количество аварий | Количество пострадавших | Основные причины |
+|--------|---------------------|------------------|-------------------|------------------------|------------------|
+{% for similar in accident_history.similar_accidents %}
+| {{ loop.index }} | {{ similar.facility_name | default('—') }} | {{ similar.activity | default('—') }} | {{ similar.accident_count | default('—') }} | {{ similar.victims | default('—') }} | {{ similar.main_causes | default('—') }} |
+{% endfor %}
+{% endif %}
+{% else %}
+Анализ аварийности на аналогичных объектах не проводился.
+
+Источники информации: территориальные органы Ростехнадзора, открытые базы данных, отраслевые статистические отчёты.
+{% endif %}
+
+3.3. Анализ причин аварий
+
+{% if accident_history %}
+{% if accident_history.cause_analysis is defined %}
+| № п/п | Группа причин | Количество аварий | Доля, % |
+|--------|---------------|-------------------|---------|
+{% for cause in accident_history.cause_analysis %}
+| {{ loop.index }} | {{ cause.group | default('—') }} | {{ cause.count | default('—') }} | {{ cause.percentage | default('—') }} |
+{% endfor %}
+{% endif %}
+{% else %}
+Анализ причин аварий не проведён ввиду отсутствия зарегистрированных аварий на объекте.
+{% endif %}

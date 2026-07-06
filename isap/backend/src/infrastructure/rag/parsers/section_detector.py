@@ -24,7 +24,6 @@ from typing import NamedTuple
 
 from src.infrastructure.rag.parsers.models import DetectedSection, DetectionReport
 
-
 # ── Типы вспомогательные ────────────────────────────────────────────
 
 class _PatternEntry(NamedTuple):

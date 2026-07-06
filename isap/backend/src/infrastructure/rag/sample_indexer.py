@@ -4,12 +4,10 @@ from uuid import UUID
 
 from src.infrastructure.rag.pipeline import (
     Chunker,
-    Chunk,
     DocumentLoader,
     Embedder,
     VectorStore,
 )
-from src.core.settings import settings
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,49 @@
+{# sections/02_scenarios.j2 #}
+{# slot_type: mixed — FACT: список сценариев из матрицы, TEXT: описания от LLM #}
+{# data_sources: facility, substances, equipment #}
+{# fact_slots: scenario_list, calculation_results #}
+{# text_slots: scenario_descriptions #}
+
+2. СЦЕНАРИИ НАИБОЛЕЕ ВЕРОЯТНЫХ АВАРИЙ НА ОПО
+
+2.1. Матрица сценариев аварий
+
+{% if scenario_list %}
+На основании анализа характеристик объекта ОПО, класса опасности и свойств опасных веществ определены следующие сценарии наиболее вероятных аварий:
+
+| № | Наименование сценария | Тип поражающего фактора | Вероятность | Категория аварии |
+|---|------------------------|--------------------------|-------------|------------------|
+{% for scenario in scenario_list %}
+| {{ scenario.id | default(loop.index) }} | {{ scenario.name | default('—') }} | {{ scenario.factor_type | default('—') }} | {{ scenario.probability | default('—') }} | {{ scenario.category | default('—') }} |
+{% endfor %}
+
+{% else %}
+Сведения о сценариях аварий не предоставлены. Определение сценариев осуществляется на основании анализа технологических процессов, характеристик оборудования и свойств опасных веществ в соответствии с ФЗ-116 и Приказом Ростехнадзора №531.
+{% endif %}
+
+2.2. Расчётные параметры зон поражения
+
+{% if calculation_results %}
+{% for calc in calculation_results %}
+{{ loop.index }}. Сценарий: {{ calc.scenario_name | default('—') }}
+
+Радиус зоны химического заражения: {{ calc.chemical_zone_radius | default('—') }} м
+
+Радиус зоны теплового воздействия: {{ calc.thermal_zone_radius | default('—') }} м
+
+Радиус зоны взрывного воздействия: {{ calc.explosion_zone_radius | default('—') }} м
+
+Радиус зоны загазованности: {{ calc.gas_zone_radius | default('—') }} м
+
+Плотность потока теплового излучения: {{ calc.heat_flux | default('—') }} кВт/м²
+
+Максимальное избыточное давление взрыва: {{ calc.overpressure | default('—') }} кПа
+
+{% endfor %}
+{% else %}
+Расчётные параметры зон поражения определяются в соответствии с методиками, указанными в Приложении 2 к Приказу Ростехнадзора №531 от 15.12.2020.
+{% endif %}
+
+2.3. Описание сценариев аварий
+
+{{ llm_content | default('Описания сценариев аварий не сформированы.') }}

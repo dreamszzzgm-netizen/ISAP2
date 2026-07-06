@@ -6,8 +6,8 @@ import logging
 from src.application.engines.base import DocumentContext
 from src.application.engines.data_engine import DataEngine
 from src.application.engines.narrative_engine import NarrativeEngine
-from src.application.engines.rules_engine import RulesEngine
 from src.application.engines.router import EngineRouter
+from src.application.engines.rules_engine import RulesEngine
 from src.application.engines.scenario_engine import ScenarioEngine
 from src.application.engines.template_engine import TemplateEngine
 

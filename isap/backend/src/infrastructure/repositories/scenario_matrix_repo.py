@@ -1,5 +1,6 @@
 """Репозиторий матрицы сценариев."""
 from sqlalchemy import func, select
+
 from src.infrastructure.database.models import ScenarioMatrixModel
 from src.infrastructure.repositories.base import BaseRepository
 

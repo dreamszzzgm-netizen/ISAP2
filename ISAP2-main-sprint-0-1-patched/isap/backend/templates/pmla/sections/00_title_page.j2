@@ -1,0 +1,39 @@
+{# sections/00_title_page.j2 #}
+{# content_type: data — титульный лист, только подстановка данных #}
+
+СОГЛАСОВАЮ
+
+_________________________ / {{ approver.name | default("—", true) }} /
+                         {{ approver.position | default("—", true) }}
+
+"____" ____________ 20__ г.
+
+
+УТВЕРЖДАЮ
+
+_________________________ / {{ approver.name | default("—", true) }} /
+                         {{ approver.position | default("—", true) }}
+
+"____" ____________ 20__ г.
+
+
+ПЛАН
+МЕРОПРИЯТИЙ ПО ЛИКВИДАЦИИ АВАРИЙ (ПЛА)
+на опасном производственном объекте
+
+
+Наименование объекта:
+{{ facility.name | default("—", true) }}
+
+Регистрационный номер ОПО:
+{{ facility.reg_number | default("—", true) }}
+
+Место расположения:
+{{ facility.address | default(organization.address | default("—", true), true) }}
+
+Эксплуатирующая организация:
+{{ organization.name | default("—", true) }}
+{{ organization.address | default("—", true) }}
+
+
+Год разработки: {{ year | default("2026", true) }}

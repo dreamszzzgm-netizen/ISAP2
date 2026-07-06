@@ -1,6 +1,8 @@
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.infrastructure.database.models import OpoDetailsModel
 from src.infrastructure.repositories.base import BaseRepository
 

@@ -5,7 +5,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.application.engines.blocks import Block, HeadingBlock, ParagraphBlock, TableBlock, ImageBlock
+from src.application.engines.blocks import (
+    Block,
+    HeadingBlock,
+    ImageBlock,
+    ParagraphBlock,
+    TableBlock,
+)
 
 
 @dataclass

@@ -7,7 +7,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from src.application.engines.base import BaseEngine, DocumentContext, SectionContent
-from src.application.engines.blocks import ParagraphBlock, Block
+from src.application.engines.blocks import ParagraphBlock
 
 logger = logging.getLogger(__name__)
 

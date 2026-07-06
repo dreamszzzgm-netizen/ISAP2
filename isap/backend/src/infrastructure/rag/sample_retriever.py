@@ -69,9 +69,10 @@ class SampleRetriever:
     async def get_sample_section(self, sample_id: UUID, section_title: str) -> str:
         """Извлекает текст конкретного раздела из DOCX образца."""
         try:
+            from sqlalchemy import select
+
             from src.infrastructure.database.engine import async_session_factory
             from src.infrastructure.database.models import PmlaSampleModel
-            from sqlalchemy import select
 
             async with async_session_factory() as session:
                 result = await session.execute(

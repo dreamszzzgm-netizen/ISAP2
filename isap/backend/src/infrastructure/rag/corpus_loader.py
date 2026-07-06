@@ -1,13 +1,11 @@
 """Загрузка корпуса знаний в ChromaDB: нормативы + готовые ПМЛА."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.database.engine import async_session_factory
 from src.infrastructure.database.models import DocumentModel, RegulatoryDocumentModel
@@ -176,7 +174,6 @@ class CorpusLoader:
             logger.info("Создана директория: %s", directory)
             return 0
 
-        from src.infrastructure.rag.pipeline import Document as RagDoc
 
         count = 0
         for ext in ("*.txt", "*.pdf", "*.docx"):

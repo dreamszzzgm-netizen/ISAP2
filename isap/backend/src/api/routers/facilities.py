@@ -1,14 +1,14 @@
 """Роутер ОПО — CRUD операции."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel, ConfigDict, field_serializer
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
-from src.api.dependencies import get_facility_repo, get_document_repo
+from src.api.dependencies import get_document_repo, get_facility_repo
 from src.infrastructure.database.models import DocumentModel
-from src.infrastructure.repositories.facility_repo import FacilityRepository
 from src.infrastructure.repositories.document_repo import DocumentRepository
+from src.infrastructure.repositories.facility_repo import FacilityRepository
 
 router = APIRouter()
 

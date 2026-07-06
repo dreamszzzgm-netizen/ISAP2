@@ -1,8 +1,10 @@
 """Сервис для формы «Сведения об ОПО»."""
 from uuid import UUID
+
 from fastapi import HTTPException
-from src.infrastructure.repositories.opo_details_repo import OpoDetailsRepository
+
 from src.infrastructure.repositories.facility_repo import FacilityRepository
+from src.infrastructure.repositories.opo_details_repo import OpoDetailsRepository
 
 
 class OpoService:

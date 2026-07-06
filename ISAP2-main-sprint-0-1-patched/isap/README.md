@@ -1,0 +1,190 @@
+# Industrial Safety AI Platform (ISAP)
+
+Платформа автоматизации промышленной безопасности на основе AI.
+
+## Быстрый старт
+
+### 1. Клонировать репозиторий и настроить окружение
+
+```bash
+cp .env.example .env
+# Отредактировать .env — указать LLM_PROVIDER и ключи
+```
+
+### 2. Запустить через Docker Compose
+
+```bash
+docker-compose up --build
+```
+
+Сервисы:
+- Backend API: http://localhost:8000
+- API Docs (Swagger): http://localhost:8000/docs
+- Frontend: http://localhost:3000
+- ChromaDB: http://localhost:8001
+
+### 3. Применить миграции БД
+
+```bash
+docker-compose exec backend alembic upgrade head
+```
+
+### 4. Локальная разработка (без Docker)
+
+```bash
+cd backend
+pip install -e ".[dev]"
+
+# Запустить PostgreSQL и ChromaDB отдельно (или через docker-compose)
+docker-compose up db chromadb -d
+
+# Запустить FastAPI
+uvicorn src.main:app --reload
+```
+
+---
+
+## Структура проекта
+
+```
+isap/
+├── backend/
+│   ├── src/
+│   │   ├── core/           # Конфигурация (settings.py)
+│   │   ├── domain/         # Доменные модели (Organization, Facility, Document)
+│   │   ├── infrastructure/ # БД, LLM, RAG
+│   │   │   ├── llm/        # OpenAI и LLm studio провайдеры (ADR-001)
+│   │   │   └── rag/        # DocumentLoader, Chunker, Embedder, VectorStore
+│   │   ├── application/    # Бизнес-логика (DocumentGenerator)
+│   │   └── api/            # FastAPI роутеры
+│   ├── templates/
+│   │   └── pmla/           # Шаблоны ПМЛА (structure.json + Jinja2)
+│   ├── alembic/            # Миграции БД
+│   └── tests/
+├── frontend/               # React
+├── docs/adr/               # Архитектурные решения
+└── docker-compose.yml
+```
+
+---
+
+## LLM и LM Studio
+
+Проект по умолчанию ориентирован на **LM Studio** через OpenAI-compatible API.
+Ollama оставлен только как альтернативный legacy-провайдер.
+
+### Настройка LM Studio
+
+1. Откройте LM Studio.
+2. Загрузите chat-модель, например Qwen, DeepSeek, Llama, Mistral или Gemma.
+3. Включите **Local Server**.
+4. Проверьте, что сервер доступен на `http://localhost:1234/v1`.
+5. Если backend запущен в Docker, используйте `http://host.docker.internal:1234/v1`.
+
+В `.env`:
+
+```env
+LLM_PROVIDER=lmstudio
+LLM_FALLBACK_ENABLED=false
+LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1
+LMSTUDIO_API_KEY=lm-studio
+LMSTUDIO_MODEL=local-model
+
+# Embeddings are configured separately from chat LLM.
+EMBEDDING_PROVIDER=lmstudio
+LMSTUDIO_EMBEDDING_MODEL=text-embedding-nomic-embed-text-v1.5
+```
+
+Проверка подключения:
+
+```http
+GET /api/v1/ai/config
+GET /api/v1/ai/health
+GET /api/v1/ai/embeddings/health
+```
+
+### OpenAI-compatible cloud API
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o
+
+EMBEDDING_PROVIDER=openai
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+### Ollama legacy mode
+
+```env
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3:8b
+
+EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+```
+
+---
+
+## Тест генерации ПМЛА
+
+После запуска — открыть http://localhost:8000/docs и выполнить запрос:
+
+```
+POST /api/v1/documents/generate
+```
+
+```json
+{
+  "facility_id": "00000000-0000-0000-0000-000000000001",
+  "document_type": "pmla",
+  "context": {
+    "organization": {
+      "name": "АО «Хлебокомбинат»",
+      "inn": "1444507155",
+      "address": "г. Якутск, ул. Очичкенко, д.17"
+    },
+    "facility": {
+      "name": "Сеть газопотребления Хлебозавода №2",
+      "reg_number": "А01-0001-0005",
+      "hazard_class": 3,
+      "facility_type": "Сеть газопотребления"
+    },
+    "equipment": [
+      {
+        "name": "Подводящий газопровод высокого давления",
+        "equipment_type": "Газопровод",
+        "specifications": {"length_m": 95, "diameter_mm": 89, "pressure_mpa": 0.6}
+      },
+      {
+        "name": "Водогрейный котел ROSSEN RSD 1000",
+        "equipment_type": "Котёл",
+        "specifications": {"quantity": 2, "power_mw": 1, "pressure_mpa": 0.8}
+      }
+    ],
+    "substances": [
+      {
+        "name": "Природный газ (метан)",
+        "quantity_kg": 800,
+        "hazard_properties": {"physical_state": "газ", "hazard_class_gost": 4}
+      }
+    ],
+    "responsible_persons": [
+      {"full_name": "Иванова С.Т.", "position": "Директор", "phone": "+7 (4112) 43-33-01"}
+    ]
+  }
+}
+```
+
+---
+
+## Документация проекта
+
+- [PROJECT_CHARTER.md](docs/PROJECT_CHARTER.md)
+- [VISION.md](docs/VISION.md)
+- [MVP_SCOPE.md](docs/MVP_SCOPE.md)
+- [ADR-001](docs/adr/ADR-001.md) — RAG-фреймворк
+- [ADR-002](docs/adr/ADR-002.md) — Модель данных
+- [ADR-003](docs/adr/ADR-003.md) — Шаблоны документов

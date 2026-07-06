@@ -1,5 +1,4 @@
 """Валидация входных параметров расчёта."""
-from src.application.services.calculations.base import BaseCalculation
 from src.application.services.calculations.types import (
     ExplosionParams,
     ThermalParams,

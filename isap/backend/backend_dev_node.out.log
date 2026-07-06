@@ -1,0 +1,153 @@
+INFO:     127.0.0.1:53820 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59229 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58710 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58710 - "GET /favicon.ico HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:58710 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54358 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54217 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59395 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59395 - "GET /favicon.ico HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:53423 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59218 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:26:28,497 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-07-06 19:26:28,497 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-07-06 19:26:28,509 INFO sqlalchemy.engine.Engine select current_schema()
+2026-07-06 19:26:28,509 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-07-06 19:26:28,511 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-07-06 19:26:28,511 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-07-06 19:26:28,512 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:26:28,519 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:26:28,519 INFO sqlalchemy.engine.Engine [generated in 0.00021s] ('pmla', 100, 0)
+2026-07-06 19:26:28,520 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:26:28,521 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:26:28,521 INFO sqlalchemy.engine.Engine [generated in 0.00013s] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 26, 28, 389409), datetime.datetime(2026, 7, 6, 16, 26, 28, 389409))
+INFO:     127.0.0.1:59218 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:26:28,558 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:53423 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:26:28,566 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:49691 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49691 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:27:15,811 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:27:15,811 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:27:15,812 INFO sqlalchemy.engine.Engine [cached since 47.29s ago] ('pmla', 100, 0)
+INFO:     127.0.0.1:49691 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:27:15,816 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-07-06 19:27:15,818 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:27:15,818 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:27:15,818 INFO sqlalchemy.engine.Engine [cached since 47.3s ago] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 27, 15, 818094), datetime.datetime(2026, 7, 6, 16, 27, 15, 818094))
+INFO:     127.0.0.1:49691 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:27:15,820 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:59332 - "OPTIONS /api/v1/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "OPTIONS /api/v1/ai/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59332 - "OPTIONS /api/v1/ai/embeddings/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59332 - "GET /api/v1/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55456 - "OPTIONS /api/v1/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55456 - "OPTIONS /api/v1/ai/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55456 - "OPTIONS /api/v1/ai/embeddings/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55456 - "GET /api/v1/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /api/v1/ai/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64502 - "GET /api/v1/ai/embeddings/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64502 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:27:31,424 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:27:31,424 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:27:31,424 INFO sqlalchemy.engine.Engine [cached since 62.91s ago] ('pmla', 100, 0)
+2026-07-06 19:27:31,425 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:27:31,425 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:27:31,426 INFO sqlalchemy.engine.Engine [cached since 62.9s ago] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 27, 31, 425246), datetime.datetime(2026, 7, 6, 16, 27, 31, 425246))
+INFO:     127.0.0.1:64502 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:27:31,428 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:54266 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:27:31,430 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:58657 - "GET /api/v1/ai/embeddings/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55456 - "GET /api/v1/ai/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62354 - "OPTIONS /api/v1/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62100 - "OPTIONS /api/v1/ai/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62354 - "OPTIONS /api/v1/ai/embeddings/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62354 - "GET /api/v1/ai/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53778 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64924 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:18,306 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:18,306 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:28:18,306 INFO sqlalchemy.engine.Engine [cached since 109.8s ago] ('pmla', 100, 0)
+2026-07-06 19:28:18,307 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:18,307 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:28:18,307 INFO sqlalchemy.engine.Engine [cached since 109.8s ago] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 28, 18, 306876), datetime.datetime(2026, 7, 6, 16, 28, 18, 306876))
+INFO:     127.0.0.1:53778 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:18,310 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:64924 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:28:18,312 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:62354 - "GET /api/v1/ai/embeddings/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62100 - "GET /api/v1/ai/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56817 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55706 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:50,699 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:50,699 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:28:50,699 INFO sqlalchemy.engine.Engine [cached since 142.2s ago] ('pmla', 100, 0)
+2026-07-06 19:28:50,700 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:50,700 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:28:50,700 INFO sqlalchemy.engine.Engine [cached since 142.2s ago] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 28, 50, 699804), datetime.datetime(2026, 7, 6, 16, 28, 50, 699804))
+INFO:     127.0.0.1:56817 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:50,701 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:55706 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:28:50,703 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:55706 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56817 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:52,244 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:52,244 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:28:52,244 INFO sqlalchemy.engine.Engine [cached since 143.7s ago] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 28, 52, 243583), datetime.datetime(2026, 7, 6, 16, 28, 52, 243583))
+2026-07-06 19:28:52,245 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:52,245 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:28:52,245 INFO sqlalchemy.engine.Engine [cached since 143.7s ago] ('pmla', 100, 0)
+INFO:     127.0.0.1:55706 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:52,248 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:56817 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:28:52,250 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:56817 - "OPTIONS /api/v1/pmla/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55706 - "OPTIONS /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:53,086 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:53,086 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR ORDER BY documents.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-07-06 19:28:53,086 INFO sqlalchemy.engine.Engine [cached since 144.6s ago] ('pmla', 100, 0)
+2026-07-06 19:28:53,087 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-07-06 19:28:53,087 INFO sqlalchemy.engine.Engine SELECT documents.id, documents.hazardous_facility_id, documents.organization_id, documents.document_type, documents.title, documents.status, documents.content_docx, documents.rendered_sections, documents.generation_meta, documents.submitted_at, documents.approved_at, documents.rejected_at, documents.review_date, documents.regeneration_count, documents.created_at, documents.updated_at, hazardous_facilities.name AS facility_name 
+FROM documents LEFT OUTER JOIN hazardous_facilities ON documents.hazardous_facility_id = hazardous_facilities.id 
+WHERE documents.document_type = $1::VARCHAR AND documents.status = $2::VARCHAR AND documents.review_date IS NOT NULL AND documents.review_date <= $3::TIMESTAMP WITHOUT TIME ZONE AND documents.review_date >= $4::TIMESTAMP WITHOUT TIME ZONE ORDER BY documents.review_date ASC
+2026-07-06 19:28:53,087 INFO sqlalchemy.engine.Engine [cached since 144.6s ago] ('pmla', 'approved', datetime.datetime(2026, 8, 5, 16, 28, 53, 87058), datetime.datetime(2026, 7, 6, 16, 28, 53, 87058))
+INFO:     127.0.0.1:56817 - "GET /api/v1/pmla/expiring?days=30 HTTP/1.1" 200 OK
+2026-07-06 19:28:53,089 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:55706 - "GET /api/v1/pmla/ HTTP/1.1" 200 OK
+2026-07-06 19:28:53,091 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     127.0.0.1:50904 - "GET /health HTTP/1.1" 200 OK

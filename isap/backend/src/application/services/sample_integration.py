@@ -71,8 +71,9 @@ class SampleIntegrationService:
     async def _find_best_sample(self, facility_type: str, hazard_class: str) -> UUID | None:
         """Находит лучший верифицированный образец для данного типа ОПО."""
         try:
+            from sqlalchemy import and_, func, select
+
             from src.infrastructure.database.models import PmlaSampleModel
-            from sqlalchemy import select, func, and_
 
             session = self._sample_repo.session
             query = (

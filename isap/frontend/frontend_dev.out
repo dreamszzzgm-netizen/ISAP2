@@ -1,0 +1,16 @@
+
+> isap-frontend@0.2.0 dev
+> next dev --webpack -H 0.0.0.0 -p 3000
+
+▲ Next.js 16.2.10 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+- Environments: .env.local
+✓ Ready in 771ms
+
+○ Compiling / ...
+ GET / 200 in 7.3s (next.js: 6.9s, application-code: 375ms)
+ GET / 200 in 82ms (next.js: 7ms, application-code: 75ms)
+ GET / 200 in 109ms (next.js: 8ms, application-code: 100ms)
+ GET / 200 in 77ms (next.js: 2ms, application-code: 74ms)
+ GET / 200 in 70ms (next.js: 3ms, application-code: 67ms)

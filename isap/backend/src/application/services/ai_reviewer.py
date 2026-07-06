@@ -1,8 +1,9 @@
 """AI-ревьюер ПМЛА — проверка документа по чек-листу."""
 import json
 import logging
+
 from src.application.services.types import AIReviewItem, AIReviewResult
-from src.infrastructure.llm.providers import LLMProvider, LLMMessage
+from src.infrastructure.llm.providers import LLMMessage, LLMProvider
 
 logger = logging.getLogger(__name__)
 

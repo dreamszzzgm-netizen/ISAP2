@@ -1,0 +1,46 @@
+{# sections/08_management.j2 #}
+{# slot_type: mixed — FACT: контакты из БД, TEXT: описание от LLM #}
+{# data_sources: facility, organization, responsible_persons #}
+{# fact_slots: contacts, phone_numbers #}
+{# text_slots: management_description #}
+
+8. ОРГАНИЗАЦИЯ УПРАВЛЕНИЯ, СВЯЗИ И ОПОВЕЩЕНИЯ
+
+8.1. Управление ликвидацией аварий
+
+{{ llm_content | default('Описание организации управления ликвидацией аварий не сформировано.') }}
+
+8.2. Схема оповещения
+
+{% if notification_scheme %}
+| № п/п | Должностное лицо (подразделение) | Способ оповещения | Номер телефона | Порядок оповещения |
+|--------|----------------------------------|-------------------|----------------|-------------------|
+{% for contact in notification_scheme %}
+| {{ loop.index }} | {{ contact.name | default('—') }} | {{ contact.method | default('—') }} | {{ contact.phone | default('—') }} | {{ contact.order | default('—') }} |
+{% endfor %}
+{% elif responsible_persons %}
+| № п/п | Должностное лицо (подразделение) | Способ оповещения | Номер телефона | Порядок оповещения |
+|--------|----------------------------------|-------------------|----------------|-------------------|
+{% for person in responsible_persons %}
+| {{ loop.index }} | {{ person.full_name | default('—') }}, {{ person.position | default('—') }} | {{ person.notification_method | default('телефон') }} | {{ person.phone | default('—') }} | {{ person.notification_order | default('—') }} |
+{% endfor %}
+{% else %}
+| № п/п | Должностное лицо (подразделение) | Способ оповещения | Номер телефона | Порядок оповещения |
+|--------|----------------------------------|-------------------|----------------|-------------------|
+| — | Данные не предоставлены | — | — | — |
+{% endif %}
+
+8.3. Средства связи
+
+{% if communication_means %}
+| № п/п | Вид связи | Средство связи | Назначение | Номер (адрес) |
+|--------|-----------|---------------|------------|---------------|
+{% for comm in communication_means %}
+| {{ loop.index }} | {{ comm.type | default('—') }} | {{ comm.device | default('—') }} | {{ comm.purpose | default('—') }} | {{ comm.number | default('—') }} |
+{% endfor %}
+{% else %}
+| № п/п | Вид связи | Средство связи | Назначение | Номер (адрес) |
+|--------|-----------|---------------|------------|---------------|
+| 1 | Абонентская телефонная сеть | Телефон | Оповещение руководства | {{ organization.phone | default('—') }} |
+| 2 | Мобильная связь | Мобильный телефон | Оповещение дежурных служб | — |
+{% endif %}

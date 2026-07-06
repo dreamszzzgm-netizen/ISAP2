@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from src.api.dependencies import get_scenario_matrix_repo
-from src.infrastructure.repositories.scenario_matrix_repo import ScenarioMatrixRepository
+from src.infrastructure.repositories.scenario_matrix_repo import (
+    ScenarioMatrixRepository,
+)
 
 router = APIRouter()
 

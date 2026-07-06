@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.infrastructure.rag.corpus_loader import CorpusLoader, LoadResult
+from src.infrastructure.rag.corpus_loader import CorpusLoader
 
 router = APIRouter()
 
@@ -37,6 +37,7 @@ async def corpus_stats():
     """Статистика коллекции ChromaDB."""
     try:
         import chromadb
+
         from src.core.settings import settings
 
         client = chromadb.HttpClient(host=settings.chroma_host, port=settings.chroma_port)

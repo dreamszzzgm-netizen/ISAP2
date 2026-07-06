@@ -8,7 +8,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import httpx
-from openai import AsyncOpenAI
+try:
+    from openai import AsyncOpenAI
+except ModuleNotFoundError:  # optional until OpenAI-compatible provider is used
+    AsyncOpenAI = None
 
 from src.core.settings import settings
 
@@ -45,6 +48,8 @@ class OpenAIProvider(LLMProvider):
     """Провайдер OpenAI / Gemini (облако, OpenAI-совместимый API)."""
 
     def __init__(self):
+        if AsyncOpenAI is None:
+            raise RuntimeError("openai package is required for OpenAI-compatible providers")
         default_headers = {}
         if settings.openai_project_id:
             default_headers["OpenAI-Project"] = settings.openai_project_id
@@ -74,6 +79,43 @@ class OpenAIProvider(LLMProvider):
         response = await self._client.chat.completions.create(**kwargs)
         choice = response.choices[0]
 
+        return LLMResponse(
+            content=choice.message.content or "",
+            model=self._model,
+            prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
+            completion_tokens=response.usage.completion_tokens if response.usage else 0,
+        )
+
+
+class LMStudioProvider(LLMProvider):
+    """LM Studio through OpenAI-compatible local API."""
+
+    def __init__(self):
+        if AsyncOpenAI is None:
+            raise RuntimeError("openai package is required for LM Studio provider")
+        self._client = AsyncOpenAI(
+            api_key=settings.lmstudio_api_key or "lm-studio",
+            base_url=settings.lmstudio_base_url,
+        )
+        self._model = settings.lmstudio_model
+
+    async def complete(
+        self,
+        messages: list[LLMMessage],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        kwargs = {
+            "model": self._model,
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "temperature": temperature if temperature is not None else settings.llm_temperature,
+            "max_tokens": max_tokens or settings.llm_max_tokens,
+        }
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        response = await self._client.chat.completions.create(**kwargs)
+        choice = response.choices[0]
         return LLMResponse(
             content=choice.message.content or "",
             model=self._model,
@@ -234,6 +276,7 @@ def _create_provider(provider_type: str) -> LLMProvider:
     """Создаёт провайдер по типу."""
     providers = {
         "openai": OpenAIProvider,
+        "lmstudio": LMStudioProvider,
         "ollama": OllamaProvider,
         "yandex": YandexGPTProvider,
         "glm": GLMProvider,
@@ -248,7 +291,7 @@ def get_llm_provider() -> LLMProvider:
     """Фабрика: возвращает нужный провайдер по конфигу."""
     primary = _create_provider(settings.llm_provider)
     if settings.llm_fallback_enabled:
-        fallback_name = "ollama" if settings.llm_provider != "ollama" else "openai"
+        fallback_name = "lmstudio" if settings.llm_provider != "lmstudio" else "ollama"
         try:
             fallback = _create_provider(fallback_name)
             return FallbackProvider(primary, fallback)

@@ -13,7 +13,6 @@ import chromadb
 
 from src.core.settings import settings
 
-
 # ---------------------------------------------------------------------------
 # Базовые типы
 # ---------------------------------------------------------------------------
@@ -173,7 +172,7 @@ class Embedder:
         return await self._ollama_embed(texts)
 
     async def _openai_embed(self, texts: list[str]) -> list[list[float]]:
-        import asyncio
+        from openai import AsyncOpenAI
         client = AsyncOpenAI(api_key=settings.openai_api_key)
         # Батчи по 100 текстов
         all_vectors = []

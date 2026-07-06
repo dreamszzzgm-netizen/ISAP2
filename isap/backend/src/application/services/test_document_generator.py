@@ -4,17 +4,16 @@
 Запуск: pytest test_document_generator.py -v
 Зависимости: pip install pytest pytest-asyncio --break-system-packages
 """
-import re
 import json
-import pytest
+import re
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from document_generator import (
     DocumentGenerator,
-    strip_pii,
     PiiRoutingError,
+    strip_pii,
 )
-
 
 # ---------------------------------------------------------------------------
 # Уровень 1: unit-тесты strip_pii по именам полей (быстрые, но не панацея —

@@ -2,7 +2,6 @@
 
 Метод: эквивалент по ТНТ (РД 03-409-01, ГОСТ Р 12.3.047-98).
 """
-import math
 
 from src.application.services.calculations.base import BaseCalculation
 from src.application.services.calculations.registry import CalculationRegistry
@@ -46,7 +45,6 @@ class ExplosionZoneCalculation(BaseCalculation):
 
         # Расчёт радиусов
         r_lethal = ExplosionZoneCalculation.K_LETHAL * (w_tnt ** (1 / 3)) * confinement_factor
-        r_severe = ExplosionZoneCalculation.K_SEVERE * (w_tnt ** (1 / 3)) * confinement_factor
         r_moderate = ExplosionZoneCalculation.K_MODERATE * (w_tnt ** (1 / 3)) * confinement_factor
 
         # Определяем максимальную зону (смертельного поражения)

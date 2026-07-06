@@ -1,0 +1,115 @@
+{# 31_appendix_2.j2 — Приложение 2: Форма оперативного сообщения об аварии #}
+
+## Приложение 2. Форма оперативного сообщения об аварии (инциденте)
+
+### Оперативное сообщение об аварии (инциденте)
+
+<table>
+  <tr>
+    <th colspan="2">Сведения о событии</th>
+  </tr>
+  <tr>
+    <td style="width:40%">Дата:</td>
+    <td>{{ incident_date | default('______') }}.{{ incident_month | default('______') }}.{{ incident_year | default('______') }} г.</td>
+  </tr>
+  <tr>
+    <td>Время:</td>
+    <td>{{ incident_time | default('______') }} ч. ______ мин.</td>
+  </tr>
+  <tr>
+    <td>Место (цех, участок, здание, технологический узел):</td>
+    <td>{{ incident_location | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Название объекта:</td>
+    <td>{{ facility_name | default('—') }}</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th colspan="2">Характер аварии (инцидента)</th>
+  </tr>
+  <tr>
+    <td style="width:40%">Вид аварии:</td>
+    <td>{{ incident_type | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Причина аварии (предварительная):</td>
+    <td>{{ incident_cause | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Характерные признаки:</td>
+    <td>{{ incident_signs | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Масштаб (площадь, объём, категория):</td>
+    <td>{{ incident_scale | default('—') }}</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th colspan="2">Пострадавшие и жертвы</th>
+  </tr>
+  <tr>
+    <td style="width:40%">Количество пострадавших:</td>
+    <td>{{ victims_count | default('0') }} чел.</td>
+  </tr>
+  <tr>
+    <td>Характер травм:</td>
+    <td>{{ injuries_description | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Количество погибших:</td>
+    <td>{{ deaths_count | default('0') }} чел.</td>
+  </tr>
+  <tr>
+    <td>Количество эвакуированных:</td>
+    <td>{{ evacuated_count | default('0') }} чел.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th colspan="2">Проведённые мероприятия</th>
+  </tr>
+  <tr>
+    <td style="width:40%">Мероприятия по ликвидации аварии:</td>
+    <td>{{ response_measures | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Привлечённые силы и средства:</td>
+    <td>{{ forces_involved | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Состояние объекта на момент сообщения:</td>
+    <td>{{ facility_status | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Угроза распространения аварии:</td>
+    <td>{{ spread_threat | default('—') }}</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th colspan="2">Информация о докладчике</th>
+  </tr>
+  <tr>
+    <td style="width:40%">Должность:</td>
+    <td>{{ reporter_position | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>ФИО:</td>
+    <td>{{ reporter_name | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Контактный телефон:</td>
+    <td>{{ reporter_phone | default('—') }}</td>
+  </tr>
+  <tr>
+    <td>Дата и время сообщения:</td>
+    <td>{{ report_datetime | default('—') }}</td>
+  </tr>
+</table>

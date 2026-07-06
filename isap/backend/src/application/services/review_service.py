@@ -161,8 +161,12 @@ class ReviewService:
         comments: str | list | None,
     ) -> None:
         """Сохранение версии документа с решением ревьюера."""
-        from src.infrastructure.database.models import DocumentVersionModel, RegulatoryDocumentModel
         from sqlalchemy import select
+
+        from src.infrastructure.database.models import (
+            DocumentVersionModel,
+            RegulatoryDocumentModel,
+        )
 
         latest = await self.document_repo.get_latest_version(document_id)
         next_version = (latest.version_number + 1) if latest else 1

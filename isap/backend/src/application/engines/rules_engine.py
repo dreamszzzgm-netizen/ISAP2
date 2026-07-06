@@ -4,11 +4,11 @@ from __future__ import annotations
 import logging
 
 from src.application.engines.base import BaseEngine, DocumentContext, SectionContent
-from src.application.engines.blocks import ParagraphBlock, TableBlock, Block
+from src.application.engines.blocks import Block, ParagraphBlock, TableBlock
 from src.application.services.references import (
-    get_scenario_instructions,
-    get_positions,
     get_notification_services,
+    get_positions,
+    get_scenario_instructions,
 )
 
 logger = logging.getLogger(__name__)
@@ -340,7 +340,8 @@ class RulesEngine(BaseEngine):
                 blocks.append(ParagraphBlock(text=""))
         else:
             blocks.append(ParagraphBlock(text="Детальные инструкции по сценариям не найдены."))
-            text = rules.get("text", "")
+            fallback = DEFAULT_RULES.get("section_10", {})
+            text = fallback.get("text", "")
             for paragraph in text.split("\n\n"):
                 stripped = paragraph.strip()
                 if stripped:
@@ -376,7 +377,8 @@ class RulesEngine(BaseEngine):
                         f"тел. {p.get('phone', '—')}"
                     )))
         else:
-            text = rules.get("text", "")
+            fallback = DEFAULT_RULES.get("section_11", {})
+            text = fallback.get("text", "")
             for paragraph in text.split("\n\n"):
                 stripped = paragraph.strip()
                 if stripped:

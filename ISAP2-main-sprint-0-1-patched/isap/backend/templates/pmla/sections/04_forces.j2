@@ -1,0 +1,53 @@
+{# sections/04_forces.j2 #}
+{# slot_type: mixed — FACT: расчёт сил и средств, TEXT: описание от LLM #}
+{# data_sources: facility, equipment, substances, emergency_services #}
+{# text_slots: forces_description #}
+
+4. КОЛИЧЕСТВО НЕОБХОДИМЫХ СИЛ И СРЕДСТВ ДЛЯ ЛОКАЛИЗАЦИИ И ЛИКВИДАЦИИ АВАРИЙ
+
+4.1. Расчёт количества сил и средств
+
+{% if forces_calculation %}
+{% for calc in forces_calculation %}
+Сценарий: {{ calc.scenario_name | default('—') }}
+
+| № п/п | Наименование сил и средств | Единица измерения | Количество | Место базирования |
+|--------|----------------------------|-------------------|------------|-------------------|
+{% for item in calc.items %}
+| {{ loop.index }} | {{ item.name | default('—') }} | {{ item.unit | default('—') }} | {{ item.quantity | default('—') }} | {{ item.location | default('—') }} |
+{% endfor %}
+
+{% endfor %}
+{% elif emergency_services %}
+Ближайшие аварийные службы:
+
+| № п/п | Тип службы | Наименование | Адрес | Телефон | Расстояние |
+|--------|------------|--------------|-------|---------|------------|
+{% set ns = namespace(idx=0) %}
+{% for stype, services in emergency_services.items() %}
+{% for s in services %}
+{% set ns.idx = ns.idx + 1 %}
+| {{ ns.idx }} | {{ stype }} | {{ s.name | default('—') }} | {{ s.address | default('—') }} | {{ s.phone | default('—') }} | {{ s.distance_km | default('—') }} км |
+{% endfor %}
+{% endfor %}
+{% else %}
+| № п/п | Наименование сил и средств | Единица измерения | Количество | Место базирования |
+|--------|----------------------------|-------------------|------------|-------------------|
+| — | Данные не предоставлены | — | — | — |
+{% endif %}
+
+4.2. Средства индивидуальной и коллективной защиты
+
+{% if protective_equipment %}
+| № п/п | Наименование средства защиты | Тип | Количество | Назначение |
+|--------|------------------------------|-----|------------|------------|
+{% for item in protective_equipment %}
+| {{ loop.index }} | {{ item.name | default('—') }} | {{ item.type | default('—') }} | {{ item.quantity | default('—') }} | {{ item.purpose | default('—') }} |
+{% endfor %}
+{% else %}
+Средства индивидуальной и коллективной защиты определяются в соответствии с Типовыми нормами обеспечения средствами индивидуальной защиты (Приказ Минтруда России №997н).
+{% endif %}
+
+4.3. Описание порядка привлечения сил и средств
+
+{{ llm_content | default('Описание порядка привлечения сил и средств не сформировано.') }}

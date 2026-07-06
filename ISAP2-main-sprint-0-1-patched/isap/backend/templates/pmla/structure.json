@@ -1,0 +1,277 @@
+{
+  "document_type": "pmla",
+  "title": "План мероприятий по локализации и ликвидации последствий аварий",
+  "regulatory_basis": [
+    "Постановление Правительства РФ №1437 от 15.09.2020",
+    "Федеральный закон №116-ФЗ «О промышленной безопасности опасных производственных объектов»",
+    "Приказ Ростехнадзора №531 от 15.12.2020"
+  ],
+  "sections": [
+    {
+      "id": "title_page",
+      "title": "Титульный лист",
+      "template": "sections/00_title_page.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization", "facility"],
+      "description": "Титульный лист с подписями руководства"
+    },
+    {
+      "id": "correction_log",
+      "title": "Журнал корректировки документа",
+      "template": "sections/00_correction_log.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": [],
+      "description": "Таблица для записей об изменениях"
+    },
+    {
+      "id": "toc",
+      "title": "Содержание",
+      "template": "sections/00_toc.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": [],
+      "description": "Оглавление документа"
+    },
+    {
+      "id": "abbreviations",
+      "title": "Перечень обозначений и сокращений",
+      "template": "sections/00_abbreviations.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": [],
+      "description": "Список сокращений: АСФ, ОПО, ПМЛА, ПАСФ и др."
+    },
+    {
+      "id": "terms",
+      "title": "Термины и определения",
+      "template": "sections/00_terms.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": [],
+      "description": "20+ терминов из ФЗ-116"
+    },
+    {
+      "id": "introduction",
+      "title": "Введение",
+      "template": "sections/00_introduction.j2",
+      "content_type": "llm",
+      "slot_type": "text",
+      "data_sources": ["facility", "organization"],
+      "rag_query": "введение ПМЛА нормативная база цели задачи плана",
+      "description": "Нормативная база, цели и задачи документа"
+    },
+    {
+      "id": "section_1",
+      "title": "1. Характеристика опасного производственного объекта",
+      "template": "sections/01_characteristics.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization", "facility", "substances", "equipment"],
+      "description": "Таблицы 1-3: общие сведения, вещества, оборудование"
+    },
+    {
+      "id": "section_2",
+      "title": "2. Сценарии наиболее вероятных аварий на ОПО",
+      "template": "sections/02_scenarios.j2",
+      "content_type": "llm",
+      "slot_type": "mixed",
+      "data_sources": ["facility", "substances", "equipment"],
+      "fact_slots": ["scenario_list", "calculation_results"],
+      "text_slots": ["scenario_descriptions"],
+      "rag_query": "сценарии аварий {facility_type} класс опасности {hazard_class} {substance_names}",
+      "description": "Таблицы 4-6: матрица сценариев, расчётные зоны"
+    },
+    {
+      "id": "section_3",
+      "title": "3. Характеристика аварийности на объекте и аналогичных объектах",
+      "template": "sections/03_accident_history.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["facility"],
+      "description": "Таблицы 7-9: статистика аварий за 3 года"
+    },
+    {
+      "id": "section_4",
+      "title": "4. Количество необходимых сил и средств для локализации и ликвидации аварий",
+      "template": "sections/04_forces.j2",
+      "content_type": "data",
+      "slot_type": "mixed",
+      "data_sources": ["facility", "equipment", "substances"],
+      "text_slots": ["forces_description"],
+      "description": "Таблица 10: расчёт сил и средств"
+    },
+    {
+      "id": "section_5",
+      "title": "5. Организация взаимодействия сил и средств при локализации и ликвидации аварий",
+      "template": "sections/05_interaction.j2",
+      "content_type": "llm",
+      "slot_type": "text",
+      "data_sources": ["facility", "organization"],
+      "rag_query": "взаимодействие сил ликвидация аварий координация службы",
+      "description": "Порядок взаимодействия подразделений"
+    },
+    {
+      "id": "section_6",
+      "title": "6. Состав и дислокация сил и средств, привлекаемых для локализации и ликвидации аварий",
+      "template": "sections/06_composition.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["facility", "organization"],
+      "description": "Таблица 11-13: состав, дислокация, маршруты"
+    },
+    {
+      "id": "section_7",
+      "title": "7. Порядок обеспечения готовности сил и средств к локализации и ликвидации аварий",
+      "template": "sections/07_readiness.j2",
+      "content_type": "llm",
+      "slot_type": "text",
+      "data_sources": ["facility"],
+      "rag_query": "готовность сил средства подготовка учения тренировки",
+      "description": "Порядок поддержания готовности"
+    },
+    {
+      "id": "section_8",
+      "title": "8. Организация управления, связи и оповещения",
+      "template": "sections/08_management.j2",
+      "content_type": "data",
+      "slot_type": "mixed",
+      "data_sources": ["facility", "organization", "responsible_persons"],
+      "text_slots": ["management_description"],
+      "fact_slots": ["contacts", "phone_numbers"],
+      "description": "Таблица 14: схема оповещения"
+    },
+    {
+      "id": "section_9",
+      "title": "9. Система взаимного обмена информацией при локализации и ликвидации аварий",
+      "template": "sections/09_information_exchange.j2",
+      "content_type": "llm",
+      "slot_type": "text",
+      "data_sources": ["facility", "organization"],
+      "rag_query": "обмен информацией связи оповещение аварии",
+      "description": "Порядок обмена информацией"
+    },
+    {
+      "id": "section_10",
+      "title": "10. Первоочередные действия по локализации и ликвидации аварий",
+      "template": "sections/10_initial_actions.j2",
+      "content_type": "llm",
+      "slot_type": "text",
+      "data_sources": ["facility", "substances", "responsible_persons"],
+      "rag_query": "первоочередные действия локализация ликвидация аварий",
+      "description": "Немедленные действия при аварии"
+    },
+    {
+      "id": "section_11",
+      "title": "11. Действия производственного персонала при угрозе и возникновении аварий",
+      "template": "sections/11_personnel_actions.j2",
+      "content_type": "llm",
+      "slot_type": "mixed",
+      "data_sources": ["facility", "responsible_persons"],
+      "fact_slots": ["personnel_list"],
+      "text_slots": ["action_descriptions"],
+      "rag_query": "действия персонала авария эвакуация безопасность",
+      "description": "Действия по должностям"
+    },
+    {
+      "id": "section_12",
+      "title": "12. Мероприятия по обеспечению безопасности населения",
+      "template": "sections/12_population_safety.j2",
+      "content_type": "llm",
+      "slot_type": "text",
+      "data_sources": ["facility"],
+      "rag_query": "безопасность населения эвакуация защита население",
+      "description": "Мероприятия по защите населения"
+    },
+    {
+      "id": "section_13",
+      "title": "13. Организация материально-технического обеспечения",
+      "template": "sections/13_material_support.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["facility", "organization"],
+      "description": "Финансовое обеспечение, резервы"
+    },
+    {
+      "id": "special_section",
+      "title": "2. Специальный раздел плана мероприятий (оперативная часть)",
+      "template": "sections/20_special_section.j2",
+      "content_type": "llm",
+      "slot_type": "mixed",
+      "data_sources": ["facility", "substances", "equipment", "responsible_persons"],
+      "fact_slots": ["scenario_list", "calculation_results"],
+      "text_slots": ["action_descriptions"],
+      "rag_query": "оперативные действия ликвидация аварий сценарии",
+      "description": "Таблица 15: действия по каждому сценарию"
+    },
+    {
+      "id": "appendix_1",
+      "title": "Приложение 1. Порядок изучения ПМЛА",
+      "template": "sections/30_appendix_1.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization"],
+      "description": "Порядок обучения персонала"
+    },
+    {
+      "id": "appendix_2",
+      "title": "Приложение 2. Форма оперативного сообщения об инциденте",
+      "template": "sections/31_appendix_2.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization", "facility"],
+      "description": "Шаблон сообщения"
+    },
+    {
+      "id": "appendix_3",
+      "title": "Приложение 3. Состав ПАСФ",
+      "template": "sections/32_appendix_3.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["facility"],
+      "description": "Состав профессиональных аварийно-спасательных формирований"
+    },
+    {
+      "id": "appendix_4",
+      "title": "Приложение 4. Оснащение ПАСФ",
+      "template": "sections/33_appendix_4.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["facility"],
+      "description": "Средства индивидуальной и коллективной защиты"
+    },
+    {
+      "id": "appendix_5",
+      "title": "Приложение 5. Схема оповещения",
+      "template": "sections/34_appendix_5.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization", "facility", "responsible_persons"],
+      "description": "Схема оповещения при аварии"
+    },
+    {
+      "id": "bibliography",
+      "title": "Список использованной литературы",
+      "template": "sections/40_bibliography.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": [],
+      "description": "22 нормативных документа"
+    },
+    {
+      "id": "familiarization_sheet",
+      "title": "Лист ознакомления с ПМЛА",
+      "template": "sections/41_familiarization_sheet.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization", "responsible_persons"],
+      "description": "Таблица для подписей"
+    }
+  ],
+  "slot_types": {
+    "fact": "Данные заполняются кодом из БД/расчётов. LLM не участвует.",
+    "text": "Текст генерируется LLM. Числовые данные НЕ передаются в промпт.",
+    "mixed": "Комбинация: FACT-слоты (код) + TEXT-слоты (LLM). LLM получает только текстовый контекст."
+  }
+}

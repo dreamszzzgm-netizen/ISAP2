@@ -6,9 +6,8 @@ import tempfile
 import uuid
 from copy import deepcopy
 
-from docx import Document
-from docx.shared import Cm
 from docx.oxml import OxmlElement
+from docx.shared import Cm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = BASE_DIR

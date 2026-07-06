@@ -1,0 +1,64 @@
+{# sections/13_material_support.j2 #}
+{# content_type: data — LLM не вызывается #}
+{# slot_type: fact #}
+{# data_sources: facility, organization #}
+
+13. ОРГАНИЗАЦИЯ МАТЕРИАЛЬНО-ТЕХНИЧЕСКОГО ОБЕСПЕЧЕНИЯ
+
+13.1. Финансовое обеспечение
+
+{% if financial_support %}
+| № п/п | Статья расходов | Сумма, тыс. руб. | Источник финансирования |
+|--------|-----------------|-------------------|------------------------|
+{% for item in financial_support %}
+| {{ loop.index }} | {{ item.article | default('—') }} | {{ item.amount | default('—') }} | {{ item.source | default('—') }} |
+{% endfor %}
+{% else %}
+| № п/п | Статья расходов | Сумма, тыс. руб. | Источник финансирования |
+|--------|-----------------|-------------------|------------------------|
+| 1 | Приобретение средств индивидуальной защиты | {{ material_reserve.sip_amount | default('—') }} | {{ material_reserve.sip_source | default('—') }} |
+| 2 | Приобретение средств пожаротушения | {{ material_reserve.fire_amount | default('—') }} | {{ material_reserve.fire_source | default('—') }} |
+| 3 | Техническое обслуживание оборудования | {{ material_reserve.maintenance_amount | default('—') }} | {{ material_reserve.maintenance_source | default('—') }} |
+| 4 | Проведение учений и тренировок | {{ material_reserve.training_amount | default('—') }} | {{ material_reserve.training_source | default('—') }} |
+{% endif %}
+
+13.2. Материальные резервы
+
+{% if material_reserves %}
+| № п/п | Наименование ресурса | Единица измерения | Количество | Место хранения |
+|--------|---------------------|-------------------|------------|----------------|
+{% for reserve in material_reserves %}
+| {{ loop.index }} | {{ reserve.name | default('—') }} | {{ reserve.unit | default('—') }} | {{ reserve.quantity | default('—') }} | {{ reserve.storage | default('—') }} |
+{% endfor %}
+{% else %}
+| № п/п | Наименование ресурса | Единица измерения | Количество | Место хранения |
+|--------|---------------------|-------------------|------------|----------------|
+| — | Данные не предоставлены | — | — | — |
+{% endif %}
+
+13.3. Транспортное обеспечение
+
+{% if transport %}
+| № п/п | Тип транспорта | Марка (тип) | Количество | Место базирования | Назначение |
+|--------|---------------|-------------|------------|-------------------|------------|
+{% for vehicle in transport %}
+| {{ loop.index }} | {{ vehicle.type | default('—') }} | {{ vehicle.model | default('—') }} | {{ vehicle.quantity | default('—') }} | {{ vehicle.location | default('—') }} | {{ vehicle.purpose | default('—') }} |
+{% endfor %}
+{% else %}
+| № п/п | Тип транспорта | Марка (тип) | Количество | Место базирования | Назначение |
+|--------|---------------|-------------|------------|-------------------|------------|
+| 1 | Легковой автомобиль | — | — | — | Перевозка руководства |
+| 2 | Грузовой автомобиль | — | — | — | Перевозка грузов и matériel |
+{% endif %}
+
+13.4. Запасы материально-технических средств
+
+{% if stockpile %}
+| № п/п | Наименование средства | Единица измерения | Наличие | Минимальный запас | Срок годности |
+|--------|----------------------|-------------------|---------|-------------------|---------------|
+{% for item in stockpile %}
+| {{ loop.index }} | {{ item.name | default('—') }} | {{ item.unit | default('—') }} | {{ item.current | default('—') }} | {{ item.min_stock | default('—') }} | {{ item.expiry | default('—') }} |
+{% endfor %}
+{% else %}
+Сведения о запасах материально-технических средств не предоставлены.
+{% endif %}

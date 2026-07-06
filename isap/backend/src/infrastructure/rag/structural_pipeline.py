@@ -8,15 +8,14 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from uuid import UUID
 
 from docx import Document as DocxDocument
 
-from src.infrastructure.rag.parsers.section_detector import SectionDetector
-from src.infrastructure.rag.parsers.chunker import StructuralChunker, StructuralChunk, ChunkingConfig
+from src.infrastructure.rag.parsers.chunker import StructuralChunk, StructuralChunker
 from src.infrastructure.rag.parsers.models import DetectionReport
-from src.infrastructure.rag.pipeline import Embedder, VectorStore, Chunk
+from src.infrastructure.rag.parsers.section_detector import SectionDetector
+from src.infrastructure.rag.pipeline import Chunk, Embedder, VectorStore
 
 logger = logging.getLogger(__name__)
 

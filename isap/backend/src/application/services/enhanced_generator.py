@@ -7,17 +7,20 @@ from pathlib import Path
 from uuid import UUID
 
 from docx import Document as DocxDocument
-from docx.shared import Pt, RGBColor, Cm, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
-from jinja2 import Environment, FileSystemLoader
+from docx.shared import Cm, Pt, RGBColor
 
 from src.application.engines.blocks import (
-    Block, HeadingBlock, ParagraphBlock, TableBlock, ImageBlock,
-    serialize_blocks, deserialize_blocks,
+    Block,
+    HeadingBlock,
+    ImageBlock,
+    ParagraphBlock,
+    TableBlock,
+    deserialize_blocks,
+    serialize_blocks,
 )
-
 from src.application.services.calculations import CalculationRegistry
 from src.application.services.calculations.validation import CalculationValidator
 from src.application.services.prompts import (
@@ -25,13 +28,15 @@ from src.application.services.prompts import (
     SYSTEM_PROMPT,
     build_section_prompt,
 )
-from src.application.services.types import GeneratedDocument, Issue, ValidationResult
+from src.application.services.types import GeneratedDocument
 from src.application.services.validation import DocumentValidator
 from src.infrastructure.llm.providers import LLMMessage, LLMProvider
 from src.infrastructure.rag.pipeline import Retriever
 from src.infrastructure.repositories.document_repo import DocumentRepository
 from src.infrastructure.repositories.regulatory_repo import RegulatoryRepository
-from src.infrastructure.repositories.scenario_matrix_repo import ScenarioMatrixRepository
+from src.infrastructure.repositories.scenario_matrix_repo import (
+    ScenarioMatrixRepository,
+)
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates"
 CURRENT_TEMPLATE_VERSION = "1.0.0"
@@ -177,7 +182,6 @@ class EnhancedDocumentGenerator:
         from datetime import datetime
 
         facility = context.get("facility", {})
-        organization = context.get("organization", {})
         persons = context.get("responsible_persons", [])
 
         # Approver (для титульного листа)
@@ -314,13 +318,13 @@ class EnhancedDocumentGenerator:
         D. Автоматическая валидация
         """
         structure = self._load_structure("pmla")
-        jinja_env = Environment(
-            loader=FileSystemLoader(str(TEMPLATES_DIR / "pmla")),
-            autoescape=False,
-        )
 
         # Этап B: Расчётный блок
         calculation_results = await self._run_calculations(context)
+
+        # Логгер для метода
+        import logging
+        logger = logging.getLogger(__name__)
 
         # Этап B2: Выбор сценариев из матрицы (детерминированно)
         selected_scenarios = await self._select_scenarios(context)
@@ -385,6 +389,17 @@ class EnhancedDocumentGenerator:
             ],
         }
         docx_bytes = self._build_docx(structure["title"], rendered_sections, metadata)
+        metadata["debug_report"] = {
+            "context_keys": sorted(context.keys()),
+            "section_count": len(rendered_sections),
+            "section_titles": list(rendered_sections.keys()),
+            "calculation_count": len(calculation_results),
+            "validation_passed": validation.passed,
+            "validation_issue_count": len(validation.issues),
+            "ai_review_ran": ai_review_result is not None,
+            "docx_size_bytes": len(docx_bytes),
+            "docx_created": bool(docx_bytes),
+        }
 
         # Сохранение в БД (сериализуем блоки в JSON)
         await self._document_repo.update(
@@ -420,8 +435,9 @@ class EnhancedDocumentGenerator:
         # Снимок нормативов на момент генерации
         regulatory_snapshot = []
         try:
-            from src.infrastructure.database.models import RegulatoryDocumentModel
             from sqlalchemy import select
+
+            from src.infrastructure.database.models import RegulatoryDocumentModel
             reg_result = await self._document_repo.session.execute(
                 select(RegulatoryDocumentModel).where(RegulatoryDocumentModel.status == "действует")
             )
@@ -476,7 +492,9 @@ class EnhancedDocumentGenerator:
             # Расчёт зоны взрыва (если есть энергия взрыва)
             if "explosion_energy_mj" in hazard_props:
                 try:
-                    from src.application.services.calculations.types import ExplosionParams
+                    from src.application.services.calculations.types import (
+                        ExplosionParams,
+                    )
 
                     params = ExplosionParams(
                         substance_name=name,
@@ -504,7 +522,9 @@ class EnhancedDocumentGenerator:
             # Расчёт теплового излучения
             if "combustion_energy_mj_kg" in hazard_props:
                 try:
-                    from src.application.services.calculations.types import ThermalParams
+                    from src.application.services.calculations.types import (
+                        ThermalParams,
+                    )
 
                     params = ThermalParams(
                         substance_name=name,

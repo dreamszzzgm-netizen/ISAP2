@@ -7,9 +7,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.infrastructure.llm.providers import get_llm_provider
-from src.infrastructure.rag.pipeline import Embedder, VectorStore, Retriever
 from src.application.services.document_generator import DocumentGenerator
+from src.infrastructure.llm.providers import get_llm_provider
+from src.infrastructure.rag.pipeline import Embedder, Retriever, VectorStore
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

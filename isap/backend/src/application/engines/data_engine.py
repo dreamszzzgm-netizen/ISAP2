@@ -2,18 +2,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from src.application.engines.base import BaseEngine, DocumentContext, SectionContent
-from src.application.engines.blocks import HeadingBlock, ParagraphBlock, TableBlock, Block
+from src.application.engines.blocks import Block, ParagraphBlock, TableBlock
 from src.application.services.references import (
-    get_substance,
-    get_substances_by_facility_type,
     get_accidents,
-    get_notification_services,
     get_equipment_kit,
-    get_positions,
-    get_scenario_instructions,
+    get_notification_services,
+    get_substance,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +27,9 @@ def _s(d: dict, key: str, default: str = "—") -> str:
 
 
 # Разделы, которые обрабатывает Data Engine (8 разделов, 0-10% AI)
+ACCIDENT_SAMPLES = get_accidents(years=(2020, 2026), limit=9)
+
+
 DATA_SECTIONS = {
     "section_1",       # Характеристика объекта (таблицы 1-3)
     "section_3",       # Аварийность (таблицы 7-9)
@@ -146,7 +145,7 @@ class DataEngine(BaseEngine):
             if ref:
                 sub_rows.append([
                     str(i),
-                    ref["name"],
+                    name,
                     _s(ref, "cas_number"),
                     _s(ref, "chemical_formula"),
                     str(ref.get("hazard_class_gost", "—")),
@@ -198,6 +197,11 @@ class DataEngine(BaseEngine):
         t9_headers = ["Дата", "Организация", "Тип аварии", "Характер", "Причины", "Последствия"]
         facility_type = ctx.facility.get("facility_type") if ctx.facility else None
         accidents = get_accidents(facility_type=facility_type, years=(2020, 2026), limit=15)
+        accidents = ACCIDENT_SAMPLES + [
+            acc for acc in accidents
+            if acc.get("organization") not in {sample.get("organization") for sample in ACCIDENT_SAMPLES}
+        ]
+        accidents = accidents[:15]
         if not accidents:
             accidents = get_accidents(years=(2020, 2026), limit=10)
         t9_rows = []
@@ -222,6 +226,14 @@ class DataEngine(BaseEngine):
 
         return blocks
 
+    def _resource_name(self, category: str, name: str) -> str:
+        lower = str(name).lower()
+        if "противогаз" in lower or "сизод" in lower:
+            return f"СИЗОД: {name}"
+        if "газоанализатор" in lower:
+            return f"Газоанализатор: {name}"
+        return f"{category}: {name}"
+
     def _render_section_4(self, ctx: DocumentContext) -> list[Block]:
         """Раздел 4 — Количество необходимых сил и средств (Таблица 10)."""
         blocks: list[Block] = []
@@ -236,7 +248,7 @@ class DataEngine(BaseEngine):
             for item in kit.get(key, []):
                 t10_rows.append([
                     str(idx),
-                    f"{category}: {item['name']}",
+                    self._resource_name(category, item.get("name", "—")),
                     item.get("quantity", "—"),
                     item.get("location", "—"),
                 ])
@@ -329,6 +341,18 @@ class DataEngine(BaseEngine):
                 "Немедленно",
             ])
 
+        existing_names = {row[2] for row in t14_rows}
+        for person in persons:
+            full_name = _s(person, "full_name")
+            if full_name not in existing_names:
+                t14_rows.append([
+                    str(len(t14_rows) + 1),
+                    _s(person, "position"),
+                    full_name,
+                    _s(person, "phone"),
+                    "Немедленно",
+                ])
+
         for item in template.get("external", []):
             t14_rows.append([
                 str(item.get("order", len(t14_rows) + 1)),
@@ -397,7 +421,7 @@ class DataEngine(BaseEngine):
                 t_rows.append([
                     str(idx),
                     category,
-                    item.get("name", "—"),
+                    self._resource_name(category, item.get("name", "—")),
                     item.get("quantity", "—"),
                     item.get("location", "—"),
                 ])

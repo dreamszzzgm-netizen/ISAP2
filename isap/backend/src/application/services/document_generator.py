@@ -6,15 +6,13 @@ from __future__ import annotations
 
 import io
 import json
-from pathlib import Path
-from uuid import UUID
-
 import re
+from pathlib import Path
 
 from docx import Document as DocxDocument
-from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
+from docx.shared import Cm, Pt, RGBColor
 from jinja2 import Environment, FileSystemLoader
 
 # Значения подобраны по эталонному документу ПМЛА (styles.xml / sectPr)
@@ -45,10 +43,8 @@ def strip_pii(data):
         return strip_pii(vars(data))
     return data
 
-from src.infrastructure.llm.providers import LLMProvider, LLMMessage
+from src.infrastructure.llm.providers import LLMMessage, LLMProvider
 from src.infrastructure.rag.pipeline import Retriever
-from src.core.settings import settings
-
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates"
 

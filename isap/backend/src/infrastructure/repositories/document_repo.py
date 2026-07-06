@@ -30,7 +30,7 @@ class DocumentRepository(BaseRepository[DocumentModel]):
 
     async def add_version(self, version: DocumentVersionModel) -> DocumentVersionModel:
         self.session.add(version)
-        await self.session.flush()
+        await self.session.commit()
         await self.session.refresh(version)
         return version
 
@@ -47,7 +47,7 @@ class DocumentRepository(BaseRepository[DocumentModel]):
         self, calc_result: CalculationResultModel
     ) -> CalculationResultModel:
         self.session.add(calc_result)
-        await self.session.flush()
+        await self.session.commit()
         await self.session.refresh(calc_result)
         return calc_result
 
