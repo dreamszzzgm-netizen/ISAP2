@@ -859,3 +859,27 @@ Frontend: http://localhost:3000
 - gcc, libpq-dev (сборка)
 - fonts-dejavu-core, fonts-liberation, fonts-freefont-ttf (шрифты)
 - libreoffice-core, libreoffice-writer (конвертация PDF)
+
+---
+
+## PMLA Questionnaire DOCX Import (2026-07-06)
+
+Priority: stabilize PMLA flow `input data -> generation -> validation -> DOCX -> text quality`.
+
+Done:
+- Applied `ISAP2_PMLA_QUESTIONNAIRE_DOCX_IMPORT.patch` with manual adaptation of `backend/src/main.py`.
+- Added `/api/v1/pmla-questionnaires/...` API for PMLA questionnaire state.
+- `SmartImportParser` now accepts `.docx` and converts an old questionnaire/document into one `pmla_questionnaire` preview row.
+- Added `PmlaQuestionnaireService`: questionnaire state, custom scenarios, generation context, resource recommendations.
+- Added docs: `docs/SMART_DOCX_IMPORT.md`, `docs/pmla/PMLA_QUESTIONNAIRE_BUILDER.md`; updated `docs/SMART_IMPORT_CENTER.md`.
+- Updated Smart Import API/profile wording to say Excel/CSV/DOCX.
+
+Verified:
+- `pytest tests/smart_import/test_parser.py tests/smart_import/test_profiles.py tests/smart_import/test_docx_parser.py tests/test_pmla_questionnaire_service_unit.py tests/test_ai_config.py tests/test_pmla_debug_service.py -q` -> `10 passed, 2 warnings`.
+- HTTP `GET /health` -> 200.
+- HTTP OpenAPI contains 6 `/api/v1/pmla-questionnaires/...` paths.
+- HTTP `POST /api/v1/imports/pmla_questionnaire/preview` with DOCX and key `isap-secret-2026` -> 200, `error_rows=0`, `created_rows=1`; recognized `organization_name`, `facility_name`, `facility_reg_number`, `has_incidents`.
+
+Notes:
+- Port 8000 is currently served by the Docker/backend environment with API key `isap-secret-2026`; a local backend started with `dev-secret` could not bind because the port was already in use.
+- The worktree also contains generated `.next/` files and dev logs from running servers; do not include them when saving the patch.

@@ -24,7 +24,7 @@ async def preview_import(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload Excel/CSV, map columns, validate rows and create preview job."""
+    """Upload Excel/CSV/DOCX, map columns, validate rows and create preview job."""
     try:
         content = await file.read()
         return await SmartImportService(db).create_preview(

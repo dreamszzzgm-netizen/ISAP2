@@ -18,6 +18,7 @@ from src.api.routers import (
     persons,
     pmla,
     pmla_debug,
+    pmla_questionnaires,
     pmla_samples,
     pmla_stream,
     regulatory,
@@ -85,6 +86,7 @@ app.include_router(substances.router, prefix="/api/v1/substances", tags=["substa
 app.include_router(persons.router, prefix="/api/v1/persons", tags=["persons"])
 app.include_router(regulatory.router, prefix="/api/v1/regulatory", tags=["regulatory"])
 app.include_router(pmla_debug.router, prefix="/api/v1/pmla/debug", tags=["pmla-debug"])
+app.include_router(pmla_questionnaires.router, prefix="/api/v1/pmla-questionnaires", tags=["pmla-questionnaires"])
 app.include_router(pmla.router, prefix="/api/v1/pmla", tags=["pmla"])
 app.include_router(pmla_stream.router, prefix="/api/v1/pmla", tags=["pmla-stream"])
 app.include_router(corpus.router, prefix="/api/v1/corpus", tags=["corpus"])

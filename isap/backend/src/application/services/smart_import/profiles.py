@@ -174,7 +174,7 @@ IMPORT_PROFILES: dict[str, ImportProfile] = {
     "pmla_questionnaire": ImportProfile(
         code="pmla_questionnaire",
         title="Анкета ПМЛА",
-        description="Импорт ответов анкеты генерации ПМЛА из Excel.",
+        description="Импорт ответов анкеты генерации ПМЛА из Excel или DOCX.",
         target_table="pmla_questionnaires",
         duplicate_keys=["facility_reg_number"],
         fields=[
