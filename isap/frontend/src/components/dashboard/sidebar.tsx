@@ -14,6 +14,7 @@ import {
   ChevronUp,
   Brain,
   FileStack,
+  ClipboardCheck,
 } from "lucide-react"
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const safetyNav: { title: string; icon: typeof ShieldCheck; page: PageKey }[] = 
   { title: "Экспертизы", icon: ShieldCheck, page: "expertise" },
   { title: "ОПО", icon: Factory, page: "opo" },
   { title: "ПМЛА", icon: FileStack, page: "pmla" },
+  { title: "Анкета ПМЛА", icon: ClipboardCheck, page: "pmlaQuestionnaire" },
   { title: "Документы", icon: FileText, page: "documents" },
 ]
 

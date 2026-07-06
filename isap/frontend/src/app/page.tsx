@@ -19,6 +19,7 @@ import { ExpertisePage } from "@/components/dashboard/expertise-page"
 import { AnalyticsPage } from "@/components/dashboard/analytics-page"
 import { DirectoriesPage } from "@/components/dashboard/directories-page"
 import { PmlaPage } from "@/components/dashboard/pmla-page"
+import { PmlaQuestionnairePage } from "@/components/dashboard/pmla-questionnaire-page"
 import { AiPage } from "@/components/dashboard/ai-page"
 import { kpiData } from "@/lib/analytics-data"
 import { useNavStore, type PageKey } from "@/lib/nav-store"
@@ -78,6 +79,7 @@ const PAGE_TITLES: Record<PageKey, { title: string; description: string }> = {
   expertise: { title: "Экспертизы", description: "Учёт экспертиз промышленной безопасности" },
   opo: { title: "ОПО", description: "Реестр опасных производственных объектов" },
   pmla: { title: "ПМЛА", description: "Генерация и проверка ПМЛА" },
+  pmlaQuestionnaire: { title: "Анкета ПМЛА", description: "Инженерная анкета и generation context" },
   documents: { title: "Документы", description: "Общий реестр документов" },
   ai: { title: "AI / LM Studio", description: "Настройки и диагностика локальной модели" },
   directories: { title: "Справочники", description: "Нормативно-справочная информация" },
@@ -108,6 +110,8 @@ export default function Home() {
         return <DirectoriesPage />
       case "pmla":
         return <PmlaPage />
+      case "pmlaQuestionnaire":
+        return <PmlaQuestionnairePage />
       case "ai":
         return <AiPage />
       case "documents":

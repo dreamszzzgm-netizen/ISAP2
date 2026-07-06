@@ -901,3 +901,23 @@ Verified:
 - `pytest tests/test_pmla_generation_from_questionnaire_service_unit.py tests/test_pmla_questionnaire_service_unit.py tests/test_pmla_debug_service.py tests/test_enhanced_generator.py -q` -> `33 passed, 5 warnings`.
 - Local OpenAPI contains `/api/v1/pmla-questionnaires/{questionnaire_id}/generate`.
 - `git diff --check` for changed patch files -> clean.
+
+## PMLA Questionnaire UI Wizard (2026-07-06)
+
+Done:
+- Added dashboard page `frontend/src/components/dashboard/pmla-questionnaire-page.tsx`.
+- Added sidebar entry `Anketa PMLA` / `?????? ????` as a separate dashboard section.
+- Extended `frontend/src/lib/api-client.ts` with questionnaire, generation, DOCX preview, and import confirmation calls.
+- UI supports facility selection, questionnaire open/create, block editing, custom scenarios, manual PASF, manual emergency services, resources, notification, finance/insurance, training/attachments, context preview, generation, and DOCX import preview/confirm.
+- Backend context builder now includes manual PASF and manual emergency services saved in questionnaire data, so UI-entered services are not lost before generation.
+
+Verified:
+- `npm install --no-audit --no-fund` -> completed.
+- `npm run build` -> completed successfully.
+- `npx tsc --noEmit` -> completed successfully.
+- `python -m pytest -q` -> `265 passed, 50 warnings`.
+- Frontend dev server restarted on `http://127.0.0.1:3000/`; HTTP check returned 200.
+
+Notes:
+- Backend `127.0.0.1:8000` was not running during final live HTTP check, so browser data loading requires starting backend.
+- In-app browser automation was blocked by the browser URL policy, so visual click-through was not completed by automation.

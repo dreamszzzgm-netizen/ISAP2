@@ -9,6 +9,7 @@ export type PageKey =
   | "expertise"
   | "opo"
   | "pmla"
+  | "pmlaQuestionnaire"
   | "documents"
   | "ai"
   | "directories"

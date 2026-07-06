@@ -156,8 +156,22 @@ class PmlaQuestionnaireService:
         pasf = None
         if qdata.get("selected_pasf_id"):
             pasf = await self._get_pasf(UUID(str(qdata["selected_pasf_id"])))
+        if not pasf and qdata.get("pasf_manual"):
+            manual_pasf = dict(qdata.get("pasf_manual") or {})
+            pasf = {
+                "id": str(qdata.get("selected_pasf_id") or "manual"),
+                "name": manual_pasf.get("name"),
+                "dispatch_phone": manual_pasf.get("phone"),
+                "actual_address": manual_pasf.get("address"),
+                "certificate_number": manual_pasf.get("certificate_number"),
+                "permitted_work_types": manual_pasf.get("permitted_work_types") or manual_pasf.get("equipment") or [],
+                "source": "questionnaire_manual",
+            }
 
         emergency_services = await self._get_emergency_services(qdata.get("selected_emergency_service_ids") or [])
+        manual_services = qdata.get("selected_emergency_services") or []
+        if isinstance(manual_services, list):
+            emergency_services.extend([item for item in manual_services if isinstance(item, dict)])
         recommendations = self._build_resource_recommendations(facility, substances, qdata)
 
         return {
