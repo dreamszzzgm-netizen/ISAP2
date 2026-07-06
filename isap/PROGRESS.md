@@ -883,3 +883,21 @@ Verified:
 Notes:
 - Port 8000 is currently served by the Docker/backend environment with API key `isap-secret-2026`; a local backend started with `dev-secret` could not bind because the port was already in use.
 - The worktree also contains generated `.next/` files and dev logs from running servers; do not include them when saving the patch.
+
+## PMLA Generation From Questionnaire (2026-07-06)
+
+Priority: make the PMLA generator consume questionnaire-derived engineering facts instead of the old loose context.
+
+Done:
+- Applied `ISAP2_GENERATION_FROM_QUESTIONNAIRE.patch`.
+- Added `POST /api/v1/pmla-questionnaires/{questionnaire_id}/generate`.
+- Added `PmlaGenerationFromQuestionnaireService` bridge from questionnaire context to `EnhancedDocumentGenerator`.
+- Questionnaire context now maps incident history, selected/custom scenarios, PASF, emergency services, financial reserve, insurance, organization resources, training, and attachments into generator-facing fields.
+- Generation metadata stores `source=pmla_questionnaire`, `questionnaire_id`, `context_quality`, and `context_snapshot`.
+- Debug package writes `context.json`, `context_quality.json`, `generation_meta.json`, `rendered_sections.json`, and `output.docx` when available.
+- Fixed patch docs to use the real `/api/v1/pmla-questionnaires/...` route.
+
+Verified:
+- `pytest tests/test_pmla_generation_from_questionnaire_service_unit.py tests/test_pmla_questionnaire_service_unit.py tests/test_pmla_debug_service.py tests/test_enhanced_generator.py -q` -> `33 passed, 5 warnings`.
+- Local OpenAPI contains `/api/v1/pmla-questionnaires/{questionnaire_id}/generate`.
+- `git diff --check` for changed patch files -> clean.

@@ -7,8 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import get_db
+from src.api.dependencies import get_db, get_document_repo, get_regulatory_repo, get_scenario_matrix_repo, get_pmla_sample_repo
 from src.application.services.pmla_questionnaire_service import PmlaQuestionnaireService
+from src.application.services.pmla_generation_from_questionnaire_service import PmlaGenerationFromQuestionnaireService
+from src.infrastructure.repositories.document_repo import DocumentRepository
+from src.infrastructure.repositories.regulatory_repo import RegulatoryRepository
+from src.infrastructure.repositories.scenario_matrix_repo import ScenarioMatrixRepository
 
 router = APIRouter()
 
@@ -24,6 +28,11 @@ class CustomScenarioRequest(BaseModel):
     substance: str | None = None
     consequences: str | None = None
     personnel_actions: str | None = None
+
+
+class GenerateFromQuestionnaireRequest(BaseModel):
+    regenerate_sections: list[str] | None = None
+    save_debug_artifacts: bool = True
 
 
 @router.post("/facility/{facility_id}")
@@ -93,3 +102,41 @@ async def build_generation_context(questionnaire_id: UUID, db: AsyncSession = De
         return await PmlaQuestionnaireService(db).build_generation_context(questionnaire_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{questionnaire_id}/generate")
+async def generate_from_questionnaire(
+    questionnaire_id: UUID,
+    request: GenerateFromQuestionnaireRequest | None = None,
+    document_repo: DocumentRepository = Depends(get_document_repo),
+    regulatory_repo: RegulatoryRepository = Depends(get_regulatory_repo),
+    scenario_matrix_repo: ScenarioMatrixRepository = Depends(get_scenario_matrix_repo),
+    sample_repo=Depends(get_pmla_sample_repo),
+):
+    """Generate PMLA using questionnaire-derived context."""
+    request = request or GenerateFromQuestionnaireRequest()
+    try:
+        service = PmlaGenerationFromQuestionnaireService(
+            document_repo=document_repo,
+            regulatory_repo=regulatory_repo,
+            scenario_matrix_repo=scenario_matrix_repo,
+            sample_repo=sample_repo,
+        )
+        result = await service.generate(
+            questionnaire_id=questionnaire_id,
+            regenerate_sections=request.regenerate_sections,
+            save_debug_artifacts=request.save_debug_artifacts,
+        )
+        return {
+            "document_id": str(result.document_id),
+            "questionnaire_id": str(result.questionnaire_id),
+            "facility_id": str(result.facility_id),
+            "status": result.status,
+            "version": result.version,
+            "context_quality": result.context_quality,
+            "debug_artifacts": result.debug_artifacts,
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - API boundary
+        raise HTTPException(status_code=500, detail=f"Ошибка генерации ПМЛА из анкеты: {exc}") from exc

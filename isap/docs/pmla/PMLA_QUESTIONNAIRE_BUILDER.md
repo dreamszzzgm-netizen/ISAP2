@@ -118,3 +118,8 @@ PMLA Generator
 ```
 
 LLM не должна придумывать факты. Она получает подтверждённый context и пишет официальный текст.
+
+
+## Следующий этап: генерация из анкеты
+
+См. `docs/pmla/PMLA_GENERATION_FROM_QUESTIONNAIRE.md`.
