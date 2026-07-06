@@ -226,3 +226,103 @@ class OpoDetailsModel(Base):
     applicant_type = Column(String(20), default="legal")
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class EmergencyRescueUnitModel(Base):
+    """Справочник ПАСФ / АСФ."""
+    __tablename__ = "emergency_rescue_units"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    name = Column(String(500), nullable=False)
+    short_name = Column(String(200))
+    legal_address = Column(String(500))
+    actual_address = Column(String(500))
+    dispatch_phone = Column(String(100))
+    email = Column(String(200))
+    manager_name = Column(String(300))
+    certificate_number = Column(String(100))
+    certificate_date = Column(String(50))
+    certificate_valid_until = Column(String(50))
+    permitted_work_types = Column(JSONB, default=list)
+    equipment_passport = Column(JSONB, default=list)
+    staff_count = Column(String(50))
+    readiness_mode = Column(String(200))
+    service_area = Column(String(500))
+    notes = Column(Text)
+    source_import_job_id = Column(UUID(as_uuid=True), ForeignKey("import_jobs.id"))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class EmergencyServiceModel(Base):
+    """Справочник внешних аварийных служб: пожарные, скорая, полиция, газовая, ЕДДС."""
+    __tablename__ = "emergency_services"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    service_type = Column(String(50), nullable=False, default="fire")
+    name = Column(String(500), nullable=False)
+    address = Column(String(500))
+    phone = Column(String(100))
+    dispatcher_phone = Column(String(100))
+    municipality = Column(String(200))
+    settlement = Column(String(200))
+    latitude = Column(String(50))
+    longitude = Column(String(50))
+    service_area = Column(String(500))
+    notes = Column(Text)
+    source_import_job_id = Column(UUID(as_uuid=True), ForeignKey("import_jobs.id"))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class PmlaQuestionnaireModel(Base):
+    """Анкета генерации ПМЛА. Основное содержимое хранится в JSONB для гибкого развития формы."""
+    __tablename__ = "pmla_questionnaires"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"))
+    facility_id = Column(UUID(as_uuid=True), ForeignKey("hazardous_facilities.id"))
+    title = Column(String(500))
+    data = Column(JSONB, default=dict)
+    source_import_job_id = Column(UUID(as_uuid=True), ForeignKey("import_jobs.id"))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class ImportJobModel(Base):
+    """Задание умного импорта."""
+    __tablename__ = "import_jobs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    import_type = Column(String(100), nullable=False)
+    filename = Column(String(500), nullable=False)
+    status = Column(String(50), default="preview")
+    header_mapping = Column(JSONB, default=dict)
+    total_rows = Column(Integer, default=0)
+    created_rows = Column(Integer, default=0)
+    updated_rows = Column(Integer, default=0)
+    skipped_rows = Column(Integer, default=0)
+    error_rows = Column(Integer, default=0)
+    warning_rows = Column(Integer, default=0)
+    report = Column(JSONB, default=dict)
+    created_by = Column(String(200))
+    created_at = Column(DateTime, default=_now)
+    finished_at = Column(DateTime)
+
+
+class ImportRowModel(Base):
+    """Строка импорта с raw/mapped/normalized данными и статусом."""
+    __tablename__ = "import_rows"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    job_id = Column(UUID(as_uuid=True), ForeignKey("import_jobs.id"), nullable=False)
+    row_number = Column(Integer, nullable=False)
+    raw_data = Column(JSONB, default=dict)
+    mapped_data = Column(JSONB, default=dict)
+    normalized_data = Column(JSONB, default=dict)
+    status = Column(String(50), default="pending")
+    errors = Column(JSONB, default=list)
+    warnings = Column(JSONB, default=list)
+    duplicate_candidates = Column(JSONB, default=list)
+    action = Column(String(50), default="create")
+    created_at = Column(DateTime, default=_now)

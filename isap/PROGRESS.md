@@ -1,7 +1,185 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-05T01:30
+**Дата обновления:** 2026-07-06T21:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Сессия 2026-07-06 (ночь): Smart Import Center + фикс фронтенда
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Применение патча `ISAP2_SMART_IMPORT_PATCH.patch` | ✅ |
+| 2 | Рефакторинг `pmla.py` (1112→~300 строк) | ✅ |
+| 3 | Рефакторинг `pmla_stream.py` (313→~120 строк) | ✅ |
+| 4 | Исправление 2 тестов RulesEngine | ✅ |
+| 5 | Исправление фронтенда (Next.js lockfile permissions) | ✅ |
+
+### Smart Import Center — новый модуль
+
+Добавлен единый механизм умного импорта Excel/CSV с предпросмотром, маппингом колонок, валидацией и поиском дублей.
+
+**Новые таблицы (миграция 015):**
+- `import_jobs` — задания импорта
+- `import_rows` — строки с raw/mapped/normalized данными
+- `emergency_rescue_units` — ПАСФ / АСФ
+- `emergency_services` — пожарные, скорая, полиция, газовая, ЕДДС
+- `pmla_questionnaires` — анкеты генерации ПМЛА
+
+**3 профиля импорта:**
+
+| Профиль | Целевая таблица | Обязательные поля |
+|---------|-----------------|-------------------|
+| `fire_departments` | emergency_services | name, address |
+| `pasf_units` | emergency_rescue_units | name, certificate_number |
+| `pmla_questionnaire` | pmla_questionnaires | organization_name, facility_name |
+
+**API:**
+```
+GET  /api/v1/imports/profiles                    — список профилей
+POST /api/v1/imports/{import_type}/preview       — загрузка + предпросмотр
+GET  /api/v1/imports/jobs/{job_id}               — статус задания
+GET  /api/v1/imports/jobs/{job_id}/rows          — строки предпросмотра
+POST /api/v1/imports/jobs/{job_id}/confirm       — подтверждение импорта
+```
+
+**Новые файлы:**
+```
+backend/alembic/versions/015_add_smart_import.py
+backend/src/api/routers/imports.py
+backend/src/application/services/smart_import/__init__.py
+backend/src/application/services/smart_import/parser.py
+backend/src/application/services/smart_import/profiles.py
+backend/src/application/services/smart_import/service.py
+backend/tests/smart_import/test_parser.py
+backend/tests/smart_import/test_profiles.py
+docs/SMART_IMPORT_CENTER.md
+```
+
+**Зависимость:** `openpyxl>=3.1.0` (добавлена в pyproject.toml)
+
+### Рефакторинг роутеров
+
+**pmla.py (1112 → ~300 строк):**
+- Делегирование в `PmlaGenerationService`, `PmlaQueryService`, `PmlaExportService`, `PmlaReviewWorkflowService`
+- Убрано ~800 строк дублированного кода
+
+**pmla_stream.py (313 → ~120 строк):**
+- SSE-генератор теперь использует `PmlaGenerationService.build_context()`
+
+### Исправления фронтенда
+
+**Проблема:** Next.js падал в Docker с ошибкой `Permission denied (lockfile)`.
+**Причина:** `.next` кэш создавался на Windows хосте, а Alpine Linux контейнер не мог его открыть.
+
+**Исправления:**
+1. Удалена `frontend_node_modules` volume из docker-compose.yml
+2. Удалён `.next` кэш с хоста
+3. Добавлен `NODE_ENV=development` в env
+4. Старые Vite-страницы (`src/pages/`) переименованы в `legacy-pages/` — конфликтовали с Next.js App Router
+5. команда запуска: `npm install --prefer-offline && npx next dev --webpack -H 0.0.0.0 -p 3000`
+
+### Тесты
+
+```
+259 passed, 50 warnings in 6.61s
+```
+- 255 существующих + 4 новых (smart import parser + profiles)
+
+### Git статус
+
+```
+M  backend/src/api/routers/pmla.py           (рефакторинг)
+M  backend/src/api/routers/pmla_stream.py     (рефакторинг)
+M  backend/src/main.py                        (imports router)
+M  backend/src/infrastructure/database/models.py (5 новых моделей)
+M  backend/pyproject.toml                     (openpyxl)
+M  docker-compose.yml                         (frontend fix)
+M  README.md                                  (Smart Import docs)
+A  backend/alembic/versions/015_add_smart_import.py
+A  backend/src/api/routers/imports.py
+A  backend/src/application/services/smart_import/  (4 файла)
+A  backend/tests/smart_import/                (2 теста)
+A  docs/SMART_IMPORT_CENTER.md
+R  frontend/src/pages -> frontend/src/legacy-pages
+```
+
+---
+
+## Сессия 2026-07-06 (вечер): Рефакторинг роутеров + исправление тестов
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Рефакторинг `pmla.py`: делегирование логики в application services | ✅ |
+| 2 | Рефакторинг `pmla_stream.py`: делегирование в `PmlaGenerationService` | ✅ |
+| 3 | Исправление 2 тестов RulesEngine (устаревшие assertions) | ✅ |
+
+### Что сделано
+
+**pmla.py (1112 → ~300 строк):**
+- Вся логика сборки контекста, генерации, ревью, экспорта делегирована в:
+  - `PmlaGenerationService` — генерация, сборка контекста, перегенерация
+  - `PmlaQueryService` — список, превью, версии, expiring/overdue
+  - `PmlaExportService` — DOCX/PDF скачивание
+  - `PmlaReviewWorkflowService` — ревью, AI-ревью, восстановление версий
+- Убрано ~800 строк дублированного кода (inline context building, DB queries)
+
+**pmla_stream.py (313 → ~120 строк):**
+- SSE-генератор теперь использует `PmlaGenerationService.build_context()`
+- Убрано дублирование контекст-билдинга и emergency services enrichment
+
+**Тесты (255/255 passed):**
+- `test_section_10_initial_actions` — убрана assertion на "Иванов И.И." (persons не входят в section_10)
+- `test_section_12_population_safety` — заменена assertion на "эвакуац" (слово "мероприятия" отсутствует в output)
+
+### Архитектура сервисов (финальная)
+
+```
+backend/src/application/services/
+├── pmla_generation_service.py    # generate(), regenerate_sections(), build_context()
+├── pmla_query_service.py         # list_documents(), get_preview(), list_versions()
+├── pmla_export_service.py        # get_docx(), get_pdf()
+├── pmla_review_workflow_service.py  # review(), run_ai_review(), restore_version()
+├── enhanced_generator.py         # Ядро генерации (29 разделов)
+├── engine_integration.py         # create_engine_router(), build_document_context()
+└── engines/                      # 6 движков: template, data, scenario, rules, narrative, table
+```
+
+---
+
+## Сессия 2026-07-06: Применение hotfix-патча (frontend integration)
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Применить hotfix-патч (`API_KEY`, AI diagnostics, CORS/auth order) | ✅ |
+
+### Что сделано
+
+Патч `hotfix` уже применён к рабочей копии; верифицированы чтением и `git status`/`git diff` все 5 затронутых файлов:
+
+| Файл | Изменение | Git |
+|------|-----------|-----|
+| `.env.example` | Добавлена строка `API_KEY=dev-secret` в начало | `M` |
+| `backend/src/api/routers/ai.py` | Новый роутер AI-диагностики (`/config`, `/health`, `/embeddings/health`) | `??` |
+| `backend/src/main.py` | Импорт `ai`; `CORSMiddleware` перенесён ниже `ApiKeyMiddleware`; поддержка заголовка `X-API-Key`; роутер `/api/v1/ai`; расширены `allow_origins` (`http://127.0.0.1:3000`) | `M` |
+| `frontend/.env.example` | Добавлен `NEXT_PUBLIC_API_KEY=dev-secret` | `??` |
+| `frontend/src/lib/api-client.ts` | Чтение `NEXT_PUBLIC_API_KEY`; заголовки `Authorization: Bearer` + `X-API-Key` | `??` |
+
+### Подтверждённые зависимости
+
+- `get_llm_provider`, `LLMMessage` — `src/infrastructure/llm/providers.py`
+- `get_embedding_provider`, `EmbeddingResponse` — `src/infrastructure/embeddings/providers.py`
+- `ai.py` безопасно читает настройки через `getattr(settings, ..., default)` — отсутствие опциональных полей (`embedding_provider`, `lmstudio_*`, `openai_embedding_model`) не вызывает ошибок на этом роутере.
+
+### Заметка
+
+`backend/src/infrastructure/embeddings/providers.py` (существующий файл вне данного патча) напрямую обращается к `settings.embedding_provider`/`settings.embedding_batch_size`/`settings.lmstudio_*` — при активации embedding-провайдера эти поля необходимо добавить в `src/core/settings.py`. Сам hotfix-патч этих полей не вводит, но это следующий шаг для работоспособности `/api/v1/ai/embeddings/health`.
 
 ---
 

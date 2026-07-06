@@ -1,7 +1,7 @@
 # Рефакторинг генератора ПМЛА — Отчёт прогресса
 
-**Дата:** 2026-07-05
-**Статус:** ✅ Полная архитектура 6 движков + интеграция + шаблоны для всех типов ОПО
+**Дата:** 2026-07-06
+**Статус:** ✅ Полная архитектура 6 движков + интеграция + application services + Smart Import
 **Коммиты:** `ce3f626` (движки), `7b24290` (интеграция), `70549a6` (шаблоны сценариев)
 
 ---
@@ -73,6 +73,9 @@ backend/templates/pmla/scenario_templates/
 8. ✅ EngineRouter — маршрутизация + отчёт
 9. ✅ Интеграция с EnhancedDocumentGenerator
 10. ✅ Шаблоны для всех 6 типов ОПО из scenario_matrix
+11. ✅ Рефакторинг роутеров (pmla.py 1112→~300, pmla_stream.py 313→~120)
+12. ✅ Application services: PmlaGenerationService, PmlaQueryService, PmlaExportService, PmlaReviewWorkflowService
+13. ✅ Smart Import Center: 3 профиля, 5 таблиц, API + тесты
 
 ---
 

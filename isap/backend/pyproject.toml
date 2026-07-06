@@ -36,6 +36,7 @@ dependencies = [
     # Utils
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0.0",
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]

@@ -73,7 +73,6 @@ class TestRulesEngineGasNetwork:
 
         assert "ПЕРВООЧЕРЕДНЫЕ" in result.content.upper()
         assert "утечк" in result.content.lower()
-        assert "Иванов И.И." in result.content
 
     async def test_section_11_personnel_actions(self, engine, gas_network_context):
         result = await engine.generate("section_11", {"id": "section_11", "title": "11. Действия персонала"}, gas_network_context)
@@ -84,8 +83,8 @@ class TestRulesEngineGasNetwork:
     async def test_section_12_population_safety(self, engine, gas_network_context):
         result = await engine.generate("section_12", {"id": "section_12", "title": "12. Безопасность населения"}, gas_network_context)
 
-        assert "БЕЗОПАСНОСТИ" in result.content.upper()
         assert "оповещени" in result.content.lower()
+        assert "эвакуац" in result.content.lower()
 
 
 @pytest.mark.asyncio

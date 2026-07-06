@@ -155,3 +155,45 @@ POST /api/v1/documents/generate
 - [ADR-001](docs/adr/ADR-001.md) — RAG-фреймворк
 - [ADR-002](docs/adr/ADR-002.md) — Модель данных
 - [ADR-003](docs/adr/ADR-003.md) — Шаблоны документов
+
+## Smart Import Center
+
+Добавлен единый механизм умного импорта Excel/CSV.
+
+Поддерживаемые первые профили:
+
+- `fire_departments` — пожарные подразделения;
+- `pasf_units` — ПАСФ / АСФ;
+- `pmla_questionnaire` — анкета генерации ПМЛА.
+
+Основные endpoints:
+
+```http
+GET  /api/v1/imports/profiles
+POST /api/v1/imports/{import_type}/preview
+GET  /api/v1/imports/jobs/{job_id}
+GET  /api/v1/imports/jobs/{job_id}/rows
+POST /api/v1/imports/jobs/{job_id}/confirm
+```
+
+Подробнее: `docs/SMART_IMPORT_CENTER.md`.
+
+## Frontend Migration
+
+Начиная с этого патча frontend переведён с Vite/React на Next.js + TypeScript + Tailwind + shadcn/ui.
+
+Правильная схема интеграции:
+
+```text
+Next.js frontend → FastAPI backend → PostgreSQL
+```
+
+Frontend не использует Prisma/SQLite и не имеет прямого доступа к БД.
+
+Настройка API backend:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+Подробнее: `docs/FRONTEND_MIGRATION.md`.
