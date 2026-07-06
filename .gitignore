@@ -11,6 +11,7 @@ dist/
 __pycache__/
 *.pyc
 .pytest_cache/
+isap/backend/.pytest_tmp/
 *.db
 *.sqlite3
 

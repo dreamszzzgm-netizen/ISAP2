@@ -331,6 +331,28 @@ export function PmlaQuestionnairePage() {
   }, [])
 
   const disabled = !qid
+  const selectedScenarios = getStrings(draft.selected_scenarios)
+  const customScenarios = getList(draft.custom_scenarios)
+  const emergencyServices = getList(draft.selected_emergency_services)
+  const actualResources = getList(resources.actual_items)
+  const hasManualPasf = Boolean((draft.pasf_manual || {}).name || (draft.pasf_manual || {}).certificate_number)
+  const generationWarnings = [
+    !qid ? "Анкета еще не создана или не открыта" : "",
+    incident.has_incidents === null || incident.has_incidents === undefined ? "Не заполнен блок аварий/инцидентов" : "",
+    !draft.selected_pasf_id && !hasManualPasf ? "Не выбран или не заполнен ПАСФ" : "",
+    emergencyServices.length === 0 && getStrings(draft.selected_emergency_service_ids).length === 0 ? "Не добавлены аварийные службы" : "",
+    selectedScenarios.length === 0 && customScenarios.length === 0 ? "Не подтверждены сценарии аварий" : "",
+    actualResources.length === 0 ? "Не заполнены фактические силы и средства организации" : "",
+  ].filter(Boolean)
+  const completedBlocks = [
+    Boolean(qid),
+    incident.has_incidents !== null && incident.has_incidents !== undefined,
+    selectedScenarios.length > 0 || customScenarios.length > 0,
+    Boolean(draft.selected_pasf_id || hasManualPasf),
+    emergencyServices.length > 0 || getStrings(draft.selected_emergency_service_ids).length > 0,
+    actualResources.length > 0,
+  ].filter(Boolean).length
+  const readinessPercent = Math.round((completedBlocks / 6) * 100)
 
   return (
     <div className="space-y-6">
@@ -629,13 +651,73 @@ export function PmlaQuestionnairePage() {
         <TabsContent value="generate">
           <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
             <Card>
-              <CardHeader><CardTitle>Генерация ПМЛА из анкеты</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Генерация ПМЛА из анкеты</CardTitle>
+                <CardDescription>
+                  Перед запуском проверьте context и предупреждения по заполненности анкеты.
+                </CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
-                <Button onClick={generate} disabled={disabled || generating} className="gap-2">
-                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-                  Сгенерировать ПМЛА
-                </Button>
-                {generation && <pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs">{pretty(generation)}</pre>}
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-md border p-3">
+                    <div className="text-sm text-muted-foreground">Готовность</div>
+                    <div className="text-2xl font-semibold">{readinessPercent}%</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-sm text-muted-foreground">Сценарии</div>
+                    <div className="text-2xl font-semibold">{selectedScenarios.length + customScenarios.length}</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-sm text-muted-foreground">Службы</div>
+                    <div className="text-2xl font-semibold">{emergencyServices.length}</div>
+                  </div>
+                </div>
+                {generationWarnings.length > 0 ? (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Документ может быть неполным</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc pl-4">
+                        {generationWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertTitle>Ключевые блоки заполнены</AlertTitle>
+                    <AlertDescription>Можно собрать context и запускать генерацию.</AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={buildContext} disabled={disabled || loading} className="gap-2">
+                    <FileJson className="h-4 w-4" />
+                    Собрать context
+                  </Button>
+                  <Button onClick={generate} disabled={disabled || generating} className="gap-2">
+                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+                    Сгенерировать ПМЛА
+                  </Button>
+                </div>
+                {generation && (
+                  <div className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-md border p-3 text-sm">
+                        <div className="text-muted-foreground">document_id</div>
+                        <div className="break-all font-mono text-xs">{generation.document_id}</div>
+                      </div>
+                      <div className="rounded-md border p-3 text-sm">
+                        <div className="text-muted-foreground">status</div>
+                        <Badge variant="outline">{generation.status}</Badge>
+                      </div>
+                      <div className="rounded-md border p-3 text-sm">
+                        <div className="text-muted-foreground">version</div>
+                        <div className="font-semibold">{generation.version}</div>
+                      </div>
+                    </div>
+                    <pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs">{pretty(generation)}</pre>
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card>
