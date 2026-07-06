@@ -29,3 +29,16 @@ __pycache__/
 .vscode/
 *.swp
 *.swo
+
+# Frontend / Next.js
+isap/frontend/.next/
+isap/frontend/node_modules/
+isap/frontend/out/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Logs
+*.log
