@@ -1,1 +1,31 @@
 #
+# Временные и служебные файлы
+*.log
+*.err.log
+*.out.log
+*.patch
+*.zip
+*.tsbuildinfo
+
+# Файлы окружения (не публикуйте их!)
+.env.local
+.env.*.local
+
+# Фронтенд (Next.js)
+.next/
+node_modules/
+out/
+dist/
+
+# Бэкенд (Python)
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Дополнительно: папки сборки и IDE
+.idea/
+.vscode/
+*.swp
+*.swo
