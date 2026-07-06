@@ -1,7 +1,82 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-06T21:00
+**Дата обновления:** 2026-07-06T22:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Сессия 2026-07-06 (вечер): AI settings + Smart Import E2E + клиенты API
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Smart Import E2E тесты — 24/24 пройдены | ✅ |
+| 2 | AI/LM Studio — ручная настройка из UI | ✅ |
+| 3 | Clients page — подключение к реальному API | ✅ |
+| 4 | Исправлен дубликат `_get_setting` в ai.py | ✅ |
+| 5 | Исправлен тест `test_ai_config` (Docker override) | ✅ |
+
+### AI Settings — новая страница
+
+Добавлена форма ручной настройки AI-провайдеров прямо из UI:
+
+- Выбор провайдера: LM Studio, Ollama, OpenAI/Gemini, YandexGPT, GLM
+- Настройка модели, base URL, API key для каждого провайдера
+- Выбор embedding провайдера
+- Fallback toggle
+- Настройки сохраняются в `ai_settings.json` на сервере
+- Вкладки: Настройки / Диагностика (health check)
+
+**API:**
+```
+GET  /api/v1/ai/settings     — текущие настройки
+POST /api/v1/ai/settings     — обновление настроек
+```
+
+### Smart Import E2E — результаты тестирования
+
+```
+=== 1. GET /imports/profiles ===
+  PASS: profiles returns 200
+  PASS: 3 profiles returned
+  PASS: fire_departments exists
+  PASS: pasf_units exists
+  PASS: pmla_questionnaire exists
+
+=== 2. POST /imports/fire_departments/preview (CSV) ===
+  PASS: preview returns 200
+  PASS: job created
+  PASS: status is preview
+  PASS: total_rows = 2
+  PASS: header_mapping non-empty
+  PASS: rows returned
+
+=== 3-7. Jobs, rows, confirm, DB verify, duplicates ===
+  ALL PASS
+
+Results: 24 passed, 0 failed
+```
+
+### Исправления
+
+- **clients-page.tsx**: заменены `mockClients` на `apiRequest` — организации теперь сохраняются в БД
+- **ai.py**: удалён дубликат `_get_setting` (вторая функция перезаписывала первую)
+- **test_ai_config.py**: тест проверяет валидность провайдера вместо жёсткого дефолта
+
+### Тесты
+
+```
+259 passed, 12 warnings in 5.66s
+```
+
+### Git коммиты
+
+```
+ff601b7 feat: AI settings page + fix clients-page API + fix test
+d90db98 fix: clients-page uses real API instead of mock data
+2639ae8 feat: Smart Import Center + refactor routers + fix frontend Docker
+```
 
 ---
 
