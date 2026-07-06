@@ -1,19 +1,19 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './pages/Layout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Organizations from './pages/Organizations';
-import Facilities from './pages/Facilities';
-import FacilityDetail from './pages/FacilityDetail';
-import FacilityOpoDetails from './pages/FacilityOpoDetails';
-import PmlaWizard from './pages/PmlaWizard';
-import Documents from './pages/Documents';
-import Persons from './pages/Persons';
-import Regulatory from './pages/Regulatory';
-import PmlaSamples from './pages/PmlaSamples';
-import AiSettings from './pages/AiSettings';
+import Layout from './legacy-pages/Layout';
+import Login from './legacy-pages/Login';
+import Dashboard from './legacy-pages/Dashboard';
+import Organizations from './legacy-pages/Organizations';
+import Facilities from './legacy-pages/Facilities';
+import FacilityDetail from './legacy-pages/FacilityDetail';
+import FacilityOpoDetails from './legacy-pages/FacilityOpoDetails';
+import PmlaWizard from './legacy-pages/PmlaWizard';
+import Documents from './legacy-pages/Documents';
+import Persons from './legacy-pages/Persons';
+import Regulatory from './legacy-pages/Regulatory';
+import PmlaSamples from './legacy-pages/PmlaSamples';
+import AiSettings from './legacy-pages/AiSettings';
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
