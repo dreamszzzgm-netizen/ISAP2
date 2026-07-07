@@ -99,6 +99,7 @@ class DocumentContext:
     organization_resources: dict[str, Any] = field(default_factory=dict)
     notification_scheme: dict[str, Any] = field(default_factory=dict)
     incident_history: dict[str, Any] = field(default_factory=dict)
+    accidents_and_incidents: list[dict[str, Any]] = field(default_factory=list)
     insurance: dict[str, Any] = field(default_factory=dict)
     accident_samples: list[dict[str, Any]] | None = None  # Примеры аварий (None → hardcoded)
 
@@ -127,6 +128,7 @@ class DocumentContext:
             organization_resources=data.get("organization_resources", {}),
             notification_scheme=data.get("notification_scheme", {}),
             incident_history=data.get("incident_history", {}),
+            accidents_and_incidents=data.get("accidents_and_incidents", []),
             insurance=data.get("insurance", {}),
         )
 
@@ -154,6 +156,7 @@ class DocumentContext:
             "organization_resources": self.organization_resources,
             "notification_scheme": self.notification_scheme,
             "incident_history": self.incident_history,
+            "accidents_and_incidents": self.accidents_and_incidents,
             "insurance": self.insurance,
         }
 

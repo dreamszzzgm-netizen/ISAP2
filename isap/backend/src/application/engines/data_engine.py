@@ -175,6 +175,16 @@ class DataEngine(BaseEngine):
         blocks: list[Block] = []
         year = ctx.year
 
+        # Информация из анкеты об авариях/инцидентах
+        incidents = ctx.accidents_and_incidents or []
+        for item in incidents:
+            if isinstance(item, dict):
+                desc = item.get("description", "")
+                if desc:
+                    blocks.append(ParagraphBlock(text=desc))
+            elif isinstance(item, str):
+                blocks.append(ParagraphBlock(text=item))
+
         # Таблица 7 — Травматизм за 3 года
         t7_headers = ["№ п/п", "Год", "Количество травмированных", "Количество погибших", "Причина"]
         t7_rows = [[str(i), str(y), "—", "—", "—"] for i, y in enumerate(range(year-2, year+1), 1)]

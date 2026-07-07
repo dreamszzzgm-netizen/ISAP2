@@ -112,5 +112,6 @@ def build_document_context(
         organization_resources=raw_context.get("organization_resources", {}),
         notification_scheme=raw_context.get("notification_scheme", {}),
         incident_history=raw_context.get("incident_history", {}),
+        accidents_and_incidents=raw_context.get("accidents_and_incidents", []),
         insurance=raw_context.get("insurance", {}),
     )

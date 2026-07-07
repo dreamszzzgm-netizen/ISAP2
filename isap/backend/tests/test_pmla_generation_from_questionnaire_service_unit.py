@@ -73,8 +73,11 @@ def test_validate_questionnaire_context_returns_soft_warnings():
 
 
 def test_save_debug_artifacts_includes_rendered_sections(tmp_path, monkeypatch):
+    """Use a local subdirectory to avoid Windows temp-dir permission issues."""
     service = _service()
-    monkeypatch.setattr(module, "QUESTIONNAIRE_DEBUG_DIR", tmp_path)
+    local_dir = tmp_path / "debug"
+    local_dir.mkdir()
+    monkeypatch.setattr(module, "QUESTIONNAIRE_DEBUG_DIR", local_dir)
     document = type(
         "Document",
         (),

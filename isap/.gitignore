@@ -21,3 +21,5 @@ backend/test_all_requests.py
 graphify-out/
 backend/src/graphify-out/
 .opencode/
+frontend/next-env.d.ts
+backend/.pytest_tmp/
