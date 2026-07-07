@@ -25,3 +25,4 @@ frontend/next-env.d.ts
 backend/.pytest_tmp/
 .mcp.json
 .codebase-memory/
+.tokensave
