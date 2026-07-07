@@ -1,7 +1,72 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-06T22:00
+**Дата обновления:** 2026-07-07T00:30
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Сессия 2026-07-07: DOCX quality tests + codebase-memory-mcp
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Исправлена ошибка Windows `tmp_path` PermissionError в unit-тестах | ✅ |
+| 2 | Добавлены E2E-тесты через полный EngineRouter pipeline | ✅ |
+| 3 | Установлен и настроен codebase-memory-mcp v0.8.1 | ✅ |
+
+### DOCX quality tests — что сделано
+
+**Исправлено:**
+- `test_pmla_generation_from_questionnaire_service_unit.py`: `tmp_path` заменён на `tempfile.mkdtemp()` для обхода Windows PermissionError на системной папке Temp.
+
+**Добавлено (`test_pmla_questionnaire_docx_output.py`):**
+- `TestFullEngineRouterPipeline` — 2 новых теста:
+  - `test_engine_router_all_sections_produce_questionnaire_data_in_docx` — запускает `EngineRouter.generate_all()` через все 6 движков, строит реальный DOCX, проверяет 9 ключевых фраз из анкеты
+  - `test_engine_router_sections_are_non_empty` — проверяет что все разделы непустые
+
+**Цепочка проверки:**
+```
+questionnaire data → adapt_context_for_generator() → DocumentContext.from_dict()
+→ EngineRouter.generate_all() (DataEngine + ScenarioEngine + TemplateEngine + RulesEngine + NarrativeEngine)
+→ DOCX build → extract_docx_text() → assert required phrases present
+```
+
+**Проверяемые данные анкеты в DOCX:**
+
+| Категория | Фразы |
+|-----------|-------|
+| Кастомный сценарий | `Отказ запорной арматуры` |
+| Ресурсы | `Газоанализатор`, `Огнетушитель` |
+| Оповещение | `оператор котельной`, `дежурный диспетчер` |
+| Фин. резерв | `12-ПБ` |
+| Страхование | `АО Страховая компания`, `ГО-123456` |
+| Аварии | `не зарегистрированы` |
+
+### codebase-memory-mcp
+
+- Установлен бинарник `codebase-memory-mcp.exe` v0.8.1 → `C:\Users\dream\AppData\Local\Programs\codebase-memory-mcp\`
+- Проект проиндексирован: 44,062 нод, 211,868 рёбер (~10 сек)
+- Конфиг MCP: `.mcp.json` в корне проекта
+- 14 инструментов: search_graph, trace_path, get_architecture, query_graph (Cypher), detect_changes и др.
+
+### Тесты
+
+```
+288 passed, 50 warnings in 6.34s
+```
+
+### Git коммиты
+
+```
+41a150e Add E2E DOCX quality tests and fix Windows tmp_path permission error
+```
+
+### Frontend build
+
+```
+✓ Compiled successfully in 2.9s
+```
 
 ---
 
