@@ -11,6 +11,7 @@ export type PageKey =
   | "pmla"
   | "pmlaQuestionnaire"
   | "documents"
+  | "documentDetail"
   | "ai"
   | "directories"
   | "settings"
@@ -18,10 +19,19 @@ export type PageKey =
 
 interface NavStore {
   activePage: PageKey
+  documentDetailId: string | null
   setActivePage: (page: PageKey) => void
+  openDocumentDetail: (documentId: string) => void
+  goBack: () => void
 }
 
 export const useNavStore = create<NavStore>((set) => ({
   activePage: "overview",
-  setActivePage: (page) => set({ activePage: page }),
+  documentDetailId: null,
+  setActivePage: (page) => set({ activePage: page, documentDetailId: null }),
+  openDocumentDetail: (documentId) => set({ activePage: "documentDetail", documentDetailId: documentId }),
+  goBack: () => set((state) => {
+    if (state.activePage === "documentDetail") return { activePage: "pmla" as PageKey, documentDetailId: null }
+    return { activePage: "overview" as PageKey, documentDetailId: null }
+  }),
 }))

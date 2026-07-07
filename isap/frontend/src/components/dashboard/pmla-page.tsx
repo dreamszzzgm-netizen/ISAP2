@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { isapApi } from "@/lib/api-client"
+import { useNavStore } from "@/lib/nav-store"
 
 type AnyRow = Record<string, unknown>
 
 export function PmlaPage() {
+  const { openDocumentDetail } = useNavStore()
   const [documents, setDocuments] = useState<AnyRow[]>([])
   const [expiring, setExpiring] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -101,7 +103,7 @@ export function PmlaPage() {
                 </thead>
                 <tbody>
                   {documents.map((doc, index) => (
-                    <tr key={String(doc.id || index)} className="border-t">
+                    <tr key={String(doc.id || index)} className="border-t cursor-pointer hover:bg-muted/50" onClick={() => doc.id && openDocumentDetail(String(doc.id))}>
                       <td className="px-3 py-2 font-medium">{String(doc.title || "ПМЛА")}</td>
                       <td className="px-3 py-2">{String(doc.facility_name || "—")}</td>
                       <td className="px-3 py-2"><Badge variant="outline">{String(doc.status || "—")}</Badge></td>

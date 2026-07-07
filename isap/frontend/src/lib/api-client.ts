@@ -153,5 +153,18 @@ export const isapApi = {
   downloadPmlaDocument: (documentId: string): string =>
     `${API_BASE_URL}/api/v1/pmla/${documentId}/download${API_KEY ? `?api_key=${API_KEY}` : ""}`,
   getPmlaDocumentStatus: (documentId: string) =>
-    apiRequest<{ status: string; issues?: string[] }>(`/api/v1/pmla/${documentId}/status`),
+    apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/status`),
+  getPmlaDocumentPreview: (documentId: string) =>
+    apiRequest<{ sections: Array<{ title: string; content: string }> }>(`/api/v1/pmla/${documentId}/preview`),
+  getPmlaDocumentVersions: (documentId: string) =>
+    apiRequest<unknown[]>(`/api/v1/pmla/${documentId}/versions`),
+  reviewPmlaDocument: (documentId: string, action: "approve" | "reject", comment?: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ action, reviewer_id: "ui-user", comment: comment || "" }),
+    }),
+  getAiReview: (documentId: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/ai-review`),
+  runAiReview: (documentId: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/ai-review`, { method: "POST" }),
 }

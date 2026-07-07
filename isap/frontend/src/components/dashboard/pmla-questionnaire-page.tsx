@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { isapApi, type ImportPreviewResult, type PmlaGenerationResult, type PmlaQuestionnaire } from "@/lib/api-client"
+import { useNavStore } from "@/lib/nav-store"
 
 type AnyRecord = Record<string, any>
 
@@ -130,6 +131,7 @@ function SectionActions({ saving, onSave }: { saving: boolean; onSave: () => voi
 }
 
 export function PmlaQuestionnairePage() {
+  const { openDocumentDetail } = useNavStore()
   const [facilities, setFacilities] = useState<FacilityOption[]>([])
   const [facilityId, setFacilityId] = useState("")
   const [questionnaire, setQuestionnaire] = useState<PmlaQuestionnaire | null>(null)
@@ -714,6 +716,7 @@ export function PmlaQuestionnairePage() {
                     generation={generation}
                     onRegenerate={generate}
                     onRebuildContext={buildContext}
+                    onOpenDocument={openDocumentDetail}
                     regenerationDisabled={disabled || generating}
                     regenerationLoading={generating}
                   />
@@ -794,12 +797,14 @@ function GenerationResultBlock({
   generation,
   onRegenerate,
   onRebuildContext,
+  onOpenDocument,
   regenerationDisabled,
   regenerationLoading,
 }: {
   generation: import("@/lib/api-client").PmlaGenerationResult
   onRegenerate: () => void
   onRebuildContext: () => void
+  onOpenDocument: (documentId: string) => void
   regenerationDisabled: boolean
   regenerationLoading: boolean
 }) {
@@ -901,11 +906,9 @@ function GenerationResultBlock({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button variant="outline" asChild className="gap-2">
-              <a href={`/documents`} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" />
-                Открыть карточку документа
-              </a>
+            <Button variant="outline" onClick={() => onOpenDocument(generation.document_id)} className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Открыть карточку документа
             </Button>
             <Button variant="outline" onClick={() => copyToClipboard(generation.document_id, "id")} className="gap-2">
               <Copy className="h-4 w-4" />
