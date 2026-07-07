@@ -85,6 +85,9 @@ def build_document_context(
                 "phone": getattr(p, "phone", "—"),
             })
 
+    questionnaire_scenarios = raw_context.get("user_scenarios", [])
+    combined_scenarios = [*(scenarios or []), *questionnaire_scenarios]
+
     return DocumentContext(
         organization=organization,
         facility=facility,
@@ -92,7 +95,7 @@ def build_document_context(
         substances=raw_context.get("substances", []),
         persons=persons,
         calculation_results=calculation_results or [],
-        scenarios=scenarios or [],
+        scenarios=combined_scenarios,
         year=datetime.now().year,
         approver=approver,
         personnel=personnel,
@@ -102,4 +105,12 @@ def build_document_context(
         },
         material_reserve=raw_context.get("material_reserve", {}),
         emergency_services=raw_context.get("emergency_services", []),
+        selected_scenarios=raw_context.get("selected_scenarios", []),
+        custom_scenarios=raw_context.get("custom_scenarios", []),
+        user_scenarios=questionnaire_scenarios,
+        protective_equipment=raw_context.get("protective_equipment", []),
+        organization_resources=raw_context.get("organization_resources", {}),
+        notification_scheme=raw_context.get("notification_scheme", {}),
+        incident_history=raw_context.get("incident_history", {}),
+        insurance=raw_context.get("insurance", {}),
     )

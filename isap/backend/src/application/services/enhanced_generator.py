@@ -232,6 +232,7 @@ class EnhancedDocumentGenerator:
             },
             "material_reserves": [],
         }
+        enriched["material_reserve"].update(context.get("material_reserve") or {})
 
         return enriched
 

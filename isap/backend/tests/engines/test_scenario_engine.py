@@ -163,6 +163,15 @@ class TestScenarioEngineGenerate:
         assert "Шаблон сценариев не найден" in result.content
 
     @pytest.mark.asyncio
+    async def test_unknown_facility_type_uses_questionnaire_scenarios(self, engine, unknown_type_context):
+        unknown_type_context.scenarios = [{"title": "Custom valve failure", "source_equipment": "Valve"}]
+        section_def = {"id": "section_2", "title": "2. РЎС†РµРЅР°СЂРёРё Р°РІР°СЂРёР№"}
+        result = await engine.generate("section_2", section_def, unknown_type_context)
+
+        assert "Custom valve failure" in result.content
+        assert "Valve" in result.content
+
+    @pytest.mark.asyncio
     async def test_no_pii_in_output(self, engine, gas_network_context):
         """Проверяет, что персональные данные не попадают в сценарии."""
         section_def = {"id": "section_2", "title": "2. Сценарии аварий"}

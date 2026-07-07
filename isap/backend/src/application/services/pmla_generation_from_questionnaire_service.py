@@ -208,6 +208,7 @@ class PmlaGenerationFromQuestionnaireService:
         actual_items = resources.get("actual_items") if isinstance(resources, dict) else []
         ctx["protective_equipment"] = self._normalize_resources(actual_items or [])
         ctx["organization_resources"] = resources
+        ctx["notification_scheme"] = questionnaire.get("notification_scheme") or {}
 
         # Training and attachments are factual questionnaire sections, preserved
         # for narrative sections and context snapshots.

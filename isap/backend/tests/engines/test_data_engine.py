@@ -125,7 +125,15 @@ class TestDataEngineSection4:
         assert "Газоанализатор" in result.content
 
 
-@pytest.mark.asyncio
+    async def test_section_4_renders_questionnaire_resources(self, engine, full_context):
+        full_context.protective_equipment = [{"name": "Portable extinguisher", "quantity": "4", "storage_place": "boiler room"}]
+        section_def = {"id": "section_4", "title": "4. РЎРёР»С‹ Рё СЃСЂРµРґСЃС‚РІР°"}
+        result = await engine.generate("section_4", section_def, full_context)
+
+        assert "Portable extinguisher" in result.content
+        assert "boiler room" in result.content
+
+
 class TestDataEngineSection6:
     async def test_section_6_renders_composition(self, engine, full_context):
         section_def = {"id": "section_6", "title": "6. Состав и дислокация"}
@@ -153,7 +161,14 @@ class TestDataEngineSection8:
         assert "Диспетчер" in result.content
 
 
-@pytest.mark.asyncio
+    async def test_section_8_renders_questionnaire_notification_scheme(self, engine, full_context):
+        full_context.notification_scheme = {"first_receiver": "boiler operator"}
+        section_def = {"id": "section_8", "title": "8. РЈРїСЂР°РІР»РµРЅРёРµ"}
+        result = await engine.generate("section_8", section_def, full_context)
+
+        assert "boiler operator" in result.content
+
+
 class TestDataEngineSection13:
     async def test_section_13_renders_material_support(self, engine, full_context):
         section_def = {"id": "section_13", "title": "13. Материальное обеспечение"}
@@ -163,7 +178,19 @@ class TestDataEngineSection13:
         assert "ООО «СПК ААА»" in result.content
 
 
-@pytest.mark.asyncio
+    async def test_section_13_preserves_questionnaire_finance_and_insurance(self, engine, full_context):
+        full_context.material_reserve = {
+            "fin_reserve_order": "12-PB",
+            "fin_reserve_amount": "500000",
+            "insurance_company": "Acme Insurance",
+        }
+        section_def = {"id": "section_13", "title": "13. РњР°С‚РµСЂРёР°Р»СЊРЅРѕРµ РѕР±РµСЃРїРµС‡РµРЅРёРµ"}
+        result = await engine.generate("section_13", section_def, full_context)
+
+        assert "12-PB" in result.content
+        assert "Acme Insurance" in result.content
+
+
 class TestDataEngineAppendices:
     async def test_appendix_3_renders_pasf(self, engine, full_context):
         section_def = {"id": "appendix_3", "title": "Приложение 3"}

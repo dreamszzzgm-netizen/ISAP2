@@ -253,6 +253,14 @@ class DataEngine(BaseEngine):
                     item.get("location", "—"),
                 ])
                 idx += 1
+        for item in ctx.protective_equipment:
+            t10_rows.append([
+                str(idx),
+                _s(item, "name"),
+                _s(item, "quantity"),
+                item.get("location") or item.get("storage_place") or "—",
+            ])
+            idx += 1
         if not t10_rows:
             t10_rows = [["—", "Сведения о ресурсах не предоставлены.", "—", "—"]]
         blocks.append(TableBlock(
@@ -353,6 +361,27 @@ class DataEngine(BaseEngine):
                     "Немедленно",
                 ])
 
+        notification = ctx.notification_scheme or {}
+        for key, label in [
+            ("first_receiver", "first receiver"),
+            ("incident_commander", "incident commander"),
+            ("pasf_caller", "PASF caller"),
+            ("fire_caller", "fire caller"),
+            ("medical_caller", "medical caller"),
+            ("shutdown_responsible", "shutdown responsible"),
+            ("evacuation_responsible", "evacuation responsible"),
+            ("service_meeting_responsible", "service meeting responsible"),
+        ]:
+            value = notification.get(key)
+            if value:
+                t14_rows.append([
+                    str(len(t14_rows) + 1),
+                    label,
+                    str(value),
+                    "—",
+                    "questionnaire",
+                ])
+
         for item in template.get("external", []):
             t14_rows.append([
                 str(item.get("order", len(t14_rows) + 1)),
@@ -386,6 +415,14 @@ class DataEngine(BaseEngine):
         blocks.append(ParagraphBlock(text=f"Эксплуатирующая организация: {_s(org, 'name')}"))
         blocks.append(ParagraphBlock(text=f"Юридический адрес: {_s(org, 'address')}"))
         blocks.append(ParagraphBlock(text=f"ИНН: {_s(org, 'inn')}"))
+
+        reserve = ctx.material_reserve or {}
+        if reserve:
+            blocks.append(ParagraphBlock(text=f"Financial reserve order: {reserve.get('fin_reserve_order', '—')}"))
+            blocks.append(ParagraphBlock(text=f"Financial reserve amount: {reserve.get('fin_reserve_amount', '—')}"))
+            blocks.append(ParagraphBlock(text=f"Insurance company: {reserve.get('insurance_company', '—')}"))
+            blocks.append(ParagraphBlock(text=f"Insurance contract: {reserve.get('insurance_contract', '—')}"))
+            blocks.append(ParagraphBlock(text=f"Insurance valid until: {reserve.get('insurance_valid_until', '—')}"))
 
         return blocks
 

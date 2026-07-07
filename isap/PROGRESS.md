@@ -943,3 +943,33 @@ Verified:
 Notes:
 - `isap/frontend/next-env.d.ts` may appear modified after Next build only because of generated line-ending/stat noise; keep it out of commits unless the generated route reference intentionally changes.
 - Latest relevant commits: `4072c71 Add PMLA questionnaire UI wizard`, `5a6ef3e Polish PMLA questionnaire UI wizard`.
+
+## PMLA Questionnaire Generation Runtime Check (2026-07-07)
+
+Goal: verify the real chain `questionnaire -> context -> generation -> document_id -> debug artifacts -> DOCX text` and fix only integration/rendering issues.
+
+Done:
+- Ran a real questionnaire generation flow through backend services using existing questionnaire/facility data.
+- Fixed questionnaire data propagation into `DocumentContext`: selected/custom/user scenarios, protective equipment, organization resources, notification scheme, incident history, and insurance/material reserve.
+- Fixed scenario rendering so questionnaire scenarios are used even when the facility type has no built-in scenario template.
+- Fixed generated sections so questionnaire resources, notification scheme, finance reserve, and insurance are visible in rendered sections and DOCX output.
+- Preserved incoming questionnaire `material_reserve` during enhanced generator enrichment instead of overwriting it.
+- Added regression tests for questionnaire-driven scenario/resource/notification/insurance rendering.
+
+Verified:
+- Focused backend tests: `45 passed, 2 warnings`.
+- Full backend tests: `269 passed, 50 warnings`.
+- Frontend production build: `npm run build` completed successfully.
+- E2E generation sample:
+  - `facility_id=421998f3-e53b-41bc-96b6-70604a3891ad`
+  - `questionnaire_id=289aeeb3-76f2-4dca-94e4-ae7f74ab74a0`
+  - `document_id=38ad702e-dff0-498b-af0c-e0d0ea5cd974`
+  - status: `pending_review`
+  - context missing fields: none
+  - debug artifacts present: `context.json`, `context_quality.json`, `generation_meta.json`, `rendered_sections.json`, `output.docx`
+  - DOCX text check passed for custom scenario, protective equipment, notification receiver, and insurance company.
+
+Notes:
+- Context quality still reports warnings when PASF/emergency services are not selected in the questionnaire; this is expected data completeness feedback, not a runtime failure.
+- AI review/LLM provider connection can fail when the local provider is unavailable; generation falls back and still produces DOCX/debug artifacts.
+- Existing dev servers on ports 3000/8000 were left running; a restart may be needed for the browser to pick up latest local code changes.

@@ -92,6 +92,14 @@ class DocumentContext:
     facility_coords: dict[str, Any] = field(default_factory=lambda: {"latitude": None, "longitude": None})
     material_reserve: dict[str, Any] = field(default_factory=dict)
     emergency_services: list[dict[str, Any]] = field(default_factory=list)
+    selected_scenarios: list[Any] = field(default_factory=list)
+    custom_scenarios: list[dict[str, Any]] = field(default_factory=list)
+    user_scenarios: list[dict[str, Any]] = field(default_factory=list)
+    protective_equipment: list[dict[str, Any]] = field(default_factory=list)
+    organization_resources: dict[str, Any] = field(default_factory=dict)
+    notification_scheme: dict[str, Any] = field(default_factory=dict)
+    incident_history: dict[str, Any] = field(default_factory=dict)
+    insurance: dict[str, Any] = field(default_factory=dict)
     accident_samples: list[dict[str, Any]] | None = None  # Примеры аварий (None → hardcoded)
 
     @classmethod
@@ -112,6 +120,14 @@ class DocumentContext:
             facility_coords=data.get("facility_coords", {"latitude": None, "longitude": None}),
             material_reserve=data.get("material_reserve", {}),
             emergency_services=data.get("emergency_services", []),
+            selected_scenarios=data.get("selected_scenarios", []),
+            custom_scenarios=data.get("custom_scenarios", []),
+            user_scenarios=data.get("user_scenarios", []),
+            protective_equipment=data.get("protective_equipment", []),
+            organization_resources=data.get("organization_resources", {}),
+            notification_scheme=data.get("notification_scheme", {}),
+            incident_history=data.get("incident_history", {}),
+            insurance=data.get("insurance", {}),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -131,6 +147,14 @@ class DocumentContext:
             "facility_coords": self.facility_coords,
             "material_reserve": self.material_reserve,
             "emergency_services": self.emergency_services,
+            "selected_scenarios": self.selected_scenarios,
+            "custom_scenarios": self.custom_scenarios,
+            "user_scenarios": self.user_scenarios,
+            "protective_equipment": self.protective_equipment,
+            "organization_resources": self.organization_resources,
+            "notification_scheme": self.notification_scheme,
+            "incident_history": self.incident_history,
+            "insurance": self.insurance,
         }
 
 

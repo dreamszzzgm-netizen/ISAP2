@@ -73,6 +73,51 @@ def _select_scenarios_from_template(
     return all_scenarios
 
 
+def _normalize_context_scenarios(scenarios: list) -> list[dict]:
+    """Normalize questionnaire/user scenarios into the table shape used here."""
+    normalized: list[dict] = []
+    for i, scenario in enumerate(scenarios or [], 1):
+        if isinstance(scenario, dict):
+            name = scenario.get("name") or scenario.get("title") or f"Сценарий {i}"
+            description = scenario.get("description") or scenario.get("causes") or "—"
+            source = (
+                scenario.get("sources")
+                or scenario.get("source_equipment")
+                or scenario.get("equipment")
+                or scenario.get("place")
+                or "—"
+            )
+            consequences = scenario.get("consequences") or scenario.get("factors") or "—"
+            normalized.append(
+                {
+                    "code": scenario.get("code") or scenario.get("id") or f"Q-{i}",
+                    "name": name,
+                    "sources": source,
+                    "causes": description,
+                    "signs": scenario.get("signs") or consequences,
+                    "factors": consequences,
+                    "protection": scenario.get("protection") or "—",
+                    "technical_means": scenario.get("technical_means") or scenario.get("response_actions") or "—",
+                    "executors": scenario.get("executors") or scenario.get("personnel_actions") or "—",
+                    "actions": scenario.get("actions") or description,
+                    "category": scenario.get("category") or "questionnaire",
+                }
+            )
+        else:
+            normalized.append(
+                {
+                    "code": f"Q-{i}",
+                    "name": str(scenario),
+                    "sources": "—",
+                    "causes": "—",
+                    "signs": "—",
+                    "factors": "—",
+                    "category": "questionnaire",
+                }
+            )
+    return normalized
+
+
 class ScenarioEngine(BaseEngine):
     """
     Движок сценариев аварий. Генерирует:
@@ -99,7 +144,7 @@ class ScenarioEngine(BaseEngine):
 
         # Загружаем шаблон сценариев для типа ОПО
         template_data = _load_scenario_templates(facility_type)
-        if template_data is None:
+        if template_data is None and not context.scenarios:
             logger.warning("No scenario template found for facility_type '%s'", facility_type)
             return SectionContent(
                 section_id=section_id,
@@ -109,7 +154,10 @@ class ScenarioEngine(BaseEngine):
             )
 
         # Выбираем сценарии
-        scenarios = _select_scenarios_from_template(template_data, facility_type, hazard_class)
+        scenarios = []
+        if template_data is not None:
+            scenarios.extend(_select_scenarios_from_template(template_data, facility_type, hazard_class))
+        scenarios.extend(_normalize_context_scenarios(context.scenarios))
 
         if section_id == "section_2":
             blocks = self._render_section_2(scenarios, context)
