@@ -921,3 +921,25 @@ Verified:
 Notes:
 - Backend `127.0.0.1:8000` was not running during final live HTTP check, so browser data loading requires starting backend.
 - In-app browser automation was blocked by the browser URL policy, so visual click-through was not completed by automation.
+
+## PMLA Questionnaire UI Stabilization (2026-07-07)
+
+Goal: harden the already-added PMLA questionnaire UI wizard without rewriting it.
+
+Done:
+- Rechecked `frontend/src/components/dashboard/pmla-questionnaire-page.tsx`, `api-client.ts`, `page.tsx`, `sidebar.tsx`, and `nav-store.ts`.
+- Confirmed the UI uses the real backend routes `/api/v1/pmla-questionnaires/...` and `/api/v1/imports/...`; the prompt's `/api/v1/pmla/questionnaires/...` routes are outdated for this codebase.
+- Added generation readiness UX on the generation tab: completion percentage, scenario/service counters, explicit warnings, context collection button, and compact generation result summary.
+- Added `.gitignore` entry for `isap/backend/.pytest_tmp/` because pytest with local `--basetemp` creates it.
+- Removed tracked `.zip`, `.patch`, and log artifacts from Git history going forward; current tracked-artifact scan is clean.
+
+Verified:
+- `npx tsc --noEmit` -> passed.
+- `npm run build` -> passed.
+- `python -m pytest -q --basetemp .pytest_tmp` -> `265 passed, 50 warnings`.
+- `git diff --check` for changed files -> clean.
+- Frontend `http://127.0.0.1:3000/` -> HTTP 200.
+
+Notes:
+- `isap/frontend/next-env.d.ts` may appear modified after Next build only because of generated line-ending/stat noise; keep it out of commits unless the generated route reference intentionally changes.
+- Latest relevant commits: `4072c71 Add PMLA questionnaire UI wizard`, `5a6ef3e Polish PMLA questionnaire UI wizard`.
