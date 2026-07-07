@@ -1,7 +1,72 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-07T00:30
+**Дата обновления:** 2026-07-07T22:05
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Сессия 2026-07-07 (вечер): Улучшение качества текста ПМЛА + Headroom
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Улучшено качество текста разделов ПМЛА (6 разделов) | ✅ |
+| 2 | Добавлены 7 тестов качества формулировок | ✅ |
+| 3 | Установлен и настроен Headroom v0.30.0 | ✅ |
+
+### Улучшения качества текста ПМЛА
+
+**Изменённые файлы:**
+- `backend/src/application/engines/data_engine.py` — section_3, section_4, section_8, section_13
+- `backend/src/application/engines/scenario_engine.py` — нормализация + рендер кастомных сценариев
+- `backend/src/application/services/pmla_generation_from_questionnaire_service.py` — улучшена формулировка инцидентов
+- `backend/tests/test_pmla_questionnaire_docx_output.py` — 7 новых тестов качества
+
+**Улучшенные формулировки:**
+
+| Раздел | Было | Стало |
+|--------|------|-------|
+| section_3 (аварии) | `"аварии и инциденты не зарегистрированы"` | `"За период эксплуатации опасного производственного объекта аварии и инциденты, связанные с нарушением требований промышленной безопасности, не зарегистрированы"` |
+| section_4 (ресурсы) | 4 колонки, пустые → `"—"` | 7 колонок (Тип, Ответственное лицо, Назначение), пустые → `"не указано"` |
+| section_8 (оповещение) | Английские метки `"first receiver"` | Русские фразы `"Первое сообщение об аварии принимает..."` + таблица с русскими названиями |
+| section_13 (резерв) | `"Financial reserve order: ..."` | `"Финансовый резерв создан на основании приказа №..."` |
+| section_13 (страхование) | `"Insurance company: ..."` | `"Гражданская ответственность... застрахована в..."` |
+| сценарии | Только название | Структурированный текст: место, оборудование, вещество, последствия |
+
+**Тесты качества (`TestDocxQualityPhrases`):**
+- `test_incidents_no_incidents_quality_phrase`
+- `test_custom_scenario_quality_phrase`
+- `test_resources_table_columns`
+- `test_notification_scheme_russian_phrases`
+- `test_financial_reserve_quality_phrase`
+- `test_insurance_quality_phrase`
+- `test_no_raw_json_in_docx`
+- `test_engine_router_quality_phrases_in_docx` (полный pipeline)
+
+### Headroom v0.30.0
+
+**Установка:**
+- Репозиторий: `D:\Git Hub\headroom`
+- CLI: `C:\Users\dream\AppData\Roaming\Python\Python314\Scripts\headroom.exe`
+- Прокси: port 8787, healthy
+- RTK: `~/.headroom/bin/rtk.exe`
+- Code graph: `~/.local/bin/tokensave.exe`
+
+**Команда запуска:**
+```powershell
+headroom proxy --port 8787
+headroom wrap claude
+```
+
+### Результаты проверок
+
+| Проверка | Результат |
+|----------|-----------|
+| `pytest -q` | 296 passed |
+| `npm run build` | ✓ Compiled successfully |
+| `git status` | Чисто (auto-generated `next-env.d.ts` не коммитить) |
+| `git log` | `eb70156 Improve PMLA section text quality with official Russian formulations` |
 
 ---
 
