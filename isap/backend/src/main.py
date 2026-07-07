@@ -9,6 +9,8 @@ from starlette.responses import JSONResponse
 from src.api.routers import (
     ai,
     corpus,
+    directories_emergency_services,
+    directories_pasf,
     equipment,
     facilities,
     facility_types,
@@ -94,6 +96,8 @@ app.include_router(pmla_samples.router, prefix="/api/v1/pmla-samples", tags=["pm
 app.include_router(scenario_matrix.router, prefix="/api/v1/scenarios", tags=["scenarios"])
 app.include_router(facility_types.router, prefix="/api/v1/facility-types", tags=["facility-types"])
 app.include_router(imports.router, prefix="/api/v1/imports", tags=["smart-import"])
+app.include_router(directories_pasf.router, prefix="/api/v1/directories/pasf", tags=["directories-pasf"])
+app.include_router(directories_emergency_services.router, prefix="/api/v1/directories/emergency-services", tags=["directories-emergency-services"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 
 

@@ -558,24 +558,41 @@ export function PmlaQuestionnairePage() {
 
         <TabsContent value="pasf">
           <Card>
-            <CardHeader><CardTitle>ПАСФ</CardTitle></CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2">
-              <Input value={draft.selected_pasf_id || ""} onChange={(event) => updateDraft("selected_pasf_id", event.target.value)} placeholder="selected_pasf_id" />
-              {["name", "phone", "address", "certificate_number", "permitted_work_types", "equipment"].map((key) => (
-                <Input key={key} value={(draft.pasf_manual || {})[key] || ""} onChange={(event) => updateNested("pasf_manual", key, event.target.value)} placeholder={key} />
-              ))}
-              {!draft.selected_pasf_id && <Alert className="md:col-span-2"><AlertTriangle className="h-4 w-4" /><AlertTitle>ПАСФ не выбран</AlertTitle><AlertDescription>Можно заполнить ручные данные сейчас и связать справочник позже.</AlertDescription></Alert>}
-              <div className="md:col-span-2"><SectionActions saving={saving} onSave={async () => { await saveBlock("selected_pasf_id", draft.selected_pasf_id || ""); await saveBlock("pasf_manual", draft.pasf_manual || {}) }} /></div>
+            <CardHeader>
+              <CardTitle>ПАСФ</CardTitle>
+              <CardDescription>Выберите ПАСФ из справочника или заполните вручную.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <PasfDirectorySelector
+                selectedId={draft.selected_pasf_id || ""}
+                onSelect={(id) => updateDraft("selected_pasf_id", id)}
+              />
+              <div className="text-sm text-muted-foreground">Или заполните данные вручную:</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {["name", "phone", "address", "certificate_number", "permitted_work_types", "equipment"].map((key) => (
+                  <Input key={key} value={(draft.pasf_manual || {})[key] || ""} onChange={(event) => updateNested("pasf_manual", key, event.target.value)} placeholder={key} />
+                ))}
+              </div>
+              <SectionActions saving={saving} onSave={async () => { await saveBlock("selected_pasf_id", draft.selected_pasf_id || ""); await saveBlock("pasf_manual", draft.pasf_manual || {}) }} />
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="services">
           <Card>
-            <CardHeader><CardTitle>Аварийные службы</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Аварийные службы</CardTitle>
+              <CardDescription>Добавьте службы из справочника или введите вручную.</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-3">
+              <EmergencyServiceDirectorySelector
+                onAdd={(service) => {
+                  const current = getList(draft.selected_emergency_services)
+                  updateDraft("selected_emergency_services", [...current, service])
+                }}
+              />
               <Button variant="outline" onClick={() => updateDraft("selected_emergency_services", [...getList(draft.selected_emergency_services), { service_type: "fire", name: "", address: "", phone: "", dispatcher_phone: "", distance: "", arrival_time: "" }])} className="gap-2">
-                <Plus className="h-4 w-4" />Добавить службу
+                <Plus className="h-4 w-4" />Добавить службу вручную
               </Button>
               {getList(draft.selected_emergency_services).map((service, index) => (
                 <div key={index} className="grid gap-2 rounded-md border p-3 md:grid-cols-4">
@@ -1133,6 +1150,120 @@ function QualityReviewBlock({ review }: { review: import("@/lib/api-client").Pml
           <div className="font-medium mb-1">Рекомендации</div>
           <ul className="list-disc pl-4 text-muted-foreground">{review.recommendations.map((item) => <li key={item}>{item}</li>)}</ul>
         </div>
+      )}
+    </div>
+  )
+}
+
+function PasfDirectorySelector({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
+  const [items, setItems] = useState<AnyRecord[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState("")
+
+  useEffect(() => {
+    setLoading(true)
+    isapApi.getPasfUnits(search || undefined)
+      .then((data) => setItems(Array.isArray(data) ? data : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [search])
+
+  const selectedItem = items.find((i) => String(i.id) === selectedId)
+
+  return (
+    <div className="space-y-2">
+      <Label>Выбрать ПАСФ из справочника</Label>
+      <div className="flex gap-2">
+        <Input placeholder="Поиск ПАСФ..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+        {selectedId && (
+          <Button variant="ghost" size="sm" onClick={() => onSelect("")}>Сбросить</Button>
+        )}
+      </div>
+      {loading ? (
+        <div className="text-sm text-muted-foreground">Загрузка...</div>
+      ) : items.length > 0 ? (
+        <div className="grid gap-1 max-h-48 overflow-auto border rounded-md">
+          {items.map((item) => (
+            <div
+              key={String(item.id)}
+              onClick={() => onSelect(String(item.id))}
+              className={`px-3 py-2 text-sm cursor-pointer hover:bg-muted ${selectedId === String(item.id) ? "bg-muted font-medium" : ""}`}
+            >
+              {String(item.name)}
+              {item.actual_address && <span className="text-muted-foreground ml-2">— {String(item.actual_address)}</span>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground">Нет ПАСФ в справочнике. Создайте в разделе «Справочники».</div>
+      )}
+      {selectedItem && (
+        <div className="text-xs text-muted-foreground">
+          Выбран: {String(selectedItem.name)} {selectedItem.dispatch_phone ? `(${selectedItem.dispatch_phone})` : ""}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EmergencyServiceDirectorySelector({ onAdd }: { onAdd: (service: AnyRecord) => void }) {
+  const [items, setItems] = useState<AnyRecord[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState("")
+  const [filterType, setFilterType] = useState("all")
+
+  useEffect(() => {
+    setLoading(true)
+    isapApi.getEmergencyServices({ search: search || undefined, service_type: filterType !== "all" ? filterType : undefined })
+      .then((data) => setItems(Array.isArray(data) ? data : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [search, filterType])
+
+  return (
+    <div className="space-y-2">
+      <Label>Добавить из справочника служб</Label>
+      <div className="flex gap-2">
+        <Input placeholder="Поиск служб..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все</SelectItem>
+            <SelectItem value="fire">Пожарная</SelectItem>
+            <SelectItem value="medical">Медицинская</SelectItem>
+            <SelectItem value="police">Полиция</SelectItem>
+            <SelectItem value="gas">Газовая</SelectItem>
+            <SelectItem value="edds">ЕДДС</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {loading ? (
+        <div className="text-sm text-muted-foreground">Загрузка...</div>
+      ) : items.length > 0 ? (
+        <div className="grid gap-1 max-h-40 overflow-auto border rounded-md">
+          {items.map((item) => (
+            <div
+              key={String(item.id)}
+              onClick={() => onAdd({
+                service_type: item.service_type,
+                name: item.name,
+                address: item.address || "",
+                phone: item.phone || "",
+                dispatcher_phone: item.dispatcher_phone || "",
+                distance: "",
+                arrival_time: "",
+                source_directory_id: String(item.id),
+              })}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-muted flex items-center gap-2"
+            >
+              <span className="font-medium">{String(item.name)}</span>
+              {item.address && <span className="text-muted-foreground text-xs">— {String(item.address)}</span>}
+              <Button variant="ghost" size="sm" className="ml-auto text-xs">Добавить</Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground">Нет служб в справочнике. Создайте в разделе «Справочники».</div>
       )}
     </div>
   )

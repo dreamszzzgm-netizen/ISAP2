@@ -15,6 +15,8 @@ from src.infrastructure.repositories import (
     ScenarioMatrixRepository,
     SubstanceRepository,
 )
+from src.infrastructure.repositories.emergency_rescue_unit_repo import EmergencyRescueUnitRepository
+from src.infrastructure.repositories.emergency_service_repo import EmergencyServiceRepository
 from src.infrastructure.repositories.opo_details_repo import OpoDetailsRepository
 
 
@@ -61,3 +63,11 @@ def get_scenario_matrix_repo(db: AsyncSession = Depends(get_db)) -> ScenarioMatr
 
 def get_opo_details_repo(db: AsyncSession = Depends(get_db)) -> OpoDetailsRepository:
     return OpoDetailsRepository(db)
+
+
+def get_emergency_rescue_unit_repo(db: AsyncSession = Depends(get_db)) -> EmergencyRescueUnitRepository:
+    return EmergencyRescueUnitRepository(db)
+
+
+def get_emergency_service_repo(db: AsyncSession = Depends(get_db)) -> EmergencyServiceRepository:
+    return EmergencyServiceRepository(db)

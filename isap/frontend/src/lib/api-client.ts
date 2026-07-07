@@ -194,4 +194,29 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/ai-review`, { method: "POST" }),
   getQuestionnaireDocuments: (questionnaireId: string) =>
     apiRequest<PmlaDocumentListItem[]>(`/api/v1/pmla-questionnaires/${questionnaireId}/documents`),
+
+  // Directories: ПАСФ
+  getPasfUnits: (search?: string) =>
+    apiRequest<unknown[]>(`/api/v1/directories/pasf${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+  createPasfUnit: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/directories/pasf", { method: "POST", body: JSON.stringify(data) }),
+  updatePasfUnit: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/directories/pasf/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deletePasfUnit: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/directories/pasf/${id}`, { method: "DELETE" }),
+
+  // Directories: Emergency services
+  getEmergencyServices: (params?: { search?: string; service_type?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set("search", params.search)
+    if (params?.service_type) q.set("service_type", params.service_type)
+    const qs = q.toString()
+    return apiRequest<unknown[]>(`/api/v1/directories/emergency-services${qs ? `?${qs}` : ""}`)
+  },
+  createEmergencyService: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/directories/emergency-services", { method: "POST", body: JSON.stringify(data) }),
+  updateEmergencyService: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/directories/emergency-services/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteEmergencyService: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/directories/emergency-services/${id}`, { method: "DELETE" }),
 }
