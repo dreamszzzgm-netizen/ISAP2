@@ -1,7 +1,50 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-07T22:05
+**Дата обновления:** 2026-07-08T00:30
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Сессия 2026-07-08: Smart Import для справочников + сохранение прогресса
+
+### Завершённые задачи
+
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | Smart Import: emergency_services profile | ✅ |
+| 2 | Frontend ImportWidget: preview/confirm flow | ✅ |
+| 3 | Сохранение прогресса в PROGRESS.md | ✅ |
+
+### Smart Import для справочников
+
+**Изменённые файлы:**
+- `backend/src/application/services/smart_import/profiles.py` — добавлен `emergency_services` profile
+- `backend/src/application/services/smart_import/service.py` — confirm обрабатывает emergency_services
+- `frontend/src/components/dashboard/directories-page.tsx` — ImportWidget для обеих вкладок
+
+**emergency_services profile:**
+- Колонки: service_type, name, address, phone, dispatcher_phone, municipality, settlement, latitude, longitude, service_area, notes
+- Русские синонимы: "Тип службы", "Вид службы", "Категория" → service_type
+- Нормализация типов: пожарная→fire, скорая→medical, полиция→police, газовая→gas, ЕДДС→edds
+
+**Дедупликация:**
+- emergency_services: name + address
+- pasf_units: name + certificate_number
+
+**Frontend ImportWidget:**
+- Кнопка "Импорт Excel/CSV" на обеих вкладках
+- Выбор файла → preview с таблицей → подтверждение
+- Показывает: создано, обновлено, ошибки
+- После confirm обновляет список
+
+### Результаты проверок
+
+| Проверка | Результат |
+|----------|-----------|
+| `pytest -q` | 330 passed |
+| `npm run build` | ✓ Compiled successfully |
+| `git status` | Clean, origin/main synced |
+| `git log` | `f83d95a feat: Smart Import for directories` |
 
 ---
 
