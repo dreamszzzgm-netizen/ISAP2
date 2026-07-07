@@ -101,6 +101,16 @@ export type PmlaGenerationResult = {
   debug_artifacts?: Record<string, string> | null
 }
 
+export type PmlaDocumentListItem = {
+  document_id: string
+  version?: number
+  status: string
+  created_at?: string
+  quality_score?: number
+  quality_status?: "ok" | "warning" | "critical"
+  download_available?: boolean
+}
+
 export type ImportPreviewResult = {
   job?: { id: string; status: string; error_rows?: number; warning_rows?: number; created_rows?: number }
   rows?: Array<Record<string, unknown>>
@@ -182,4 +192,6 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/ai-review`),
   runAiReview: (documentId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/ai-review`, { method: "POST" }),
+  getQuestionnaireDocuments: (questionnaireId: string) =>
+    apiRequest<PmlaDocumentListItem[]>(`/api/v1/pmla-questionnaires/${questionnaireId}/documents`),
 }

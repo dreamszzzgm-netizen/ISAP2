@@ -126,6 +126,7 @@ class DocumentModel(Base):
     rejected_at = Column(DateTime)
     review_date = Column(DateTime)
     regeneration_count = Column(Integer, default=0)
+    version = Column(Integer, default=1)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 

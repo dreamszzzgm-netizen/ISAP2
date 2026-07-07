@@ -32,7 +32,7 @@ function pretty(value: unknown) {
 }
 
 export function DocumentDetailPage() {
-  const { documentDetailId: docId, goBack } = useNavStore()
+  const { documentDetailId: docId, goBack, openDocumentDetail } = useNavStore()
   const [doc, setDoc] = useState<AnyRecord | null>(null)
   const [preview, setPreview] = useState<AnyRecord | null>(null)
   const [versions, setVersions] = useState<AnyRecord[]>([])
@@ -57,6 +57,14 @@ export function DocumentDetailPage() {
       ])
       setDoc(status)
       setVersions(Array.isArray(vers) ? vers : [])
+
+      // Also load sibling documents from the same questionnaire.
+      const meta = (status as AnyRecord)?.generation_meta as AnyRecord | undefined
+      const qid = meta?.questionnaire_id
+      if (qid) {
+        const siblings = await isapApi.getQuestionnaireDocuments(String(qid))
+        setVersions(siblings)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось загрузить документ")
     } finally {
@@ -281,15 +289,37 @@ export function DocumentDetailPage() {
                 <div className="text-sm text-muted-foreground py-8 text-center">Версии отсутствуют</div>
               ) : (
                 <div className="space-y-2">
-                  {versions.map((v: AnyRecord, i: number) => (
-                    <div key={i} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                      <div>
-                        <span className="font-medium">Версия {String(v.version_number || i + 1)}</span>
-                        {v.created_at && <span className="text-muted-foreground ml-2">{String(v.created_at)}</span>}
+                  {versions.map((v: AnyRecord, i: number) => {
+                    const isCurrent = String(v.document_id) === docId
+                    const qualityScore = v.quality_score
+                    const qualityStatus = v.quality_status as string | undefined
+                    const scoreColor = qualityStatus === "critical" ? "text-red-600" : qualityStatus === "warning" ? "text-yellow-600" : "text-green-600"
+                    return (
+                      <div key={i} className={`flex items-center justify-between rounded-md border p-3 text-sm ${isCurrent ? "border-blue-300 bg-blue-50/50" : ""}`}>
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">Версия {String(v.version ?? i + 1)}</span>
+                          {isCurrent && <Badge variant="default" className="text-xs">Текущая</Badge>}
+                          {v.created_at && <span className="text-muted-foreground text-xs">{new Date(v.created_at).toLocaleString("ru-RU")}</span>}
+                          {qualityScore != null && (
+                            <span className={`text-xs font-medium ${scoreColor}`}>{qualityScore} / 100</span>
+                          )}
+                          {qualityStatus && (
+                            <Badge variant={qualityStatus === "critical" ? "destructive" : qualityStatus === "warning" ? "secondary" : "default"} className="text-xs">
+                              {qualityStatus}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{String(v.status || "—")}</Badge>
+                          {v.download_available !== false && (
+                            <Button variant="ghost" size="sm" onClick={() => openDocumentDetail(String(v.document_id))} className="gap-1 text-xs">
+                              Открыть
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <Badge variant="outline">{String(v.status || "—")}</Badge>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

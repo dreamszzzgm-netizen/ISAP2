@@ -134,9 +134,31 @@ async def generate_from_questionnaire(
             "status": result.status,
             "version": result.version,
             "context_quality": result.context_quality,
+            "quality_review": result.quality_review,
             "debug_artifacts": result.debug_artifacts,
         }
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - API boundary
         raise HTTPException(status_code=500, detail=f"Ошибка генерации ПМЛА из анкеты: {exc}") from exc
+
+
+@router.get("/{questionnaire_id}/documents")
+async def list_questionnaire_documents(
+    questionnaire_id: UUID,
+    document_repo: DocumentRepository = Depends(get_document_repo),
+):
+    """Return all documents generated from this questionnaire, newest first."""
+    docs = await document_repo.get_by_questionnaire(questionnaire_id)
+    return [
+        {
+            "document_id": str(doc.id),
+            "version": doc.version,
+            "status": doc.status,
+            "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            "quality_score": (doc.generation_meta or {}).get("quality_review", {}).get("score"),
+            "quality_status": (doc.generation_meta or {}).get("quality_review", {}).get("overall_status"),
+            "download_available": bool(doc.content_docx),
+        }
+        for doc in docs
+    ]

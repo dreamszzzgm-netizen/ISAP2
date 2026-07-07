@@ -76,12 +76,16 @@ class PmlaGenerationFromQuestionnaireService:
         facility_id = UUID(str(facility.get("id")))
         organization_id = UUID(str(organization.get("id")))
 
+        # Compute next version for this questionnaire.
+        next_version = await self.document_repo.get_max_version_for_questionnaire(questionnaire_id) + 1
+
         doc = DocumentModel(
             hazardous_facility_id=facility_id,
             organization_id=organization_id,
             document_type="pmla",
             title="План мероприятий по локализации и ликвидации последствий аварий",
             status="processing",
+            version=next_version,
             generation_meta={
                 "source": "pmla_questionnaire",
                 "questionnaire_id": str(questionnaire_id),
