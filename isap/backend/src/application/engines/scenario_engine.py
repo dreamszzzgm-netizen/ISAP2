@@ -101,6 +101,10 @@ def _normalize_context_scenarios(scenarios: list) -> list[dict]:
                     "executors": scenario.get("executors") or scenario.get("personnel_actions") or "—",
                     "actions": scenario.get("actions") or description,
                     "category": scenario.get("category") or "questionnaire",
+                    # Дополнительные поля из анкеты для качественного рендера
+                    "place": scenario.get("place") or scenario.get("source_equipment") or "",
+                    "equipment": scenario.get("equipment") or "",
+                    "hazardous_substance": scenario.get("hazardous_substance") or "",
                 }
             )
         else:
@@ -113,6 +117,9 @@ def _normalize_context_scenarios(scenarios: list) -> list[dict]:
                     "signs": "—",
                     "factors": "—",
                     "category": "questionnaire",
+                    "place": "",
+                    "equipment": "",
+                    "hazardous_substance": "",
                 }
             )
     return normalized
@@ -177,6 +184,30 @@ class ScenarioEngine(BaseEngine):
             },
         )
 
+    @staticmethod
+    def _render_custom_scenario_narrative(scenario: dict, idx: int) -> list[Block]:
+        """Рендерит кастомный сценарий из анкеты в виде связного текста."""
+        blocks: list[Block] = []
+        name = scenario.get("name", f"Сценарий {idx}")
+        blocks.append(ParagraphBlock(text=f"Сценарий: {name}.", bold=True))
+
+        place = scenario.get("place", "")
+        if place:
+            blocks.append(ParagraphBlock(text=f"Место возможного возникновения аварии: {place}."))
+        equipment = scenario.get("equipment", "")
+        if equipment:
+            blocks.append(ParagraphBlock(text=f"Задействованное оборудование: {equipment}."))
+        substance = scenario.get("hazardous_substance", "")
+        if substance:
+            blocks.append(ParagraphBlock(text=f"Опасное вещество: {substance}."))
+        consequences = scenario.get("consequences", "")
+        if consequences:
+            blocks.append(ParagraphBlock(text=f"Возможные последствия: {consequences}."))
+        description = scenario.get("description", "") or scenario.get("causes", "")
+        if description:
+            blocks.append(ParagraphBlock(text=f"Описание сценария: {description}."))
+        return blocks
+
     def _render_section_2(self, scenarios: list[dict], context: DocumentContext) -> list[Block]:
         """
         Рендерит раздел 2 — Сценарии наиболее вероятных аварий.
@@ -185,6 +216,14 @@ class ScenarioEngine(BaseEngine):
         """
         equipment = context.equipment
         blocks: list[Block] = []
+
+        # Текстовый блок: кастомные сценарии из анкеты
+        custom_scenarios = [s for s in scenarios if s.get("category") == "questionnaire"]
+        if custom_scenarios:
+            blocks.append(ParagraphBlock(text="Сценарии, определённые по результатам анализа объекта:"))
+            for i, cs in enumerate(custom_scenarios, 1):
+                blocks.extend(self._render_custom_scenario_narrative(cs, i))
+            blocks.append(ParagraphBlock(text=""))
 
         # Таблица 4 — Сценарии по элементам оборудования
         table4_headers = ["№ п/п", "Элемент оборудования", "Наименование сценария", "Вероятность"]

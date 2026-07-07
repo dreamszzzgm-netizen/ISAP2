@@ -177,13 +177,51 @@ class DataEngine(BaseEngine):
 
         # Информация из анкеты об авариях/инцидентах
         incidents = ctx.accidents_and_incidents or []
+        has_incident_items = False
         for item in incidents:
-            if isinstance(item, dict):
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type", "")
+            # Statement = "аварий не зарегистрированы" — выводим как абзац
+            if item_type == "statement":
                 desc = item.get("description", "")
                 if desc:
                     blocks.append(ParagraphBlock(text=desc))
-            elif isinstance(item, str):
-                blocks.append(ParagraphBlock(text=item))
+                continue
+            # Требуют заполнения — пропускаем служебный маркер
+            if item_type == "requires_manual_details":
+                continue
+            # Реальный инцидент — собираем таблицу
+            has_incident_items = True
+
+        if has_incident_items:
+            inc_headers = [
+                "Дата", "Тип события", "Место", "Описание",
+                "Причина", "Последствия", "Принятые меры", "Документ-основание",
+            ]
+            inc_rows = []
+            for item in incidents:
+                if not isinstance(item, dict) or item.get("type") in ("statement", "requires_manual_details"):
+                    continue
+                row = [
+                    _s(item, "date", "не указано"),
+                    _s(item, "type", "не указано"),
+                    _s(item, "place", "не указано"),
+                    _s(item, "description", "не указано"),
+                    _s(item, "cause", "не указано"),
+                    _s(item, "consequences", "не указано"),
+                    _s(item, "measures", "не указано"),
+                    _s(item, "document", "не указано"),
+                ]
+                # Убираем пустые значения
+                row = [v if v and v not in ("—", "None") else "не указано" for v in row]
+                inc_rows.append(row)
+            if inc_rows:
+                blocks.append(TableBlock(
+                    headers=inc_headers,
+                    rows=inc_rows,
+                    caption="Сведения об авариях и инцидентах на объекте",
+                ))
 
         # Таблица 7 — Травматизм за 3 года
         t7_headers = ["№ п/п", "Год", "Количество травмированных", "Количество погибших", "Причина"]
@@ -244,6 +282,22 @@ class DataEngine(BaseEngine):
             return f"Газоанализатор: {name}"
         return f"{category}: {name}"
 
+    @staticmethod
+    def _resource_type_label(item: dict) -> str:
+        """Человекочитаемая метка типа ресурса."""
+        raw = (item.get("type") or "").lower()
+        mapping = {
+            "control": "Контрольно-измерительный",
+            "firefighting": "Пожарный",
+            "ppe": "Средства индивидуальной защиты",
+            "rescue": "Спасательный",
+            "medical": "Медицинский",
+            "communication": "Средство связи",
+            "tools": "Инструмент",
+            "equipment": "Оборудование",
+        }
+        return mapping.get(raw, raw or "не указано")
+
     def _render_section_4(self, ctx: DocumentContext) -> list[Block]:
         """Раздел 4 — Количество необходимых сил и средств (Таблица 10)."""
         blocks: list[Block] = []
@@ -251,7 +305,10 @@ class DataEngine(BaseEngine):
         facility_type = ctx.facility.get("facility_type") if ctx.facility else None
         kit = get_equipment_kit(facility_type) if facility_type else get_equipment_kit("default")
 
-        t10_headers = ["№ п/п", "Наименование ресурсов", "Количество", "Место хранения"]
+        t10_headers = [
+            "№ п/п", "Наименование", "Тип", "Количество",
+            "Место хранения", "Ответственное лицо", "Назначение",
+        ]
         t10_rows = []
         idx = 1
         for category, key in [("СИЗ", "ppe"), ("Инструмент", "tools"), ("Оборудование", "equipment")]:
@@ -259,20 +316,31 @@ class DataEngine(BaseEngine):
                 t10_rows.append([
                     str(idx),
                     self._resource_name(category, item.get("name", "—")),
-                    item.get("quantity", "—"),
-                    item.get("location", "—"),
+                    category,
+                    item.get("quantity", "не указано"),
+                    item.get("location", "не указано"),
+                    "не указано",
+                    "не указано",
                 ])
                 idx += 1
         for item in ctx.protective_equipment:
             t10_rows.append([
                 str(idx),
-                _s(item, "name"),
-                _s(item, "quantity"),
-                item.get("location") or item.get("storage_place") or "—",
+                _s(item, "name", "не указано"),
+                self._resource_type_label(item),
+                _s(item, "quantity", "не указано"),
+                _s(item, "location") if item.get("location") else _s(item, "storage_place", "не указано"),
+                _s(item, "responsible_person", "не указано"),
+                _s(item, "purpose", "не указано"),
             ])
             idx += 1
+        # Заменяем — и None на «не указано»
+        for row in t10_rows:
+            for i in range(len(row)):
+                if row[i] in ("—", "None", ""):
+                    row[i] = "не указано"
         if not t10_rows:
-            t10_rows = [["—", "Сведения о ресурсах не предоставлены.", "—", "—"]]
+            t10_rows = [["—", "Сведения о ресурсах не предоставлены.", "—", "—", "—", "—", "—"]]
         blocks.append(TableBlock(
             headers=t10_headers,
             rows=t10_rows,
@@ -333,14 +401,40 @@ class DataEngine(BaseEngine):
 
         return blocks
 
+    # Маппинг ключей notification_scheme → русские описания действий
+    _NOTIFICATION_ACTION_MAP: list[tuple[str, str]] = [
+        ("first_receiver", "Первое сообщение об аварии принимает"),
+        ("incident_commander", "Общее руководство первоочередными действиями осуществляет"),
+        ("pasf_caller", "Вызов ПАСФ осуществляет"),
+        ("fire_caller", "Вызов пожарной охраны осуществляет"),
+        ("medical_caller", "Вызов скорой медицинской помощи осуществляет"),
+        ("shutdown_responsible", "Отключение оборудования выполняет"),
+        ("evacuation_responsible", "Эвакуацию персонала организует"),
+        ("service_meeting_responsible", "Встречу прибывающих аварийных служб обеспечивает"),
+    ]
+
     def _render_section_8(self, ctx: DocumentContext) -> list[Block]:
-        """Раздел 8 — Управление, связь, оповещение (Таблица 14)."""
+        """Раздел 8 — Управление, связь, оповещение (Таблица 14 + текст)."""
         blocks: list[Block] = []
 
         facility_type = ctx.facility.get("facility_type") if ctx.facility else None
         template = get_notification_services(facility_type) if facility_type else get_notification_services("default")
         persons = ctx.persons or []
 
+        # --- Текстовый блок: порядок оповещения из анкеты ---
+        notification = ctx.notification_scheme or {}
+        notification_lines = []
+        for key, action_prefix in self._NOTIFICATION_ACTION_MAP:
+            value = notification.get(key)
+            if value:
+                notification_lines.append(f"{action_prefix} {value}.")
+        if notification_lines:
+            blocks.append(ParagraphBlock(text="Порядок оповещения при аварии:"))
+            for line in notification_lines:
+                blocks.append(ParagraphBlock(text=line))
+            blocks.append(ParagraphBlock(text=""))
+
+        # --- Таблица 14: Схема оповещения ---
         t14_headers = ["№ п/п", "Должность / Служба", "ФИО / Наименование", "Телефон", "Порядок оповещения"]
         t14_rows = []
 
@@ -354,8 +448,8 @@ class DataEngine(BaseEngine):
             t14_rows.append([
                 str(item.get("order", len(t14_rows) + 1)),
                 position,
-                _s(person, "full_name") if person else "—",
-                _s(person, "phone") if person else "—",
+                _s(person, "full_name") if person else "не указано",
+                _s(person, "phone") if person else "не указано",
                 "Немедленно",
             ])
 
@@ -371,25 +465,26 @@ class DataEngine(BaseEngine):
                     "Немедленно",
                 ])
 
-        notification = ctx.notification_scheme or {}
-        for key, label in [
-            ("first_receiver", "first receiver"),
-            ("incident_commander", "incident commander"),
-            ("pasf_caller", "PASF caller"),
-            ("fire_caller", "fire caller"),
-            ("medical_caller", "medical caller"),
-            ("shutdown_responsible", "shutdown responsible"),
-            ("evacuation_responsible", "evacuation responsible"),
-            ("service_meeting_responsible", "service meeting responsible"),
-        ]:
+        # Роли из анкеты — с русскими названиями
+        _notification_russian_labels = {
+            "first_receiver": "Приём первого сообщения",
+            "incident_commander": "Руководитель первоочередных действий",
+            "pasf_caller": "Вызов ПАСФ",
+            "fire_caller": "Вызов пожарной охраны",
+            "medical_caller": "Вызов скорой помощи",
+            "shutdown_responsible": "Отключение оборудования",
+            "evacuation_responsible": "Эвакуация персонала",
+            "service_meeting_responsible": "Встреча аварийных служб",
+        }
+        for key, russian_label in _notification_russian_labels.items():
             value = notification.get(key)
             if value:
                 t14_rows.append([
                     str(len(t14_rows) + 1),
-                    label,
+                    russian_label,
                     str(value),
                     "—",
-                    "questionnaire",
+                    "Немедленно",
                 ])
 
         for item in template.get("external", []):
@@ -401,6 +496,12 @@ class DataEngine(BaseEngine):
                 "По вызову",
             ])
 
+        # Заменяем пустые значения
+        for row in t14_rows:
+            for i in range(len(row)):
+                if row[i] in ("—", "None", ""):
+                    row[i] = "не указано"
+
         if not t14_rows:
             t14_rows = [["1", "—", "—", "—", "—"]]
         blocks.append(TableBlock(
@@ -410,6 +511,19 @@ class DataEngine(BaseEngine):
         ))
 
         return blocks
+
+    @staticmethod
+    def _format_date_ru(date_str: str) -> str:
+        """Конвертирует YYYY-MM-DD → DD.MM.YYYY для официального текста."""
+        if not date_str or date_str in ("—", "None"):
+            return ""
+        try:
+            parts = date_str.split("-")
+            if len(parts) == 3:
+                return f"{parts[2]}.{parts[1]}.{parts[0]}"
+        except (ValueError, IndexError):
+            pass
+        return date_str
 
     def _render_section_13(self, ctx: DocumentContext) -> list[Block]:
         """Раздел 13 — Материально-техническое обеспечение."""
@@ -426,13 +540,67 @@ class DataEngine(BaseEngine):
         blocks.append(ParagraphBlock(text=f"Юридический адрес: {_s(org, 'address')}"))
         blocks.append(ParagraphBlock(text=f"ИНН: {_s(org, 'inn')}"))
 
+        # --- Финансовый резерв ---
         reserve = ctx.material_reserve or {}
-        if reserve:
-            blocks.append(ParagraphBlock(text=f"Financial reserve order: {reserve.get('fin_reserve_order', '—')}"))
-            blocks.append(ParagraphBlock(text=f"Financial reserve amount: {reserve.get('fin_reserve_amount', '—')}"))
-            blocks.append(ParagraphBlock(text=f"Insurance company: {reserve.get('insurance_company', '—')}"))
-            blocks.append(ParagraphBlock(text=f"Insurance contract: {reserve.get('insurance_contract', '—')}"))
-            blocks.append(ParagraphBlock(text=f"Insurance valid until: {reserve.get('insurance_valid_until', '—')}"))
+        order = reserve.get("fin_reserve_order", "")
+        amount = reserve.get("fin_reserve_amount", "")
+
+        has_reserve = order and order not in ("—", "None") and amount and amount not in ("—", "None")
+        if has_reserve:
+            # Извлекаем номер и дату из строки вида "12-ПБ от 2026-01-15"
+            order_number = order
+            order_date = ""
+            if " от " in order:
+                parts = order.split(" от ", 1)
+                order_number = parts[0]
+                order_date = self._format_date_ru(parts[1])
+
+            date_text = f" от {order_date}" if order_date else ""
+            blocks.append(ParagraphBlock(text=(
+                f"Финансовый резерв для локализации и ликвидации последствий аварий "
+                f"создан на основании приказа № {order_number}{date_text}. "
+                f"Размер финансового резерва составляет {amount} руб."
+            )))
+            responsible = reserve.get("responsible")
+            if responsible and responsible not in ("—", "None"):
+                blocks.append(ParagraphBlock(text=(
+                    f"Ответственным за учёт и использование финансового резерва "
+                    f"назначен {responsible}."
+                )))
+        else:
+            blocks.append(ParagraphBlock(text=(
+                "Сведения о создании финансового резерва в представленных исходных данных отсутствуют."
+            )))
+
+        # --- Страхование ---
+        # Данные могут быть в ctx.insurance (из прямого контекста) или
+        # в material_reserve (из анкеты — адаптированной).
+        insurance = ctx.insurance or {}
+        company = insurance.get("company") or reserve.get("insurance_company") or ""
+        contract_number = insurance.get("contract_number") or reserve.get("insurance_contract") or ""
+        valid_until = insurance.get("valid_until") or reserve.get("insurance_valid_until") or ""
+        insured_amount = insurance.get("insured_amount") or reserve.get("insurance_amount") or ""
+        has_contract = insurance.get("has_contract") if "has_contract" in insurance else bool(company and company not in ("—", "None"))
+
+        if has_contract and company and company not in ("—", "None"):
+            valid_until_text = ""
+            if valid_until and valid_until not in ("—", "None"):
+                formatted_date = self._format_date_ru(valid_until)
+                valid_until_text = f" Срок действия договора — до {formatted_date}."
+            amount_text = ""
+            if insured_amount and insured_amount not in ("—", "None"):
+                amount_text = f" Страховая сумма составляет {insured_amount} руб."
+            contract_text = f" по договору № {contract_number}" if contract_number and contract_number not in ("—", "None") else ""
+            blocks.append(ParagraphBlock(text=(
+                f"Гражданская ответственность владельца опасного производственного объекта "
+                f"за причинение вреда в результате аварии застрахована в {company}"
+                f"{contract_text}.{valid_until_text}{amount_text}"
+            )))
+        else:
+            blocks.append(ParagraphBlock(text=(
+                "Сведения о договоре обязательного страхования гражданской ответственности "
+                "в исходных данных отсутствуют."
+            )))
 
         return blocks
 

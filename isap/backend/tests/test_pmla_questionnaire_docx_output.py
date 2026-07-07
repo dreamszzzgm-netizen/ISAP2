@@ -170,7 +170,9 @@ class TestAdaptContextForGenerator:
         ctx = self.service.adapt_context_for_generator(SAMPLE_QUESTIONNAIRE_DATA)
         items = ctx.get("accidents_and_incidents", [])
         assert len(items) == 1
-        assert "не зарегистрированы" in items[0].get("description", "").lower()
+        desc = items[0].get("description", "").lower()
+        assert "не зарегистрированы" in desc
+        assert "опасного производственного объекта" in desc
 
     def test_custom_scenarios_appear(self):
         ctx = self.service.adapt_context_for_generator(SAMPLE_QUESTIONNAIRE_DATA)
@@ -472,6 +474,188 @@ class TestFullDocxBuildFromEngines:
         assert len(found) == len(required), f"Only {len(found)}/{len(required)} found"
 
 
+class TestDocxQualityPhrases:
+    """Test that DOCX contains official-quality phrases, not raw data dumps."""
+
+    def setup_method(self):
+        self.service = PmlaGenerationFromQuestionnaireService(
+            document_repo=MagicMock(),
+            regulatory_repo=MagicMock(),
+            scenario_matrix_repo=MagicMock(),
+        )
+
+    def _make_doc_context(self):
+        ctx = self.service.adapt_context_for_generator(SAMPLE_QUESTIONNAIRE_DATA)
+        return DocumentContext.from_dict(ctx)
+
+    def _build_docx_text(self, all_blocks: dict) -> str:
+        import io
+        from docx.shared import Pt, Cm
+        from src.application.engines.blocks import HeadingBlock, ParagraphBlock, TableBlock
+
+        doc = DocxDocument()
+        section_layout = doc.sections[0]
+        section_layout.top_margin = Cm(2.0)
+        section_layout.bottom_margin = Cm(2.0)
+        section_layout.left_margin = Cm(3.0)
+        section_layout.right_margin = Cm(1.5)
+        style = doc.styles["Normal"]
+        style.font.name = "Times New Roman"
+        style.font.size = Pt(12)
+
+        for title, blocks_or_str in all_blocks.items():
+            if isinstance(blocks_or_str, str):
+                doc.add_paragraph(blocks_or_str)
+            elif isinstance(blocks_or_str, list):
+                for block in blocks_or_str:
+                    if isinstance(block, HeadingBlock):
+                        h = doc.add_heading(level=block.level)
+                        h.text = block.text
+                    elif isinstance(block, ParagraphBlock):
+                        p = doc.add_paragraph()
+                        run = p.add_run(block.text)
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+                    elif isinstance(block, TableBlock):
+                        num_rows = 1 + len(block.rows)
+                        num_cols = len(block.headers)
+                        t = doc.add_table(rows=num_rows, cols=num_cols)
+                        for j, hdr in enumerate(block.headers):
+                            t.cell(0, j).text = str(hdr)
+                        for i, row in enumerate(block.rows):
+                            for j, val in enumerate(row):
+                                t.cell(i + 1, j).text = str(val)
+            doc.add_paragraph()
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        return extract_docx_text(buf.getvalue())
+
+    @pytest.mark.asyncio
+    async def test_incidents_no_incidents_quality_phrase(self):
+        """When no incidents — check for official phrase, not raw JSON."""
+        from src.application.engines.data_engine import DataEngine
+
+        engine = DataEngine()
+        doc_ctx = self._make_doc_context()
+        result = await engine.generate("section_3", {"title": "Аварийность"}, doc_ctx)
+        text = result.content
+        assert "не зарегистрированы" in text.lower(), f"Missing quality phrase in section_3: {text[:500]}"
+        # Should NOT contain raw JSON/Python dict
+        assert "None" not in text, f"Raw None found in section_3: {text[:500]}"
+        assert "{'" not in text, f"Raw dict found in section_3: {text[:500]}"
+
+    @pytest.mark.asyncio
+    async def test_custom_scenario_quality_phrase(self):
+        """Custom scenario should have structured narrative text."""
+        from src.application.engines.scenario_engine import ScenarioEngine
+
+        engine = ScenarioEngine()
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+        result = await engine.generate("section_2", {"title": "Сценарии"}, doc_ctx)
+        text = result.content
+        # Quality phrases from the task spec
+        assert "Место возможного возникновения аварии" in text, f"Missing scenario place in section_2: {text[:500]}"
+        assert "газопровод / ГРУ" in text, f"Missing scenario place value in section_2: {text[:500]}"
+        assert "Задействованное оборудование" in text, f"Missing scenario equipment in section_2: {text[:500]}"
+        assert "Опасное вещество" in text, f"Missing scenario substance in section_2: {text[:500]}"
+
+    @pytest.mark.asyncio
+    async def test_resources_table_columns(self):
+        """Resources table should have extended columns with human-readable type."""
+        from src.application.engines.data_engine import DataEngine
+
+        engine = DataEngine()
+        doc_ctx = self._make_doc_context()
+        result = await engine.generate("section_4", {"title": "Силы и средства"}, doc_ctx)
+        text = result.content
+        # Check for extended table columns
+        assert "Тип" in text, f"Missing 'Тип' column in section_4 table: {text[:500]}"
+        assert "Ответственное лицо" in text or "Назначение" in text, \
+            f"Missing extended columns in section_4: {text[:500]}"
+        # No raw Python representations
+        assert "{'" not in text, f"Raw dict in section_4: {text[:500]}"
+
+    @pytest.mark.asyncio
+    async def test_notification_scheme_russian_phrases(self):
+        """Notification scheme should have Russian narrative, not English labels."""
+        from src.application.engines.data_engine import DataEngine
+
+        engine = DataEngine()
+        doc_ctx = self._make_doc_context()
+        result = await engine.generate("section_8", {"title": "Оповещение"}, doc_ctx)
+        text = result.content
+        # Check for Russian action phrases
+        assert "Первое сообщение об аварии принимает" in text, \
+            f"Missing Russian notification phrase: {text[:500]}"
+        assert "оператор котельной" in text, f"Missing notification role: {text[:500]}"
+        # Should NOT contain English labels
+        assert "first receiver" not in text.lower(), f"English label found in section_8: {text[:500]}"
+        assert "PASF caller" not in text, f"English label found in section_8: {text[:500]}"
+
+    @pytest.mark.asyncio
+    async def test_financial_reserve_quality_phrase(self):
+        """Financial reserve should have official Russian text."""
+        from src.application.engines.data_engine import DataEngine
+
+        engine = DataEngine()
+        doc_ctx = self._make_doc_context()
+        result = await engine.generate("section_13", {"title": "Матобеспечение"}, doc_ctx)
+        text = result.content
+        # Check for official phrases
+        assert "приказа № 12-ПБ" in text or "приказа №" in text, \
+            f"Missing financial reserve order phrase: {text[:500]}"
+        assert "Размер финансового резерва" in text or "500000" in text, \
+            f"Missing financial reserve amount: {text[:500]}"
+        # Should NOT contain English labels
+        assert "Financial reserve" not in text, f"English label in section_13: {text[:500]}"
+
+    @pytest.mark.asyncio
+    async def test_insurance_quality_phrase(self):
+        """Insurance should have official Russian text."""
+        from src.application.engines.data_engine import DataEngine
+
+        engine = DataEngine()
+        doc_ctx = self._make_doc_context()
+        result = await engine.generate("section_13", {"title": "Матобеспечение"}, doc_ctx)
+        text = result.content
+        # Check for official phrases
+        assert "Гражданская ответственность" in text, \
+            f"Missing insurance phrase: {text[:500]}"
+        assert "АО Страховая компания" in text, f"Missing insurance company: {text[:500]}"
+        assert "ГО-123456" in text, f"Missing insurance contract: {text[:500]}"
+        # Should NOT contain English labels
+        assert "Insurance company" not in text, f"English label in section_13: {text[:500]}"
+
+    @pytest.mark.asyncio
+    async def test_no_raw_json_in_docx(self):
+        """DOCX should not contain raw JSON/Python dict/list representations."""
+        from src.application.engines.data_engine import DataEngine
+        from src.application.engines.scenario_engine import ScenarioEngine
+
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+
+        all_blocks = {}
+        for engine in [DataEngine(), ScenarioEngine()]:
+            for sid in ["section_3", "section_4", "section_8", "section_13"]:
+                result = await engine.generate(sid, {"title": sid}, doc_ctx)
+                if result.blocks:
+                    all_blocks[sid] = result.blocks
+
+        for sid, blocks in all_blocks.items():
+            for block in blocks:
+                if hasattr(block, "text"):
+                    text = block.text
+                    assert "{'" not in text, f"Raw dict in {sid}: {text[:200]}"
+                    assert "None" not in text, f"Raw None in {sid}: {text[:200]}"
+                elif hasattr(block, "rows"):
+                    for row in block.rows:
+                        for cell in row:
+                            assert "{'" not in str(cell), f"Raw dict in {sid} table: {cell[:200]}"
+
+
 class TestFullEngineRouterPipeline:
     """End-to-end: run ALL engines through EngineRouter, build real DOCX, verify data."""
 
@@ -591,6 +775,54 @@ class TestFullEngineRouterPipeline:
             f"DOCX text preview:\n{text[:3000]}"
         )
         assert len(found) == len(required), f"Only {len(found)}/{len(required)} found"
+
+    @pytest.mark.asyncio
+    async def test_engine_router_quality_phrases_in_docx(self):
+        """Verify quality phrases appear in the full DOCX pipeline output."""
+        from src.application.services.engine_integration import create_engine_router
+
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+
+        engine_router = create_engine_router()
+        all_results = await engine_router.generate_all(doc_ctx)
+
+        sections = {}
+        for section_id, result in all_results.items():
+            if result.blocks:
+                sections[result.title] = result.blocks
+            else:
+                sections[result.title] = result.content
+
+        docx_bytes = self._build_real_docx(sections)
+        text = extract_docx_text(docx_bytes)
+
+        # Quality phrases from the task spec
+        quality_phrases = [
+            "За период эксплуатации опасного производственного объекта аварии и инциденты",
+            "Сценарий: Отказ запорной арматуры",
+            "Место возможного возникновения аварии",
+            "Первое сообщение об аварии принимает оператор котельной",
+            "Финансовый резерв",
+            "приказа № 12-ПБ",
+            "Гражданская ответственность",
+            "АО Страховая компания",
+            "ГО-123456",
+        ]
+
+        found = []
+        missing = []
+        for phrase in quality_phrases:
+            if phrase in text:
+                found.append(phrase)
+            else:
+                missing.append(phrase)
+
+        assert not missing, (
+            f"Missing quality phrases in full DOCX: {missing}\n\n"
+            f"DOCX text preview:\n{text[:3000]}"
+        )
+        assert len(found) == len(quality_phrases), f"Only {len(found)}/{len(quality_phrases)} found"
 
     @pytest.mark.asyncio
     async def test_engine_router_sections_are_non_empty(self):
