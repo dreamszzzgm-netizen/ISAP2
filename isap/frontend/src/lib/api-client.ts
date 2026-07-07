@@ -152,6 +152,21 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/imports/jobs/${jobId}/confirm`, { method: "POST" }),
   downloadPmlaDocument: (documentId: string): string =>
     `${API_BASE_URL}/api/v1/pmla/${documentId}/download${API_KEY ? `?api_key=${API_KEY}` : ""}`,
+  downloadPmlaDocumentBlob: async (documentId: string): Promise<Blob> => {
+    const url = `${API_BASE_URL}/api/v1/pmla/${documentId}/download`
+    const response = await fetch(url, {
+      headers: {
+        ...(API_KEY ? { Authorization: `Bearer ${API_KEY}`, "X-API-Key": API_KEY } : {}),
+      },
+      cache: "no-store",
+    })
+    if (!response.ok) {
+      let payload: ApiErrorPayload | null = null
+      try { payload = await response.json() } catch { payload = null }
+      throw new Error(payload?.detail || `Ошибка скачивания: ${response.status}`)
+    }
+    return response.blob()
+  },
   getPmlaDocumentStatus: (documentId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/status`),
   getPmlaDocumentPreview: (documentId: string) =>

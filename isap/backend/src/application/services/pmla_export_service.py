@@ -49,10 +49,6 @@ class PmlaExportService:
         doc = await self.document_repo.get(document_id)
         if doc is None:
             raise ValueError("Документ не найден")
-        if doc.status != "approved":
-            raise PermissionError(
-                f"Документ в статусе '{doc.status}'. Скачивание доступно только после утверждения."
-            )
         if not doc.content_docx:
-            raise FileNotFoundError("Файл документа не найден")
+            raise FileNotFoundError("Файл документа не найден — content_docx пуст")
         return doc

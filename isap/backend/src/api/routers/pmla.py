@@ -232,7 +232,7 @@ async def download_pmla(
     document_id: UUID,
     document_repo: DocumentRepository = Depends(get_document_repo),
 ):
-    """Скачивание DOCX (только для approved)."""
+    """Скачивание DOCX по document_id."""
     service = PmlaExportService(document_repo)
     try:
         result = await service.get_docx(document_id)

@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { isapApi } from "@/lib/api-client"
 import { useNavStore } from "@/lib/nav-store"
 
@@ -44,6 +43,7 @@ export function DocumentDetailPage() {
   const [copied, setCopied] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [runningAiReview, setRunningAiReview] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [showRawJson, setShowRawJson] = useState(false)
 
   const loadDocument = async () => {
@@ -116,6 +116,27 @@ export function DocumentDetailPage() {
     } catch { /* ignore */ }
   }
 
+  const handleDownload = async () => {
+    if (!docId) return
+    setDownloading(true)
+    setError("")
+    try {
+      const blob = await isapApi.downloadPmlaDocumentBlob(docId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `PMLA-${docId}.docx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось скачать документ")
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   useEffect(() => {
     if (docId) {
       loadDocument()
@@ -159,18 +180,10 @@ export function DocumentDetailPage() {
           <Button variant="outline" onClick={loadDocument} disabled={loading} className="gap-2">
             <RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Обновить
           </Button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button variant="default" disabled className="gap-2">
-                    <FileDown className="h-4 w-4" />Скачать DOCX
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent><p className="max-w-xs text-xs">Доступно после утверждения документа (status: approved).</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button variant="default" onClick={handleDownload} disabled={downloading} className="gap-2">
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+            Скачать DOCX
+          </Button>
         </div>
       </div>
 

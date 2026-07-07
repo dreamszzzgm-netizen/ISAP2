@@ -33,7 +33,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { isapApi, type ImportPreviewResult, type PmlaGenerationResult, type PmlaQuestionnaire } from "@/lib/api-client"
 import { useNavStore } from "@/lib/nav-store"
 
@@ -810,6 +809,7 @@ function GenerationResultBlock({
 }) {
   const [showRawJson, setShowRawJson] = useState(false)
   const [copied, setCopied] = useState<"id" | "report" | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   const review = generation.quality_review
   const statusLabel = generation.status === "completed" ? "Завершён" : generation.status
@@ -821,6 +821,23 @@ function GenerationResultBlock({
       setCopied(kind)
       setTimeout(() => setCopied(null), 2000)
     } catch { /* ignore */ }
+  }
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      const blob = await isapApi.downloadPmlaDocumentBlob(generation.document_id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `PMLA-${generation.document_id}.docx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch { /* error shown by parent */ } finally {
+      setDownloading(false)
+    }
   }
 
   const debugFiles = generation.debug_artifacts
@@ -891,21 +908,10 @@ function GenerationResultBlock({
 
           {/* Document actions */}
           <div className="flex flex-wrap gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button variant="default" disabled className="gap-2">
-                      <FileDown className="h-4 w-4" />
-                      Скачать DOCX
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs text-xs">Скачивание доступно после утверждения документа (status: approved).<br />Сейчас статус: {generation.status}.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Button variant="default" onClick={handleDownload} disabled={downloading} className="gap-2">
+              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              Скачать DOCX
+            </Button>
             <Button variant="outline" onClick={() => onOpenDocument(generation.document_id)} className="gap-2">
               <ExternalLink className="h-4 w-4" />
               Открыть карточку документа
