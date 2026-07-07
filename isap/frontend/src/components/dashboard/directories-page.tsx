@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AlertTriangle, CheckCircle2, Loader2, Plus, RefreshCcw, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { AlertTriangle, CheckCircle2, FileUp, Loader2, Plus, RefreshCcw, Trash2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -104,6 +104,7 @@ function PasfDirectory() {
         <div className="flex gap-2">
           <Input placeholder="Поиск..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} className="max-w-sm" />
           <Button variant="outline" onClick={load} disabled={loading}><RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button>
+          <ImportWidget importType="pasf_units" onImported={load} />
           <Button onClick={() => setShowForm(!showForm)} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
         </div>
 
@@ -238,6 +239,7 @@ function EmergencyServicesDirectory() {
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={load} disabled={loading}><RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button>
+          <ImportWidget importType="emergency_services" onImported={load} />
           <Button onClick={() => setShowForm(!showForm)} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
         </div>
 
@@ -291,5 +293,117 @@ function EmergencyServicesDirectory() {
         <div className="text-xs text-muted-foreground">Всего: {items.length}</div>
       </CardContent>
     </Card>
+  )
+}
+
+function ImportWidget({ importType, onImported }: { importType: string; onImported: () => void }) {
+  const [showPreview, setShowPreview] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [message, setMessage] = useState("")
+  const [job, setJob] = useState<AnyRecord | null>(null)
+  const [previewRows, setPreviewRows] = useState<AnyRecord[]>([])
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoading(true)
+    setError("")
+    setMessage("")
+    setJob(null)
+    setPreviewRows([])
+    try {
+      const result = await isapApi.previewImport(importType, file)
+      setJob(result.job)
+      setPreviewRows(result.rows || [])
+      setShowPreview(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка preview")
+    } finally {
+      setLoading(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!job?.id) return
+    setImporting(true)
+    setError("")
+    try {
+      const result = await isapApi.confirmImportJob(String(job.id))
+      setMessage(`Импорт завершён: создано ${result.created_rows || 0}, обновлено ${result.updated_rows || 0}, пропущено ${result.skipped_rows || 0}`)
+      setShowPreview(false)
+      setJob(null)
+      setPreviewRows([])
+      onImported()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка импорта")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileSelect} />
+      <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={loading} className="gap-2">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+        Импорт Excel/CSV
+      </Button>
+
+      {showPreview && job && (
+        <div className="col-span-full space-y-3 p-4 border rounded-md bg-muted/30">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">
+              Preview: {job.filename} ({previewRows.length} строк)
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleConfirm} disabled={importing} className="gap-2">
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Подтвердить импорт
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setShowPreview(false); setJob(null) }}>Отмена</Button>
+            </div>
+          </div>
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+          {message && <Alert><CheckCircle2 className="h-4 w-4" /><AlertDescription>{message}</AlertDescription></Alert>}
+          <div className="flex gap-3 text-xs">
+            <Badge variant="default">Создать: {job.created_rows || 0}</Badge>
+            <Badge variant="secondary">Обновить: {job.updated_rows || 0}</Badge>
+            <Badge variant="outline">Ошибки: {job.error_rows || 0}</Badge>
+          </div>
+          {previewRows.length > 0 && (
+            <div className="max-h-60 overflow-auto rounded border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">#</TableHead>
+                    <TableHead>Данные</TableHead>
+                    <TableHead>Статус</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {previewRows.slice(0, 20).map((row) => (
+                    <TableRow key={row.id || row.row_number}>
+                      <TableCell className="text-xs">{row.row_number}</TableCell>
+                      <TableCell className="text-xs max-w-[300px] truncate">
+                        {Object.entries(row.normalized_data || {}).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(", ")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={row.status === "invalid" ? "destructive" : row.status === "duplicate" ? "secondary" : "default"}>
+                          {row.status === "invalid" ? "Ошибка" : row.status === "duplicate" ? "Дубликат" : "OK"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   )
 }

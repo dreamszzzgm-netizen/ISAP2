@@ -152,6 +152,9 @@ class SmartImportService:
             try:
                 if profile.code == "fire_departments":
                     outcome = await self._apply_emergency_service(job, row, default_service_type="fire")
+                elif profile.code == "emergency_services":
+                    service_type = (row.normalized_data or {}).get("service_type", "other")
+                    outcome = await self._apply_emergency_service(job, row, default_service_type=service_type)
                 elif profile.code == "pasf_units":
                     outcome = await self._apply_pasf_unit(job, row)
                 elif profile.code == "pmla_questionnaire":
@@ -196,6 +199,9 @@ class SmartImportService:
     async def _find_duplicates(self, profile: ImportProfile, row: dict[str, Any]) -> list[dict[str, Any]]:
         if profile.code == "fire_departments":
             return await self._find_emergency_service_duplicates(row, "fire")
+        if profile.code == "emergency_services":
+            service_type = row.get("service_type", "other")
+            return await self._find_emergency_service_duplicates(row, service_type)
         if profile.code == "pasf_units":
             return await self._find_pasf_duplicates(row)
         return []
