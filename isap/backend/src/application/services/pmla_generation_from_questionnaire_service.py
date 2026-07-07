@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +26,7 @@ from src.infrastructure.repositories.scenario_matrix_repo import ScenarioMatrixR
 
 logger = logging.getLogger(__name__)
 
-QUESTIONNAIRE_DEBUG_DIR = Path("/tmp/isap_pmla_questionnaire_generation")
+QUESTIONNAIRE_DEBUG_DIR = Path(tempfile.gettempdir()) / "isap_pmla_questionnaire_generation"
 
 
 @dataclass(frozen=True)
