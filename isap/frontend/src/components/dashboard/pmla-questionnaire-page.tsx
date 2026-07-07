@@ -4,7 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardCheck,
+  Copy,
+  Download,
+  Eye,
   FileJson,
   FileUp,
   Loader2,
@@ -18,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -701,24 +707,13 @@ export function PmlaQuestionnairePage() {
                   </Button>
                 </div>
                 {generation && (
-                  <div className="space-y-3">
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-md border p-3 text-sm">
-                        <div className="text-muted-foreground">document_id</div>
-                        <div className="break-all font-mono text-xs">{generation.document_id}</div>
-                      </div>
-                      <div className="rounded-md border p-3 text-sm">
-                        <div className="text-muted-foreground">status</div>
-                        <Badge variant="outline">{generation.status}</Badge>
-                      </div>
-                      <div className="rounded-md border p-3 text-sm">
-                        <div className="text-muted-foreground">version</div>
-                        <div className="font-semibold">{generation.version}</div>
-                      </div>
-                    </div>
-                    <pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs">{pretty(generation)}</pre>
-                    {generation.quality_review && <QualityReviewBlock review={generation.quality_review} />}
-                  </div>
+                  <GenerationResultBlock
+                    generation={generation}
+                    onRegenerate={generate}
+                    onRebuildContext={buildContext}
+                    regenerationDisabled={disabled || generating}
+                    regenerationLoading={generating}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -792,63 +787,273 @@ function SimpleFields({
   )
 }
 
-function QualityReviewBlock({ review }: { review: import("@/lib/api-client").PmlaQualityReview }) {
+function GenerationResultBlock({
+  generation,
+  onRegenerate,
+  onRebuildContext,
+  regenerationDisabled,
+  regenerationLoading,
+}: {
+  generation: import("@/lib/api-client").PmlaGenerationResult
+  onRegenerate: () => void
+  onRebuildContext: () => void
+  regenerationDisabled: boolean
+  regenerationLoading: boolean
+}) {
+  const [showRawJson, setShowRawJson] = useState(false)
+  const [copied, setCopied] = useState<"id" | "report" | null>(null)
+
+  const review = generation.quality_review
+  const statusLabel = generation.status === "completed" ? "Завершён" : generation.status
+  const statusVariant = generation.status === "completed" ? ("default" as const) : ("secondary" as const)
+
+  const copyToClipboard = async (text: string, kind: "id" | "report") => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(kind)
+      setTimeout(() => setCopied(null), 2000)
+    } catch { /* ignore */ }
+  }
+
+  const debugFiles = generation.debug_artifacts
+    ? Object.entries(generation.debug_artifacts).filter(([, v]) => v)
+    : []
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            ПМЛА сгенерирован
+            <Badge variant={statusVariant}>{statusLabel}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-md border p-3 text-sm">
+              <div className="text-muted-foreground text-xs">document_id</div>
+              <div className="break-all font-mono text-xs mt-1">{generation.document_id}</div>
+            </div>
+            <div className="rounded-md border p-3 text-sm">
+              <div className="text-muted-foreground text-xs">Версия</div>
+              <div className="font-semibold mt-1">{generation.version ?? "—"}</div>
+            </div>
+            <div className="rounded-md border p-3 text-sm">
+              <div className="text-muted-foreground text-xs">questionnaire_id</div>
+              <div className="break-all font-mono text-xs mt-1">{generation.questionnaire_id}</div>
+            </div>
+            <div className="rounded-md border p-3 text-sm">
+              <div className="text-muted-foreground text-xs">facility_id</div>
+              <div className="break-all font-mono text-xs mt-1">{generation.facility_id}</div>
+            </div>
+          </div>
+          {generation.status !== "completed" && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Статус генерации: {generation.status}</AlertTitle>
+              <AlertDescription>Документ может быть неполным. Проверьте качество ниже.</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {review && <QualityScoreBlock review={review} />}
+      {review && review.checks.length > 0 && <QualityChecksBlock checks={review.checks} />}
+
+      {review && review.missing_required_data.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Не хватает обязательных данных</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4">{review.missing_required_data.map((item) => <li key={item}>{item}</li>)}</ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {review && review.manual_review_required.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Eye className="h-5 w-5" />
+              Требует ручной проверки
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ul className="list-disc pl-4 text-sm space-y-1">{review.manual_review_required.map((item) => <li key={item}>{item}</li>)}</ul>
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Проверка качества не заменяет эксперта. Перед выдачей документа необходимо выполнить ручную проверку.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      )}
+
+      {review && review.recommendations.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Рекомендации</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc pl-4 text-sm space-y-1 text-muted-foreground">
+              {review.recommendations.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {debugFiles.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between text-sm text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <FileJson className="h-4 w-4" />
+                Debug artifacts ({debugFiles.length} файлов)
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid gap-1 md:grid-cols-2 pl-6">
+              {debugFiles.map(([key, path]) => (
+                <div key={key} className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs">
+                  <span className="font-medium">{key}:</span>
+                  <span className="break-all text-muted-foreground font-mono">{String(path).split(/[/\\]/).pop()}</span>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={onRegenerate} disabled={regenerationDisabled} className="gap-2">
+          {regenerationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+          Повторить генерацию
+        </Button>
+        <Button variant="outline" onClick={onRebuildContext} disabled={regenerationDisabled} className="gap-2">
+          <RefreshCcw className="h-4 w-4" />
+          Собрать context заново
+        </Button>
+        <Button variant="outline" onClick={() => copyToClipboard(generation.document_id, "id")} className="gap-2">
+          <Copy className="h-4 w-4" />
+          {copied === "id" ? "Скопировано!" : "Скопировать document_id"}
+        </Button>
+        {review && (
+          <Button variant="outline" onClick={() => copyToClipboard(JSON.stringify(review, null, 2), "report")} className="gap-2">
+            <Copy className="h-4 w-4" />
+            {copied === "report" ? "Скопировано!" : "Скопировать отчёт качества"}
+          </Button>
+        )}
+      </div>
+
+      <Collapsible open={showRawJson} onOpenChange={setShowRawJson}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="w-full justify-between text-sm text-muted-foreground">
+            <span>Сырые данные (JSON)</span>
+            {showRawJson ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs mt-2">{pretty(generation)}</pre>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  )
+}
+
+function QualityScoreBlock({ review }: { review: import("@/lib/api-client").PmlaQualityReview }) {
   const statusConfig = {
-    ok: { label: "OK", variant: "default" as const, color: "text-green-600" },
-    warning: { label: "ВНИМАНИЕ", variant: "secondary" as const, color: "text-yellow-600" },
-    critical: { label: "КРИТИЧНО", variant: "destructive" as const, color: "text-red-600" },
+    ok: { label: "OK", variant: "default" as const, bg: "bg-green-50 border-green-200", text: "text-green-700" },
+    warning: { label: "ВНИМАНИЕ", variant: "secondary" as const, bg: "bg-yellow-50 border-yellow-200", text: "text-yellow-700" },
+    critical: { label: "КРИТИЧНО", variant: "destructive" as const, bg: "bg-red-50 border-red-200", text: "text-red-700" },
   }
   const cfg = statusConfig[review.overall_status] || statusConfig.ok
 
   return (
-    <Card className="border-dashed">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ClipboardCheck className="h-5 w-5" />
-          Проверка качества ПМЛА
-          <Badge variant={cfg.variant}>{cfg.label}</Badge>
-          <span className="ml-auto text-2xl font-bold">{review.score}%</span>
-        </CardTitle>
+    <Card className={`${cfg.bg} border`}>
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className={`h-8 w-8 ${cfg.text}`} />
+            <div>
+              <div className="text-sm text-muted-foreground">Оценка качества ПМЛА</div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-3xl font-bold">{review.score}</span>
+                <span className="text-lg text-muted-foreground">/ 100</span>
+              </div>
+            </div>
+          </div>
+          <Badge variant={cfg.variant} className="text-sm px-3 py-1">{cfg.label}</Badge>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function QualityChecksBlock({ checks }: { checks: import("@/lib/api-client").PmlaQualityCheck[] }) {
+  const priority = { critical: 0, warning: 1, ok: 2 }
+  const sorted = [...checks].sort((a, b) => (priority[a.status] ?? 3) - (priority[b.status] ?? 3))
+
+  const statusBadge = (status: string) => {
+    if (status === "critical") return <Badge variant="destructive" className="shrink-0 text-xs">Критично</Badge>
+    if (status === "warning") return <Badge variant="secondary" className="shrink-0 text-xs">!</Badge>
+    return <Badge variant="default" className="shrink-0 text-xs">OK</Badge>
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Проверки</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-2 md:grid-cols-2">
-          {review.checks.map((check) => (
-            <div key={check.code} className="flex items-start gap-2 rounded-md border p-2 text-sm">
-              <Badge variant={check.status === "ok" ? "default" : check.status === "warning" ? "secondary" : "destructive"} className="shrink-0 text-xs">
-                {check.status === "ok" ? "OK" : check.status === "warning" ? "!" : "X"}
-              </Badge>
-              <div>
+      <CardContent>
+        <div className="space-y-2">
+          {sorted.map((check) => (
+            <div key={check.code} className={`flex items-start gap-2 rounded-md border p-2.5 text-sm ${check.status === "critical" ? "border-red-200 bg-red-50/50" : check.status === "warning" ? "border-yellow-200 bg-yellow-50/50" : ""}`}>
+              {statusBadge(check.status)}
+              <div className="min-w-0">
                 <div className="font-medium">{check.title}</div>
                 <div className="text-muted-foreground text-xs">{check.message}</div>
               </div>
             </div>
           ))}
         </div>
-        {review.missing_required_data.length > 0 && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Отсутствуют обязательные данные</AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc pl-4">{review.missing_required_data.map((item) => <li key={item}>{item}</li>)}</ul>
-            </AlertDescription>
-          </Alert>
-        )}
-        {review.manual_review_required.length > 0 && (
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Требуется ручная проверка</AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc pl-4">{review.manual_review_required.map((item) => <li key={item}>{item}</li>)}</ul>
-            </AlertDescription>
-          </Alert>
-        )}
-        {review.recommendations.length > 0 && (
-          <div className="rounded-md bg-muted p-3 text-sm">
-            <div className="font-medium mb-1">Рекомендации</div>
-            <ul className="list-disc pl-4 text-muted-foreground">{review.recommendations.map((item) => <li key={item}>{item}</li>)}</ul>
-          </div>
-        )}
       </CardContent>
     </Card>
+  )
+}
+
+function QualityReviewBlock({ review }: { review: import("@/lib/api-client").PmlaQualityReview }) {
+  return (
+    <div className="space-y-3">
+      <QualityScoreBlock review={review} />
+      {review.checks.length > 0 && <QualityChecksBlock checks={review.checks} />}
+      {review.missing_required_data.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Отсутствуют обязательные данные</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4">{review.missing_required_data.map((item) => <li key={item}>{item}</li>)}</ul>
+          </AlertDescription>
+        </Alert>
+      )}
+      {review.manual_review_required.length > 0 && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Требуется ручная проверка</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4">{review.manual_review_required.map((item) => <li key={item}>{item}</li>)}</ul>
+          </AlertDescription>
+        </Alert>
+      )}
+      {review.recommendations.length > 0 && (
+        <div className="rounded-md bg-muted p-3 text-sm">
+          <div className="font-medium mb-1">Рекомендации</div>
+          <ul className="list-disc pl-4 text-muted-foreground">{review.recommendations.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      )}
+    </div>
   )
 }

@@ -94,8 +94,8 @@ export type PmlaGenerationResult = {
   questionnaire_id: string
   facility_id: string
   status: string
-  version: number
-  context_quality: Record<string, unknown>
+  version?: number
+  context_quality?: Record<string, unknown>
   quality_review?: PmlaQualityReview | null
   debug_artifacts?: Record<string, string> | null
 }
