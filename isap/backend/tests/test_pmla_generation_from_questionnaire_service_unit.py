@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from uuid import UUID
 
 from src.application.services import pmla_generation_from_questionnaire_service as module
@@ -72,11 +74,10 @@ def test_validate_questionnaire_context_returns_soft_warnings():
     assert quality["summary"]["warning_count"] >= 4
 
 
-def test_save_debug_artifacts_includes_rendered_sections(tmp_path, monkeypatch):
+def test_save_debug_artifacts_includes_rendered_sections(monkeypatch):
     """Use a local subdirectory to avoid Windows temp-dir permission issues."""
     service = _service()
-    local_dir = tmp_path / "debug"
-    local_dir.mkdir()
+    local_dir = Path(tempfile.mkdtemp(prefix="isap_debug_test_"))
     monkeypatch.setattr(module, "QUESTIONNAIRE_DEBUG_DIR", local_dir)
     document = type(
         "Document",

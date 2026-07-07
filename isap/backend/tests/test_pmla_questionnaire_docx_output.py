@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from docx import Document as DocxDocument
+from docx.shared import Cm, Pt
 
 from src.application.engines.base import DocumentContext
 from src.application.services.pmla_generation_from_questionnaire_service import (
@@ -469,3 +470,142 @@ class TestFullDocxBuildFromEngines:
 
         assert not missing, f"Missing in DOCX: {missing}\n\nDOCX text preview:\n{text[:3000]}"
         assert len(found) == len(required), f"Only {len(found)}/{len(required)} found"
+
+
+class TestFullEngineRouterPipeline:
+    """End-to-end: run ALL engines through EngineRouter, build real DOCX, verify data."""
+
+    def setup_method(self):
+        self.service = PmlaGenerationFromQuestionnaireService(
+            document_repo=MagicMock(),
+            regulatory_repo=MagicMock(),
+            scenario_matrix_repo=MagicMock(),
+        )
+
+    def _make_doc_context(self):
+        ctx = self.service.adapt_context_for_generator(SAMPLE_QUESTIONNAIRE_DATA)
+        return DocumentContext.from_dict(ctx)
+
+    def _build_real_docx(self, all_sections: dict) -> bytes:
+        """Build DOCX using the actual EnhancedDocumentGenerator._build_docx logic."""
+        from src.application.engines.blocks import HeadingBlock, ParagraphBlock, TableBlock
+
+        doc = DocxDocument()
+        # Setup defaults (same as EnhancedDocumentGenerator._setup_document_defaults)
+        section_layout = doc.sections[0]
+        section_layout.top_margin = Cm(2.0)
+        section_layout.bottom_margin = Cm(2.0)
+        section_layout.left_margin = Cm(3.0)
+        section_layout.right_margin = Cm(1.5)
+        style = doc.styles["Normal"]
+        style.font.name = "Times New Roman"
+        style.font.size = Pt(12)
+
+        # Title
+        h = doc.add_heading(level=0)
+        h.text = "План мероприятий по локализации и ликвидации последствий аварий"
+
+        for section_title, content_or_blocks in all_sections.items():
+            h = doc.add_heading(level=1)
+            h.text = section_title
+            if isinstance(content_or_blocks, list):
+                for block in content_or_blocks:
+                    if isinstance(block, HeadingBlock):
+                        h2 = doc.add_heading(level=block.level)
+                        h2.text = block.text
+                    elif isinstance(block, ParagraphBlock):
+                        p = doc.add_paragraph()
+                        run = p.add_run(block.text)
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+                    elif isinstance(block, TableBlock):
+                        num_rows = len(block.rows) + 1
+                        num_cols = len(block.headers)
+                        t = doc.add_table(rows=num_rows, cols=num_cols)
+                        for j, hdr in enumerate(block.headers):
+                            t.cell(0, j).text = str(hdr)
+                        for i, row in enumerate(block.rows):
+                            for j, val in enumerate(row):
+                                if j < num_cols:
+                                    t.cell(i + 1, j).text = str(val)
+            elif isinstance(content_or_blocks, str):
+                for line in content_or_blocks.strip().split("\n"):
+                    if line.strip():
+                        p = doc.add_paragraph()
+                        run = p.add_run(line.strip())
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+            doc.add_paragraph()
+
+        import io
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    @pytest.mark.asyncio
+    async def test_engine_router_all_sections_produce_questionnaire_data_in_docx(self):
+        """Run EngineRouter.generate_all() and verify all questionnaire data in DOCX."""
+        from src.application.engines.router import EngineRouter
+        from src.application.services.engine_integration import create_engine_router
+
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+
+        engine_router = create_engine_router()
+        all_results = await engine_router.generate_all(doc_ctx)
+
+        # Convert SectionContent to {title: blocks_or_str}
+        sections = {}
+        for section_id, result in all_results.items():
+            if result.blocks:
+                sections[result.title] = result.blocks
+            else:
+                sections[result.title] = result.content
+
+        docx_bytes = self._build_real_docx(sections)
+        text = extract_docx_text(docx_bytes)
+
+        # All questionnaire data must survive the full pipeline
+        required = [
+            "Отказ запорной арматуры",
+            "Газоанализатор",
+            "Огнетушитель",
+            "оператор котельной",
+            "дежурный диспетчер",
+            "12-ПБ",
+            "АО Страховая компания",
+            "ГО-123456",
+            "не зарегистрированы",
+        ]
+
+        found = []
+        missing = []
+        for item in required:
+            if item in text:
+                found.append(item)
+            else:
+                missing.append(item)
+
+        assert not missing, (
+            f"Missing in DOCX after full EngineRouter pipeline: {missing}\n\n"
+            f"DOCX text preview:\n{text[:3000]}"
+        )
+        assert len(found) == len(required), f"Only {len(found)}/{len(required)} found"
+
+    @pytest.mark.asyncio
+    async def test_engine_router_sections_are_non_empty(self):
+        """Every section generated by EngineRouter must have non-empty content."""
+        from src.application.services.engine_integration import create_engine_router
+
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+
+        engine_router = create_engine_router()
+        all_results = await engine_router.generate_all(doc_ctx)
+
+        empty_sections = []
+        for section_id, result in all_results.items():
+            if not result.blocks and not result.content.strip():
+                empty_sections.append(section_id)
+
+        assert not empty_sections, f"Empty sections after engine routing: {empty_sections}"
