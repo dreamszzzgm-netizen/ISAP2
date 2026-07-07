@@ -95,6 +95,7 @@ export type PmlaGenerationResult = {
   facility_id: string
   status: string
   version?: number
+  source?: string
   context_quality?: Record<string, unknown>
   quality_review?: PmlaQualityReview | null
   debug_artifacts?: Record<string, string> | null
@@ -149,4 +150,8 @@ export const isapApi = {
     apiUpload<ImportPreviewResult>("/api/v1/imports/pmla_questionnaire/preview", file),
   confirmImportJob: (jobId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/imports/jobs/${jobId}/confirm`, { method: "POST" }),
+  downloadPmlaDocument: (documentId: string): string =>
+    `${API_BASE_URL}/api/v1/pmla/${documentId}/download${API_KEY ? `?api_key=${API_KEY}` : ""}`,
+  getPmlaDocumentStatus: (documentId: string) =>
+    apiRequest<{ status: string; issues?: string[] }>(`/api/v1/pmla/${documentId}/status`),
 }

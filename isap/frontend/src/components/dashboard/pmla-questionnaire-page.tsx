@@ -10,6 +10,8 @@ import {
   Copy,
   Download,
   Eye,
+  ExternalLink,
+  FileDown,
   FileJson,
   FileUp,
   Loader2,
@@ -31,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { isapApi, type ImportPreviewResult, type PmlaGenerationResult, type PmlaQuestionnaire } from "@/lib/api-client"
 
 type AnyRecord = Record<string, any>
@@ -821,16 +824,18 @@ function GenerationResultBlock({
 
   return (
     <div className="space-y-4">
+      {/* Document Card */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            ПМЛА сгенерирован
+            Созданный документ
             <Badge variant={statusVariant}>{statusLabel}</Badge>
           </CardTitle>
+          <CardDescription>Источник: {generation.source === "pmla_questionnaire" ? "Анкета ПМЛА" : generation.source || "Генерация"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-md border p-3 text-sm">
               <div className="text-muted-foreground text-xs">document_id</div>
               <div className="break-all font-mono text-xs mt-1">{generation.document_id}</div>
@@ -848,6 +853,29 @@ function GenerationResultBlock({
               <div className="break-all font-mono text-xs mt-1">{generation.facility_id}</div>
             </div>
           </div>
+
+          {/* Status-dependent message */}
+          {review && review.overall_status === "critical" && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Документ требует обязательной ручной проверки перед выдачей.</AlertTitle>
+              <AlertDescription>Обнаружены критические проблемы. Не используйте документ без исправления.</AlertDescription>
+            </Alert>
+          )}
+          {review && review.overall_status === "warning" && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Документ можно использовать только после проверки предупреждений.</AlertTitle>
+              <AlertDescription>Просмотрите раздел «Проверки» ниже.</AlertDescription>
+            </Alert>
+          )}
+          {review && review.overall_status === "ok" && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Документ готов к ручной финальной проверке.</AlertTitle>
+              <AlertDescription>Все проверки пройдены. Перед выдачей клиенту рекомендуется финальная проверка.</AlertDescription>
+            </Alert>
+          )}
           {generation.status !== "completed" && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -855,9 +883,45 @@ function GenerationResultBlock({
               <AlertDescription>Документ может быть неполным. Проверьте качество ниже.</AlertDescription>
             </Alert>
           )}
+
+          {/* Document actions */}
+          <div className="flex flex-wrap gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button variant="default" disabled className="gap-2">
+                      <FileDown className="h-4 w-4" />
+                      Скачать DOCX
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs text-xs">Скачивание доступно после утверждения документа (status: approved).<br />Сейчас статус: {generation.status}.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button variant="outline" asChild className="gap-2">
+              <a href={`/documents`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+                Открыть карточку документа
+              </a>
+            </Button>
+            <Button variant="outline" onClick={() => copyToClipboard(generation.document_id, "id")} className="gap-2">
+              <Copy className="h-4 w-4" />
+              {copied === "id" ? "Скопировано!" : "Скопировать document_id"}
+            </Button>
+            {review && (
+              <Button variant="outline" onClick={() => copyToClipboard(JSON.stringify(review, null, 2), "report")} className="gap-2">
+                <Copy className="h-4 w-4" />
+                {copied === "report" ? "Скопировано!" : "Скопировать отчёт качества"}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
+      {/* Quality review */}
       {review && <QualityScoreBlock review={review} />}
       {review && review.checks.length > 0 && <QualityChecksBlock checks={review.checks} />}
 
@@ -904,6 +968,7 @@ function GenerationResultBlock({
         </Card>
       )}
 
+      {/* Debug artifacts */}
       {debugFiles.length > 0 && (
         <Collapsible>
           <CollapsibleTrigger asChild>
@@ -928,6 +993,7 @@ function GenerationResultBlock({
         </Collapsible>
       )}
 
+      {/* Regenerate actions */}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" onClick={onRegenerate} disabled={regenerationDisabled} className="gap-2">
           {regenerationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
@@ -937,18 +1003,9 @@ function GenerationResultBlock({
           <RefreshCcw className="h-4 w-4" />
           Собрать context заново
         </Button>
-        <Button variant="outline" onClick={() => copyToClipboard(generation.document_id, "id")} className="gap-2">
-          <Copy className="h-4 w-4" />
-          {copied === "id" ? "Скопировано!" : "Скопировать document_id"}
-        </Button>
-        {review && (
-          <Button variant="outline" onClick={() => copyToClipboard(JSON.stringify(review, null, 2), "report")} className="gap-2">
-            <Copy className="h-4 w-4" />
-            {copied === "report" ? "Скопировано!" : "Скопировать отчёт качества"}
-          </Button>
-        )}
       </div>
 
+      {/* Raw JSON */}
       <Collapsible open={showRawJson} onOpenChange={setShowRawJson}>
         <CollapsibleTrigger asChild>
           <Button variant="ghost" className="w-full justify-between text-sm text-muted-foreground">
