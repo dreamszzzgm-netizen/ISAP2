@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID
 
 from src.application.services.enhanced_generator import EnhancedDocumentGenerator
+from src.application.services.pmla_quality_review_service import PmlaQualityReviewService
 from src.application.services.pmla_questionnaire_service import PmlaQuestionnaireService
 from src.infrastructure.database.models import DocumentModel
 from src.infrastructure.llm.providers import get_llm_provider
@@ -37,6 +38,7 @@ class QuestionnaireGenerationResult:
     questionnaire_id: UUID
     facility_id: UUID
     context_quality: dict[str, Any]
+    quality_review: dict[str, Any] | None = None
     debug_artifacts: dict[str, str] | None = None
 
 
@@ -123,6 +125,18 @@ class PmlaGenerationFromQuestionnaireService:
         await self.document_repo.update(doc.id, {"generation_meta": generation_meta})
         fresh_doc = await self.document_repo.get(doc.id)
 
+        # Quality review: structured report for human review.
+        docx_path = None
+        if fresh_doc and fresh_doc.content_docx:
+            package_dir = QUESTIONNAIRE_DEBUG_DIR / f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{doc.id.hex[:8]}"
+            docx_path = str(package_dir / "output.docx")
+        review_service = PmlaQualityReviewService()
+        quality_review = review_service.review(
+            questionnaire_context=context,
+            generation_meta=generation_meta,
+            docx_path=docx_path,
+        ).to_dict()
+
         artifacts = None
         if save_debug_artifacts:
             artifacts = self._save_debug_artifacts(
@@ -131,6 +145,7 @@ class PmlaGenerationFromQuestionnaireService:
                 context=context,
                 quality=quality,
                 document=fresh_doc,
+                quality_review=quality_review,
             )
 
         return QuestionnaireGenerationResult(
@@ -140,6 +155,7 @@ class PmlaGenerationFromQuestionnaireService:
             questionnaire_id=questionnaire_id,
             facility_id=facility_id,
             context_quality=quality,
+            quality_review=quality_review,
             debug_artifacts=artifacts,
         )
 
@@ -282,6 +298,7 @@ class PmlaGenerationFromQuestionnaireService:
         context: dict[str, Any],
         quality: dict[str, Any],
         document: DocumentModel | None,
+        quality_review: dict[str, Any] | None = None,
     ) -> dict[str, str]:
         package_dir = QUESTIONNAIRE_DEBUG_DIR / f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{document_id.hex[:8]}"
         package_dir.mkdir(parents=True, exist_ok=True)
@@ -289,6 +306,7 @@ class PmlaGenerationFromQuestionnaireService:
         quality_path = package_dir / "context_quality.json"
         meta_path = package_dir / "generation_meta.json"
         rendered_sections_path = package_dir / "rendered_sections.json"
+        review_path = package_dir / "quality_review.json"
         docx_path = package_dir / "output.docx"
         context_path.write_text(json.dumps(context, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
         quality_path.write_text(json.dumps(quality, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
@@ -311,6 +329,11 @@ class PmlaGenerationFromQuestionnaireService:
                 json.dumps(document.rendered_sections, ensure_ascii=False, indent=2, default=str),
                 encoding="utf-8",
             )
+        if quality_review is not None:
+            review_path.write_text(
+                json.dumps(quality_review, ensure_ascii=False, indent=2, default=str),
+                encoding="utf-8",
+            )
         if document and document.content_docx:
             docx_path.write_bytes(document.content_docx)
         return {
@@ -319,6 +342,7 @@ class PmlaGenerationFromQuestionnaireService:
             "context_quality": str(quality_path),
             "generation_meta": str(meta_path),
             "rendered_sections": str(rendered_sections_path) if rendered_sections_path.exists() else "",
+            "quality_review": str(review_path) if review_path.exists() else "",
             "docx": str(docx_path) if docx_path.exists() else "",
         }
 

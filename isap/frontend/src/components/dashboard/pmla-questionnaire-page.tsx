@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
+  ClipboardCheck,
   FileJson,
   FileUp,
   Loader2,
@@ -716,6 +717,7 @@ export function PmlaQuestionnairePage() {
                       </div>
                     </div>
                     <pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs">{pretty(generation)}</pre>
+                    {generation.quality_review && <QualityReviewBlock review={generation.quality_review} />}
                   </div>
                 )}
               </CardContent>
@@ -785,6 +787,67 @@ function SimpleFields({
           ))}
         </div>
         <SectionActions saving={saving} onSave={() => saveBlock(block, draft[block] || {})} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function QualityReviewBlock({ review }: { review: import("@/lib/api-client").PmlaQualityReview }) {
+  const statusConfig = {
+    ok: { label: "OK", variant: "default" as const, color: "text-green-600" },
+    warning: { label: "ВНИМАНИЕ", variant: "secondary" as const, color: "text-yellow-600" },
+    critical: { label: "КРИТИЧНО", variant: "destructive" as const, color: "text-red-600" },
+  }
+  const cfg = statusConfig[review.overall_status] || statusConfig.ok
+
+  return (
+    <Card className="border-dashed">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ClipboardCheck className="h-5 w-5" />
+          Проверка качества ПМЛА
+          <Badge variant={cfg.variant}>{cfg.label}</Badge>
+          <span className="ml-auto text-2xl font-bold">{review.score}%</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-2 md:grid-cols-2">
+          {review.checks.map((check) => (
+            <div key={check.code} className="flex items-start gap-2 rounded-md border p-2 text-sm">
+              <Badge variant={check.status === "ok" ? "default" : check.status === "warning" ? "secondary" : "destructive"} className="shrink-0 text-xs">
+                {check.status === "ok" ? "OK" : check.status === "warning" ? "!" : "X"}
+              </Badge>
+              <div>
+                <div className="font-medium">{check.title}</div>
+                <div className="text-muted-foreground text-xs">{check.message}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {review.missing_required_data.length > 0 && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Отсутствуют обязательные данные</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-4">{review.missing_required_data.map((item) => <li key={item}>{item}</li>)}</ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        {review.manual_review_required.length > 0 && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Требуется ручная проверка</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-4">{review.manual_review_required.map((item) => <li key={item}>{item}</li>)}</ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        {review.recommendations.length > 0 && (
+          <div className="rounded-md bg-muted p-3 text-sm">
+            <div className="font-medium mb-1">Рекомендации</div>
+            <ul className="list-disc pl-4 text-muted-foreground">{review.recommendations.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

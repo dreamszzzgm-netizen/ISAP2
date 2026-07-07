@@ -72,6 +72,23 @@ export type PmlaQuestionnaire = {
   updated_at?: string | null
 }
 
+export type PmlaQualityCheck = {
+  code: string
+  title: string
+  status: "ok" | "warning" | "critical"
+  message: string
+  details?: Record<string, unknown>
+}
+
+export type PmlaQualityReview = {
+  overall_status: "ok" | "warning" | "critical"
+  score: number
+  checks: PmlaQualityCheck[]
+  missing_required_data: string[]
+  manual_review_required: string[]
+  recommendations: string[]
+}
+
 export type PmlaGenerationResult = {
   document_id: string
   questionnaire_id: string
@@ -79,6 +96,7 @@ export type PmlaGenerationResult = {
   status: string
   version: number
   context_quality: Record<string, unknown>
+  quality_review?: PmlaQualityReview | null
   debug_artifacts?: Record<string, string> | null
 }
 
