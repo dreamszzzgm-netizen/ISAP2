@@ -21,6 +21,7 @@ import { DirectoriesPage } from "@/components/dashboard/directories-page"
 import { PmlaPage } from "@/components/dashboard/pmla-page"
 import { PmlaQuestionnairePage } from "@/components/dashboard/pmla-questionnaire-page"
 import { DocumentDetailPage } from "@/components/dashboard/document-detail-page"
+import { FacilityDetailPage } from "@/components/dashboard/facility-detail-page"
 import { AiPage } from "@/components/dashboard/ai-page"
 import { kpiData } from "@/lib/analytics-data"
 import { useNavStore, type PageKey } from "@/lib/nav-store"
@@ -99,6 +100,8 @@ export default function Home() {
         return <ClientsPage />
       case "opo":
         return <OpoPage />
+      case "facilityDetail":
+        return <FacilityDetailPage />
       case "tasks":
         return <TasksPage />
       case "contracts":

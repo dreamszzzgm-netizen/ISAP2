@@ -3,6 +3,7 @@
 import { useState, useRef } from "react"
 import { Plus, Search, ChevronDown, ChevronUp, FileText, Upload, Trash2, File, FilePlus2 } from "lucide-react"
 import { toast } from "sonner"
+import { useNavStore } from "@/lib/nav-store"
 import { SmartImport } from "@/components/dashboard/smart-import"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -419,6 +420,7 @@ function OpoCardForm({ initialData, onSave, onCancel }: {
 /* ─── Основная страница ─── */
 
 export function OpoPage() {
+  const { openFacilityDetail } = useNavStore()
   const [opos, setOpos] = useState<OpoObject[]>(mockOpo)
   const [search, setSearch] = useState("")
   const [open, setOpen] = useState(false)
@@ -517,7 +519,7 @@ export function OpoPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((opo) => (
-                <TableRow key={opo.id} onDoubleClick={() => openCard(opo)} className="cursor-pointer">
+                <TableRow key={opo.id} onClick={() => openFacilityDetail(opo.id)} className="cursor-pointer hover:bg-muted/50">
                   <TableCell className="font-mono text-xs">{opo.id}</TableCell>
                   <TableCell className="font-medium">{opo.name}</TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{opo.orgName}</TableCell>

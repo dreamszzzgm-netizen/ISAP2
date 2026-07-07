@@ -130,9 +130,9 @@ function SectionActions({ saving, onSave }: { saving: boolean; onSave: () => voi
 }
 
 export function PmlaQuestionnairePage() {
-  const { openDocumentDetail } = useNavStore()
+  const { openDocumentDetail, pmlaQuestionnaireFacilityId } = useNavStore()
   const [facilities, setFacilities] = useState<FacilityOption[]>([])
-  const [facilityId, setFacilityId] = useState("")
+  const [facilityId, setFacilityId] = useState(pmlaQuestionnaireFacilityId || "")
   const [questionnaire, setQuestionnaire] = useState<PmlaQuestionnaire | null>(null)
   const [draft, setDraft] = useState<AnyRecord>(EMPTY_DATA)
   const [contextPreview, setContextPreview] = useState<AnyRecord | null>(null)
@@ -338,8 +338,22 @@ export function PmlaQuestionnairePage() {
   }
 
   useEffect(() => {
-    loadFacilities()
-  }, [])
+    loadFacilities().then(() => {
+      // If navigated from facility detail with a pre-set facility ID, auto-open questionnaire.
+      if (pmlaQuestionnaireFacilityId) {
+        setFacilityId(pmlaQuestionnaireFacilityId)
+        isapApi.getPmlaQuestionnaireByFacility(pmlaQuestionnaireFacilityId)
+          .then((item) => {
+            setQuestionnaire(item)
+            setDraft(dataOf(item))
+            setMessage("Анкета открыта")
+          })
+          .catch(() => {
+            // No questionnaire exists yet — user can create one.
+          })
+      }
+    })
+  }, [pmlaQuestionnaireFacilityId])
 
   const disabled = !qid
   const selectedScenarios = getStrings(draft.selected_scenarios)
