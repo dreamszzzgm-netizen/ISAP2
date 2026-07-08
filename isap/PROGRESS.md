@@ -1,7 +1,64 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-08T00:30
+**Дата обновления:** 2026-07-08T12:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## MVP PMLA E2E flow verified
+
+### Что проверено
+
+Полный пользовательский сценарий ПМЛА:
+1. ОПО → Анкета → Справочники → Генерация → DOCX → Quality Review → Версии → Ручная проверка
+
+### E2E backend test
+
+**Файл:** `tests/test_pmla_mvp_e2e_flow.py`
+
+**Покрытые этапы:**
+- Подготовка контекста анкеты (organization, facility, equipment, substances)
+- Создание DocumentContext
+- Генерация через EngineRouter (все 6 движков)
+- Построение DOCX с титульным листом
+- Проверка DOCX содержимого (9 обязательных фраз)
+- Проверка отсутствия сырого мусора (None, null, undefined)
+- Quality review (structured quality report)
+- Review workflow: needs_review → in_review → approved → ready_to_issue → issued
+- Повторная генерация (симуляция версионирования)
+
+### Endpoints проверены
+
+| Endpoint | Статус |
+|----------|--------|
+| EngineRouter.generate_all() | ✅ |
+| DOCX build | ✅ |
+| Quality review | ✅ |
+| DocumentReviewService.get_review_status() | ✅ |
+| DocumentReviewService.update_review_status() | ✅ |
+| Transition rules (5 переходов) | ✅ |
+
+### DOCX проверен
+
+- Титульный лист с организацией и ОПО
+- Обязательные фразы: "Отказ запорной арматуры", "Газоанализатор", "Огнетушитель", и др.
+- Нет сырого мусора (None, null, undefined, {', [{)
+
+### Результаты проверок
+
+| Проверка | Результат |
+|----------|-----------|
+| `pytest -q` | 356 passed |
+| `npm run build` | ✓ Compiled successfully |
+| `git status` | Clean |
+
+### Что осталось вне MVP
+
+- Авторизация (роли пользователей)
+- Email/webhook уведомления
+- PDF экспорт (конвертация из DOCX)
+- Интеграция с реальным LM Studio / OpenAI
+- E2E test через HTTP endpoints (интеграционный тест с FastAPI TestClient)
 
 ---
 
