@@ -129,6 +129,12 @@ class DocumentModel(Base):
     version = Column(Integer, default=1)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+    # Review workflow fields
+    review_status = Column(String(50), default="needs_review")
+    review_comment = Column(String(2000))
+    reviewed_by = Column(String(200))
+    reviewed_at = Column(DateTime)
+    issued_at = Column(DateTime)
 
 
 class RegulatoryDocumentModel(Base):

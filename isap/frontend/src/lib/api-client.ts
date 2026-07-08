@@ -188,6 +188,33 @@ export const isapApi = {
       method: "POST",
       body: JSON.stringify({ action, reviewer_id: "ui-user", comment: comment || "" }),
     }),
+
+  // Review Workflow (ручная проверка)
+  getDocumentReview: (documentId: string) =>
+    apiRequest<{
+      document_id: string;
+      review_status: string;
+      review_status_label: string;
+      review_comment?: string | null;
+      reviewed_by?: string | null;
+      reviewed_at?: string | null;
+      issued_at?: string | null;
+      allowed_transitions: string[];
+    }>(`/api/v1/pmla/${documentId}/review`),
+  updateDocumentReview: (documentId: string, data: { review_status: string; review_comment?: string; reviewed_by?: string }) =>
+    apiRequest<{
+      document_id: string;
+      review_status: string;
+      review_status_label: string;
+      review_comment?: string | null;
+      reviewed_by?: string | null;
+      reviewed_at?: string | null;
+      issued_at?: string | null;
+      allowed_transitions: string[];
+    }>(`/api/v1/pmla/${documentId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   getAiReview: (documentId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/ai-review`),
   runAiReview: (documentId: string) =>

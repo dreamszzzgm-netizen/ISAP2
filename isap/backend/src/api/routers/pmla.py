@@ -225,6 +225,48 @@ async def review_pmla(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+# ── Review Workflow (ручная проверка) ──────────────────────────────────
+
+class ReviewWorkflowRequest(BaseModel):
+    review_status: str
+    review_comment: str | None = None
+    reviewed_by: str | None = None
+
+
+@router.get("/{document_id}/review")
+async def get_document_review(
+    document_id: UUID,
+    document_repo: DocumentRepository = Depends(get_document_repo),
+):
+    """Получение статуса ручной проверки документа."""
+    from src.application.services.document_review_service import DocumentReviewService
+    service = DocumentReviewService(document_repo)
+    try:
+        return await service.get_review_status(document_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.patch("/{document_id}/review")
+async def update_document_review(
+    document_id: UUID,
+    request: ReviewWorkflowRequest,
+    document_repo: DocumentRepository = Depends(get_document_repo),
+):
+    """Обновление статуса ручной проверки документа."""
+    from src.application.services.document_review_service import DocumentReviewService
+    service = DocumentReviewService(document_repo)
+    try:
+        return await service.update_review_status(
+            document_id=document_id,
+            review_status=request.review_status,
+            review_comment=request.review_comment,
+            reviewed_by=request.reviewed_by,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 # ── Download ───────────────────────────────────────────────────────────
 
 @router.get("/{document_id}/download")

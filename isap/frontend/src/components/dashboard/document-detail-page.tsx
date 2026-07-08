@@ -13,6 +13,7 @@ import {
   FileText,
   Loader2,
   RefreshCcw,
+  Send,
   WandSparkles,
   XCircle,
 } from "lucide-react"
@@ -37,6 +38,8 @@ export function DocumentDetailPage() {
   const [preview, setPreview] = useState<AnyRecord | null>(null)
   const [versions, setVersions] = useState<AnyRecord[]>([])
   const [aiReview, setAiReview] = useState<AnyRecord | null>(null)
+  const [reviewWorkflow, setReviewWorkflow] = useState<AnyRecord | null>(null)
+  const [reviewComment, setReviewComment] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
@@ -44,6 +47,7 @@ export function DocumentDetailPage() {
   const [reviewing, setReviewing] = useState(false)
   const [runningAiReview, setRunningAiReview] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [updatingReview, setUpdatingReview] = useState(false)
   const [showRawJson, setShowRawJson] = useState(false)
 
   const loadDocument = async () => {
@@ -84,6 +88,35 @@ export function DocumentDetailPage() {
     try {
       setAiReview(await isapApi.getAiReview(docId))
     } catch { /* ai review may not be available */ }
+  }
+
+  const loadReviewWorkflow = async () => {
+    if (!docId) return
+    try {
+      const result = await isapApi.getDocumentReview(docId)
+      setReviewWorkflow(result)
+    } catch { /* review workflow may not be available */ }
+  }
+
+  const handleUpdateReview = async (newStatus: string) => {
+    if (!docId) return
+    setUpdatingReview(true)
+    setError("")
+    try {
+      const result = await isapApi.updateDocumentReview(docId, {
+        review_status: newStatus,
+        review_comment: reviewComment || undefined,
+        reviewed_by: "engineer",
+      })
+      setReviewWorkflow(result)
+      setMessage(`Статус изменён: ${result.review_status_label}`)
+      setReviewComment("")
+      await loadDocument()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить статус")
+    } finally {
+      setUpdatingReview(false)
+    }
   }
 
   const handleReview = async (action: "approve" | "reject") => {
@@ -150,6 +183,7 @@ export function DocumentDetailPage() {
       loadDocument()
       loadPreview()
       loadAiReview()
+      loadReviewWorkflow()
     }
   }, [docId])
 
@@ -231,6 +265,116 @@ export function DocumentDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Review Workflow (ручная проверка) */}
+      {reviewWorkflow && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5" />
+              Ручная проверка документа
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <AlertDescription className="text-sm">
+                Ручная проверка инженером обязательна. Автоматическая генерация и проверка качества не заменяют экспертную оценку документа.
+              </AlertDescription>
+            </Alert>
+
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
+              <div className="rounded-md border p-3">
+                <div className="text-muted-foreground text-xs">Статус проверки</div>
+                <div className="mt-1">
+                  <Badge variant={
+                    reviewWorkflow.review_status === "approved" ? "default" :
+                    reviewWorkflow.review_status === "needs_changes" ? "destructive" :
+                    reviewWorkflow.review_status === "ready_to_issue" ? "default" :
+                    "secondary"
+                  }>
+                    {String(reviewWorkflow.review_status_label)}
+                  </Badge>
+                </div>
+              </div>
+              {reviewWorkflow.review_comment && (
+                <div className="rounded-md border p-3 md:col-span-2">
+                  <div className="text-muted-foreground text-xs">Комментарий</div>
+                  <div className="mt-1 text-sm">{String(reviewWorkflow.review_comment)}</div>
+                </div>
+              )}
+              {reviewWorkflow.reviewed_by && (
+                <div className="rounded-md border p-3">
+                  <div className="text-muted-foreground text-xs">Проверил</div>
+                  <div className="mt-1">{String(reviewWorkflow.reviewed_by)}</div>
+                </div>
+              )}
+              {reviewWorkflow.reviewed_at && (
+                <div className="rounded-md border p-3">
+                  <div className="text-muted-foreground text-xs">Дата проверки</div>
+                  <div className="mt-1">{new Date(reviewWorkflow.reviewed_at).toLocaleString("ru-RU")}</div>
+                </div>
+              )}
+              {reviewWorkflow.issued_at && (
+                <div className="rounded-md border p-3">
+                  <div className="text-muted-foreground text-xs">Дата выдачи</div>
+                  <div className="mt-1">{new Date(reviewWorkflow.issued_at).toLocaleString("ru-RU")}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Comment input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Комментарий к проверке</label>
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[80px]"
+                placeholder="Замечания, рекомендации, результаты проверки..."
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+              />
+            </div>
+
+            {/* Action buttons based on allowed transitions */}
+            <div className="flex flex-wrap gap-2">
+              {reviewWorkflow.allowed_transitions?.includes("in_review") && (
+                <Button onClick={() => handleUpdateReview("in_review")} disabled={updatingReview} className="gap-2">
+                  {updatingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
+                  Взять на проверку
+                </Button>
+              )}
+              {reviewWorkflow.allowed_transitions?.includes("needs_changes") && (
+                <Button variant="destructive" onClick={() => handleUpdateReview("needs_changes")} disabled={updatingReview} className="gap-2">
+                  {updatingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                  Отправить на исправление
+                </Button>
+              )}
+              {reviewWorkflow.allowed_transitions?.includes("approved") && (
+                <Button onClick={() => handleUpdateReview("approved")} disabled={updatingReview} className="gap-2">
+                  {updatingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Отметить как проверенный
+                </Button>
+              )}
+              {reviewWorkflow.allowed_transitions?.includes("ready_to_issue") && (
+                <Button onClick={() => handleUpdateReview("ready_to_issue")} disabled={updatingReview} className="gap-2">
+                  {updatingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Подготовить к выдаче
+                </Button>
+              )}
+              {reviewWorkflow.allowed_transitions?.includes("issued") && (
+                <Button onClick={() => handleUpdateReview("issued")} disabled={updatingReview} className="gap-2">
+                  {updatingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Отметить как выданный
+                </Button>
+              )}
+              {reviewWorkflow.allowed_transitions?.includes("archived") && (
+                <Button variant="outline" onClick={() => handleUpdateReview("archived")} disabled={updatingReview} className="gap-2">
+                  {updatingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  Архивировать
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Actions for pending_review */}
       {canReview && (

@@ -414,12 +414,20 @@ class EnhancedDocumentGenerator:
         }
 
         # Сохранение в БД (сериализуем блоки в JSON)
+        # Определяем начальный review_status на основе качества
+        review_status = "needs_review"
+        if validation.issues:
+            has_critical = any(i.severity == "critical" for i in validation.issues)
+            if has_critical:
+                review_status = "needs_changes"
+
         await self._document_repo.update(
             document_id,
             {
                 "content_docx": docx_bytes,
                 "rendered_sections": _serialize_sections(rendered_sections),
                 "status": status,
+                "review_status": review_status,
                 "generation_meta": metadata,
                 "updated_at": datetime.now(UTC).replace(tzinfo=None),
             },
