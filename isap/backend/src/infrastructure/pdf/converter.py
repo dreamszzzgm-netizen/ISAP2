@@ -69,8 +69,8 @@ def _convert_via_fpdf(docx_bytes: bytes) -> bytes:
     # Пытаемся использовать шрифт с кириллицей
     font_path = _find_cyrillic_font()
     if font_path:
-        pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.add_font("DejaVu", "B", font_path, uni=True)
+        pdf.add_font("DejaVu", "", font_path)
+        pdf.add_font("DejaVu", "B", font_path)
         font_name = "DejaVu"
     else:
         font_name = "Helvetica"

@@ -37,7 +37,6 @@ def sample_context():
     )
 
 
-@pytest.mark.asyncio
 class TestTemplateEngineCanHandle:
     def test_handles_all_template_sections(self, engine):
         for section_id in TEMPLATE_SECTIONS:

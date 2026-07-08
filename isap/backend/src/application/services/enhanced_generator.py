@@ -453,25 +453,13 @@ class EnhancedDocumentGenerator:
         next_version = (latest_version.version_number + 1) if latest_version else 1
 
         # Снимок нормативов на момент генерации
-        regulatory_snapshot = []
-        try:
-            from sqlalchemy import select
+        from src.application.services.regulatory_snapshot import (
+            collect_regulatory_snapshot,
+        )
 
-            from src.infrastructure.database.models import RegulatoryDocumentModel
-            reg_result = await self._document_repo.session.execute(
-                select(RegulatoryDocumentModel).where(RegulatoryDocumentModel.status == "действует")
-            )
-            for reg in reg_result.scalars().all():
-                regulatory_snapshot.append({
-                    "id": str(reg.id),
-                    "title": reg.title,
-                    "category": reg.category,
-                    "status": reg.status,
-                    "replacement_id": str(reg.replacement_id) if reg.replacement_id else None,
-                    "last_verified_at": reg.last_verified_at.isoformat() if reg.last_verified_at else None,
-                })
-        except Exception:
-            pass
+        regulatory_snapshot = await collect_regulatory_snapshot(
+            getattr(self._document_repo, "session", None)
+        )
 
         version = DocumentVersionModel(
             document_id=document_id,

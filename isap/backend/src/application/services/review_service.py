@@ -161,12 +161,10 @@ class ReviewService:
         comments: str | list | None,
     ) -> None:
         """Сохранение версии документа с решением ревьюера."""
-        from sqlalchemy import select
-
-        from src.infrastructure.database.models import (
-            DocumentVersionModel,
-            RegulatoryDocumentModel,
+        from src.application.services.regulatory_snapshot import (
+            collect_regulatory_snapshot,
         )
+        from src.infrastructure.database.models import DocumentVersionModel
 
         latest = await self.document_repo.get_latest_version(document_id)
         next_version = (latest.version_number + 1) if latest else 1
@@ -175,22 +173,9 @@ class ReviewService:
         if latest and latest.input_data:
             input_data = latest.input_data
 
-        regulatory_snapshot = []
-        try:
-            reg_result = await self.document_repo.session.execute(
-                select(RegulatoryDocumentModel).where(RegulatoryDocumentModel.status == "действует")
-            )
-            for reg in reg_result.scalars().all():
-                regulatory_snapshot.append({
-                    "id": str(reg.id),
-                    "title": reg.title,
-                    "category": reg.category,
-                    "status": reg.status,
-                    "replacement_id": str(reg.replacement_id) if reg.replacement_id else None,
-                    "last_verified_at": reg.last_verified_at.isoformat() if reg.last_verified_at else None,
-                })
-        except Exception:
-            pass
+        regulatory_snapshot = await collect_regulatory_snapshot(
+            getattr(self.document_repo, "session", None)
+        )
 
         version = DocumentVersionModel(
             document_id=document_id,
