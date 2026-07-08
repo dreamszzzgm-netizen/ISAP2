@@ -1,7 +1,31 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-08T14:00
+**Дата обновления:** 2026-07-08T15:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA MVP stabilization checklist added
+
+**Файл:** `PMLA_MVP_RELEASE_CHECKLIST.md`
+
+**Что зафиксировано:**
+- MVP scope: 16 функций входят, 10 не входят
+- Проверенный пользовательский сценарий (11 шагов)
+- 22 backend endpoints проверены
+- 8 frontend экранов проверены
+- DOCX generation checklist (9 проверок)
+- Review workflow checklist (8 проверок)
+- Smart Import checklist (5 проверок)
+- Git hygiene checklist (7 проверок)
+- Known limitations (7 пунктов)
+- Next steps после MVP (8 задач)
+
+**Текущее состояние:**
+- 359 backend tests passed
+- 9 E2E tests (6 service-level + 3 API smoke)
+- Frontend build: OK
+- Git: clean
 
 ---
 
