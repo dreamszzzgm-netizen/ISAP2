@@ -5,6 +5,25 @@
 
 ---
 
+## PMLA MVP 1.0 — Internal Validation Stage
+
+- PMLA MVP 1.0 is technically assembled and ready for internal validation.
+- Internal release checklist added under `docs/PMLA_MVP_RELEASE_CHECKLIST.md`.
+- Real/anonymized data validation plan added under `docs/PMLA_REAL_DATA_VALIDATION_PLAN.md`.
+- Next stage: validate the MVP on real or anonymized OPO data.
+- Production limitations remain: no production deployment, no automatic client delivery, no electronic signature, no route calculation, no automatic geocoding, and no full RAG over PMLA samples.
+- Engineer review remains mandatory before using generated documents as a client-facing result.
+
+---
+
+## PMLA MVP release checklist added
+
+**File:** `PMLA_MVP_RELEASE_CHECKLIST.md`
+
+Short MVP release checklist refreshed: MVP scope, out-of-scope items, verified scenario, endpoint groups, known limitations, and next steps after MVP.
+
+---
+
 ## PMLA MVP stabilization checklist added
 
 **Файл:** `PMLA_MVP_RELEASE_CHECKLIST.md`
