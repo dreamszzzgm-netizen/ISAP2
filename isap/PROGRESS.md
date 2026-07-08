@@ -1,6 +1,6 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-08T18:00
+**Дата обновления:** 2026-07-08T19:00
 **Проект:** ISAP — Industrial Safety AI Platform
 
 ---
@@ -19,8 +19,10 @@
 | 4 | Quality review не распознавал ключи demo notification_scheme | `pmla_quality_review_service.py` | Добавлены алиасы ключей: `responsible_manager` → `incident_commander`, `calls_pasf` → `pasf_caller`, `calls_fire` → `fire_caller` |
 | 5 | Demo seed `attachments_checklist` был списком строк | `demo_pmla_validation.json` | Приведён к формату объектов `[{name, present}]` |
 | 6 | Walkthrough содержал устаревший путь | `PMLA_DEMO_DATA_WALKTHROUGH.md` | Обновлены пути и добавлен PYTHONPATH |
+| 7 | 401 Unauthorized — frontend не отправлял API ключ | `frontend/.env.local` | Создан файл с `NEXT_PUBLIC_API_KEY=isap-secret-2026` |
+| 8 | БД не имела колонки `version` | Миграции | Запущены `alembic upgrade head` (миграции 016, 017) |
 
-### Изменённые файлы (9 файлов, +140/-33 строк)
+### Изменённые файлы (10 файлов + 1 новый)
 
 | Файл | Изменение |
 |------|-----------|
@@ -33,6 +35,10 @@
 | `backend/data/demo_pmla_validation.json` | attachments_checklist → объекты |
 | `docs/PMLA_DEMO_DATA_WALKTHROUGH.md` | Пути, PYTHONPATH |
 | `backend/tests/test_stabilization_patch.py` | **Новый:** 19 тестов стабилизации |
+| `frontend/.env.local` | **Новый:** API ключ для backend |
+| `frontend/next-env.d.ts` | Auto-generated (build noise) |
+| `backend/src/application/services/pmla_quality_review_service.py` | Алиасы ключей notification_scheme, поддержка dict в attachments |
+| `backend/templates/pmla/sections/04_forces.j2` | Поддержка list и dict формата emergency_services |
 
 ### Результаты проверок
 
@@ -40,8 +46,8 @@
 |----------|-----------|
 | `pytest -q` | **381 passed**, 41 warnings |
 | `npm run build` | ✓ Compiled successfully |
-| `git status` | 9 modified, 1 new (test file) |
-| `git ls-files` | Чисто — нет .next/node_modules/.env.local/.zip/.patch |
+| `API /api/v1/pmla/` | 200 OK (с API ключом) |
+| `git status` | Чисто — working tree clean |
 
 ### Новые тесты (19)
 
@@ -57,10 +63,26 @@
 |---------|----------|
 | Backend tests | 381 passed |
 | Frontend build | ✓ |
+| API авторизация | Frontend → Backend с Bearer token |
 | HTML в DOCX | Удалён через strip_html() |
 | ПАСФ в DOCX | Отображается через section_6 + emergency_services |
 | Службы в DOCX | Отображаются из контекста анкеты |
 | Quality score (demo) | ≥ 80 (без critical) |
+
+### Docker
+
+| Контейнер | Статус | Порт |
+|-----------|--------|------|
+| isap_backend | Up | 8000 |
+| isap_frontend | Up | 3000 |
+| isap_db | Up (healthy) | 5432 |
+| isap_chromadb | Up | 8001 |
+
+### Git commits
+
+```
+f896bfb stabilization patch: fix attachments_checklist, strip HTML from DOCX, add PASF/emergency services, sync quality review
+```
 
 ---
 
