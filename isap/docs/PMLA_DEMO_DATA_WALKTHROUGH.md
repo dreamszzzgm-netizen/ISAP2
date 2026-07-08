@@ -9,7 +9,10 @@ The demo data is local-only and is not intended for production deployment. It do
 From the backend folder, run the existing migrations first, then load the demo dataset:
 
 ```powershell
-cd "D:\Git Hub\ISAP2\isap\backend"
+cd "D:\Project ISAP\isap\backend"
+
+$env:PYTHONPATH='.'
+$env:DATABASE_URL='postgresql+asyncpg://postgres:postgres@localhost:5432/isap'
 alembic upgrade head
 python scripts\load_demo_pmla_data.py
 ```
@@ -27,21 +30,21 @@ backend/data/demo_pmla_validation.json
 Option A: Docker Compose from the project folder:
 
 ```powershell
-cd "D:\Git Hub\ISAP2\isap"
+cd "D:\Project ISAP\isap"
 docker-compose up --build
 ```
 
 Option B: local development:
 
 ```powershell
-cd "D:\Git Hub\ISAP2\isap\backend"
+cd "D:\Project ISAP\isap\backend"
 uvicorn src.main:app --reload
 ```
 
 In a second terminal:
 
 ```powershell
-cd "D:\Git Hub\ISAP2\isap\frontend"
+cd "D:\Project ISAP\isap\frontend"
 npm run dev
 ```
 

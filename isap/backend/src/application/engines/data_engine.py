@@ -353,15 +353,32 @@ class DataEngine(BaseEngine):
         """Раздел 6 — Состав и дислокация сил (Таблицы 11-13)."""
         blocks: list[Block] = []
         org = ctx.organization
+        emergency = ctx.emergency_services or []
 
-        # Таблица 11 — Силы и средства
+        # Таблица 11 — Силы и средства (use actual emergency services if available)
         t11_headers = ["№ п/п", "Наименование подразделения", "Количество", "Место дислокации"]
-        t11_rows = [
-            ["1", "Аварийно-спасательная бригада", "1", _s(org, "address")],
-            ["2", "Пожарная охрана", "1", "Ближайшая ПЧ"],
-            ["3", "Аварийная газовая служба", "1", "Диспетчерская"],
-            ["4", "Медицинская служба", "1", "Медпункт"],
-        ]
+        t11_rows = []
+        if emergency:
+            idx = 1
+            for svc in emergency:
+                if isinstance(svc, dict):
+                    svc_type = svc.get("service_type", "—")
+                    name = svc.get("name", "—")
+                    address = svc.get("address", "—")
+                else:
+                    # Handle string items gracefully
+                    name = str(svc)
+                    svc_type = "—"
+                    address = "—"
+                t11_rows.append([str(idx), name, "1", address])
+                idx += 1
+        else:
+            t11_rows = [
+                ["1", "Аварийно-спасательная бригада", "1", _s(org, "address")],
+                ["2", "Пожарная охрана", "1", "Ближайшая ПЧ"],
+                ["3", "Аварийная газовая служба", "1", "Диспетчерская"],
+                ["4", "Медицинская служба", "1", "Медпункт"],
+            ]
         blocks.append(TableBlock(
             headers=t11_headers,
             rows=t11_rows,
@@ -386,13 +403,35 @@ class DataEngine(BaseEngine):
             caption="Таблица 12. Состав сил для ликвидации аварий",
         ))
 
-        # Таблица 13 — Дислокация
+        # Таблица 13 — Дислокация (use actual emergency services if available)
         t13_headers = ["Подразделение", "Адрес", "Зона ответственности"]
-        t13_rows = [
-            [_s(org, "name"), _s(org, "address"), "Территория объекта"],
-            ["Пожарная охрана", "Ближайшая ПЧ", "Пожарная безопасность"],
-            ["Аварийная газовая служба", "Диспетчерская", "Газоснабжение"],
-        ]
+        t13_rows = []
+        if emergency:
+            for svc in emergency:
+                if isinstance(svc, dict):
+                    name = svc.get("name", "—")
+                    address = svc.get("address", "—")
+                    svc_type = svc.get("service_type", "—")
+                else:
+                    name = str(svc)
+                    address = "—"
+                    svc_type = "—"
+                zone_map = {
+                    "fire": "Пожарная безопасность",
+                    "medical": "Медицинская помощь",
+                    "police": "Правопорядок",
+                    "gas": "Газоснабжение",
+                    "edds": "Единая дежурно-диспетчерская служба",
+                    "pasf": "Аварийно-спасательные работы",
+                }
+                zone = zone_map.get(svc_type, "Общая зона ответственности")
+                t13_rows.append([name, address, zone])
+        else:
+            t13_rows = [
+                [_s(org, "name"), _s(org, "address"), "Территория объекта"],
+                ["Пожарная охрана", "Ближайшая ПЧ", "Пожарная безопасность"],
+                ["Аварийная газовая служба", "Диспетчерская", "Газоснабжение"],
+            ]
         blocks.append(TableBlock(
             headers=t13_headers,
             rows=t13_rows,

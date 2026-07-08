@@ -60,7 +60,14 @@ class PmlaQualityReviewService:
         "страховой полис",
     ]
 
+    # Flexible key mapping: accept both canonical and demo-data keys
     NOTIFICATION_KEY_ROLES = ["first_receiver", "incident_commander", "pasf_caller", "fire_caller"]
+    NOTIFICATION_KEY_ALIASES = {
+        "incident_commander": ["responsible_manager", "incident_commander"],
+        "pasf_caller": ["calls_pasf", "pasf_caller"],
+        "fire_caller": ["calls_fire", "fire_caller"],
+        "first_receiver": ["first_receiver"],
+    }
 
     def review(
         self,
@@ -255,8 +262,16 @@ class PmlaQualityReviewService:
                 status="critical",
                 message="Схема оповещения отсутствует",
             )
-        filled_roles = [k for k in self.NOTIFICATION_KEY_ROLES if scheme.get(k)]
-        missing_roles = [k for k in self.NOTIFICATION_KEY_ROLES if not scheme.get(k)]
+        # Check each role using aliases (accept both canonical and demo keys)
+        filled_roles = []
+        missing_roles = []
+        for role in self.NOTIFICATION_KEY_ROLES:
+            aliases = self.NOTIFICATION_KEY_ALIASES.get(role, [role])
+            found = any(scheme.get(alias) for alias in aliases)
+            if found:
+                filled_roles.append(role)
+            else:
+                missing_roles.append(role)
         if not filled_roles:
             return CheckResult(
                 code="notification_scheme",
@@ -351,7 +366,15 @@ class PmlaQualityReviewService:
         checklist = ctx.get("attachments_checklist") or []
         if isinstance(checklist, str):
             checklist = [checklist]
-        selected_lower = {item.lower().strip() for item in checklist if isinstance(item, str)}
+        # Normalize: extract names from both strings and dicts
+        selected_lower = set()
+        for item in checklist:
+            if isinstance(item, str):
+                selected_lower.add(item.lower().strip())
+            elif isinstance(item, dict):
+                name = item.get("name", "")
+                if name:
+                    selected_lower.add(name.lower().strip())
         missing = [a for a in self.REQUIRED_ATTACHMENTS if a.lower() not in selected_lower]
         if not missing:
             return CheckResult(

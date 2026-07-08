@@ -1,7 +1,66 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-08T15:00
+**Дата обновления:** 2026-07-08T18:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Stabilization Patch (2026-07-08)
+
+Патч стабилизации после demo walkthrough ПМЛА MVP.
+
+### Исправленные баги
+
+| # | Баг | Файл | Решение |
+|---|-----|------|---------|
+| 1 | `attachments_checklist` — `'str' object has no attribute 'get'` | `docx_helpers.py` | Добавлена нормализация `_normalize_attachment()`: принимает и строки, и объекты `{name, present}` |
+| 2 | HTML-фрагменты (`<td>`, `<tr>`, `<table>`) в DOCX | `template_engine.py`, `enhanced_generator.py` | Добавлена функция `strip_html()` — очистка перед вставкой в DOCX |
+| 3 | ПАСФ/аварийные службы не отображались в DOCX | `data_engine.py`, `04_forces.j2` | Section 6 теперь использует реальные emergency_services из контекста; шаблон 04_forces.j2 поддерживает list и dict форматы |
+| 4 | Quality review не распознавал ключи demo notification_scheme | `pmla_quality_review_service.py` | Добавлены алиасы ключей: `responsible_manager` → `incident_commander`, `calls_pasf` → `pasf_caller`, `calls_fire` → `fire_caller` |
+| 5 | Demo seed `attachments_checklist` был списком строк | `demo_pmla_validation.json` | Приведён к формату объектов `[{name, present}]` |
+| 6 | Walkthrough содержал устаревший путь | `PMLA_DEMO_DATA_WALKTHROUGH.md` | Обновлены пути и добавлен PYTHONPATH |
+
+### Изменённые файлы (9 файлов, +140/-33 строк)
+
+| Файл | Изменение |
+|------|-----------|
+| `backend/src/infrastructure/export/docx_helpers.py` | `_normalize_attachment()`, `strip_html()`, тип `add_appendices_section` |
+| `backend/src/application/engines/template_engine.py` | Импорт и вызов `strip_html()` перед созданием ParagraphBlocks |
+| `backend/src/application/services/enhanced_generator.py` | `strip_html()` в `_add_body_paragraph()` и `_build_docx()` |
+| `backend/src/application/engines/data_engine.py` | `_render_section_6()` использует реальные emergency_services |
+| `backend/src/application/services/pmla_quality_review_service.py` | Алиасы ключей notification_scheme, поддержка dict в attachments |
+| `backend/templates/pmla/sections/04_forces.j2` | Поддержка list и dict формата emergency_services |
+| `backend/data/demo_pmla_validation.json` | attachments_checklist → объекты |
+| `docs/PMLA_DEMO_DATA_WALKTHROUGH.md` | Пути, PYTHONPATH |
+| `backend/tests/test_stabilization_patch.py` | **Новый:** 19 тестов стабилизации |
+
+### Результаты проверок
+
+| Проверка | Результат |
+|----------|-----------|
+| `pytest -q` | **381 passed**, 41 warnings |
+| `npm run build` | ✓ Compiled successfully |
+| `git status` | 9 modified, 1 new (test file) |
+| `git ls-files` | Чисто — нет .next/node_modules/.env.local/.zip/.patch |
+
+### Новые тесты (19)
+
+- `_normalize_attachment` — строка, объект, пустой объект
+- `add_appendices_section` — строки, объекты, смешанный формат, пустой список
+- `strip_html` — базовый, без тегов, вложенные теги
+- Quality review — demo notification, PASF, emergency services, attachments, score
+- Demo seed — attachments объекты, notification ключи
+
+### Статус после патча
+
+| Метрика | Значение |
+|---------|----------|
+| Backend tests | 381 passed |
+| Frontend build | ✓ |
+| HTML в DOCX | Удалён через strip_html() |
+| ПАСФ в DOCX | Отображается через section_6 + emergency_services |
+| Службы в DOCX | Отображаются из контекста анкеты |
+| Quality score (demo) | ≥ 80 (без critical) |
 
 ---
 

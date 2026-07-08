@@ -19,6 +19,12 @@ HEADING_FONT_SIZE_PT = 14
 FIRST_LINE_INDENT_CM = 1.25
 
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def strip_html(text: str) -> str:
+    """Remove HTML tags from text, leaving only the inner content."""
+    return HTML_TAG_RE.sub("", text)
 
 
 def safe_text(value) -> str:
@@ -218,7 +224,23 @@ def create_title_page(doc: DocxDocument, context: dict) -> None:
     doc.add_page_break()
 
 
-def add_appendices_section(doc: DocxDocument, attachments_checklist: list[dict] | None = None) -> None:
+def _normalize_attachment(item) -> dict:
+    """Normalize an attachment item to {name, present} dict.
+
+    Accepts both string items ("схема расположения ОПО") and
+    dict items ({"name": "...", "present": true}).
+    """
+    if isinstance(item, str):
+        return {"name": item, "present": True}
+    if isinstance(item, dict):
+        return {
+            "name": item.get("name", ""),
+            "present": item.get("present", False),
+        }
+    return {"name": str(item), "present": True}
+
+
+def add_appendices_section(doc: DocxDocument, attachments_checklist: list[dict | str] | None = None) -> None:
     """Add the Appendices section with checklist."""
     add_heading(doc, "Приложения", level=1, center=False)
 
@@ -227,8 +249,9 @@ def add_appendices_section(doc: DocxDocument, attachments_checklist: list[dict] 
         return
 
     appendix_num = 1
-    for attachment in attachments_checklist:
-        name = attachment.get("name", f"Приложение {appendix_num}")
+    for raw_item in attachments_checklist:
+        attachment = _normalize_attachment(raw_item)
+        name = attachment.get("name") or f"Приложение {appendix_num}"
         present = attachment.get("present", False)
         status = "" if present else " — не представлено"
         add_body_paragraph(doc, f"Приложение {appendix_num}. {name}{status}")

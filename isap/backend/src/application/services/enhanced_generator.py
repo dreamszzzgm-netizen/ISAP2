@@ -39,6 +39,7 @@ from src.infrastructure.export.docx_helpers import (
     safe_text,
     set_default_font,
     set_document_margins,
+    strip_html,
 )
 from src.infrastructure.llm.providers import LLMMessage, LLMProvider
 from src.infrastructure.rag.pipeline import Retriever
@@ -854,7 +855,9 @@ class EnhancedDocumentGenerator:
         """
         Добавляет абзац содержимого, конвертируя markdown-разметку **жирный**
         в реальное жирное форматирование вместо буквальных звёздочек.
+        HTML-теги удаляются.
         """
+        line = strip_html(line)
         paragraph = doc.add_paragraph()
         pos = 0
         for match in self._BOLD_RE.finditer(line):
@@ -889,7 +892,8 @@ class EnhancedDocumentGenerator:
             if isinstance(content, list) and content:
                 self._render_blocks(doc, content)
             elif isinstance(content, str):
-                for line in content.strip().split("\n"):
+                cleaned = strip_html(content)
+                for line in cleaned.strip().split("\n"):
                     if line.strip():
                         self._add_body_paragraph(doc, line.strip())
             doc.add_paragraph()
@@ -901,7 +905,8 @@ class EnhancedDocumentGenerator:
             if isinstance(content, list) and content:
                 self._render_blocks(doc, content)
             elif isinstance(content, str):
-                for line in content.strip().split("\n"):
+                cleaned = strip_html(content)
+                for line in cleaned.strip().split("\n"):
                     if line.strip():
                         self._add_body_paragraph(doc, line.strip())
             doc.add_paragraph()
@@ -914,8 +919,9 @@ class EnhancedDocumentGenerator:
                 # Новый путь: рендер блоков
                 self._render_blocks(doc, content_or_blocks)
             elif isinstance(content_or_blocks, str):
-                # Старый путь: текст, разбитый по строкам
-                for line in content_or_blocks.strip().split("\n"):
+                # Старый путь: текст, разбитый по строкам (strip HTML tags first)
+                cleaned = strip_html(content_or_blocks)
+                for line in cleaned.strip().split("\n"):
                     if line.strip():
                         self._add_body_paragraph(doc, line.strip())
             doc.add_paragraph()

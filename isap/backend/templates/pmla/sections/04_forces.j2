@@ -24,12 +24,21 @@
 | № п/п | Тип службы | Наименование | Адрес | Телефон | Расстояние |
 |--------|------------|--------------|-------|---------|------------|
 {% set ns = namespace(idx=0) %}
+{% if emergency_services is mapping %}
+{# emergency_services is a dict grouped by service_type #}
 {% for stype, services in emergency_services.items() %}
 {% for s in services %}
 {% set ns.idx = ns.idx + 1 %}
 | {{ ns.idx }} | {{ stype }} | {{ s.name | default('—') }} | {{ s.address | default('—') }} | {{ s.phone | default('—') }} | {{ s.distance_km | default('—') }} км |
 {% endfor %}
 {% endfor %}
+{% else %}
+{# emergency_services is a flat list of dicts #}
+{% for s in emergency_services %}
+{% set ns.idx = ns.idx + 1 %}
+| {{ ns.idx }} | {{ s.service_type | default('—') }} | {{ s.name | default('—') }} | {{ s.address | default('—') }} | {{ s.phone | default('—') }} | {{ s.distance_km | default('—') }} км |
+{% endfor %}
+{% endif %}
 {% else %}
 | № п/п | Наименование сил и средств | Единица измерения | Количество | Место базирования |
 |--------|----------------------------|-------------------|------------|-------------------|
