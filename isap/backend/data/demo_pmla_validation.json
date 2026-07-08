@@ -1,0 +1,282 @@
+{
+  "organization": {
+    "name": "ООО \"Демо Промышленная Безопасность\"",
+    "inn": "0000000000",
+    "ogrn": "0000000000000",
+    "address": "625000, Тюменская область, г. Тюмень, ул. Учебная, д. 1",
+    "phone": "+7 (3452) 00-00-00",
+    "email": "demo-isap@example.local"
+  },
+  "responsible_persons": [
+    {
+      "full_name": "Иванов Иван Иванович",
+      "position": "Генеральный директор",
+      "role": "director",
+      "phone": "+7 (900) 000-00-01",
+      "email": "director@example.local"
+    },
+    {
+      "full_name": "Петрова Анна Сергеевна",
+      "position": "Инженер по промышленной безопасности",
+      "role": "industrial_safety_contact",
+      "phone": "+7 (900) 000-00-02",
+      "email": "safety@example.local"
+    }
+  ],
+  "facility": {
+    "name": "Сеть газопотребления демо-производственной площадки",
+    "reg_number": "А00-00000-0001",
+    "hazard_class": 3,
+    "facility_type": "Сеть газопотребления",
+    "address": "625000, Тюменская область, г. Тюмень, ул. Учебная, производственная площадка 1",
+    "inventory_number": "DEMO-OPO-001",
+    "properties": {
+      "demo": true,
+      "purpose": "internal_pmla_validation",
+      "anonymized": true
+    }
+  },
+  "equipment": [
+    {
+      "name": "Газорегуляторный пункт шкафной ГРПШ-ДЕМО",
+      "equipment_type": "газорегуляторный пункт",
+      "serial_number": "DEMO-GRP-001",
+      "manufacturer": "Демо-завод",
+      "manufacture_year": 2024,
+      "specifications": {
+        "pressure_mpa": "0.6",
+        "capacity_m3_h": "500",
+        "location": "наружная установка"
+      }
+    },
+    {
+      "name": "Внутриплощадочный газопровод среднего давления",
+      "equipment_type": "газопровод",
+      "serial_number": "DEMO-PIPE-001",
+      "manufacturer": "не применимо",
+      "manufacture_year": 2024,
+      "specifications": {
+        "diameter_mm": "108",
+        "length_m": "120",
+        "material": "сталь"
+      }
+    }
+  ],
+  "substances": [
+    {
+      "name": "Природный газ",
+      "cas_number": "74-82-8",
+      "quantity_kg": 250.0,
+      "threshold_quantity_kg": 1000.0,
+      "hazard_properties": {
+        "flammable": true,
+        "explosive_mixture": true,
+        "main_component": "метан"
+      }
+    }
+  ],
+  "pasf": {
+    "name": "Демо ПАСФ \"Безопасность\"",
+    "short_name": "Демо ПАСФ",
+    "legal_address": "625000, Тюменская область, г. Тюмень, ул. Учебная, д. 10",
+    "actual_address": "625000, Тюменская область, г. Тюмень, ул. Учебная, д. 10",
+    "dispatch_phone": "+7 (3452) 00-01-01",
+    "email": "pasf@example.local",
+    "manager_name": "Сидоров Сергей Петрович",
+    "certificate_number": "ПАСФ-ДЕМО-0001",
+    "certificate_date": "2026-01-01",
+    "certificate_valid_until": "2031-01-01",
+    "permitted_work_types": [
+      "газоспасательные работы",
+      "локализация аварий на сетях газопотребления",
+      "проведение аварийно-спасательных работ на ОПО"
+    ],
+    "equipment_passport": [
+      {
+        "name": "Автомобиль аварийно-спасательный",
+        "quantity": "1",
+        "notes": "демо-запись"
+      },
+      {
+        "name": "Газоанализатор переносной",
+        "quantity": "2",
+        "notes": "контроль загазованности"
+      },
+      {
+        "name": "Комплект СИЗОД",
+        "quantity": "4",
+        "notes": "для аварийной бригады"
+      }
+    ],
+    "staff_count": "8",
+    "readiness_mode": "круглосуточная готовность",
+    "service_area": "г. Тюмень и прилегающая промышленная зона",
+    "notes": "Обезличенная демо-запись для внутренней проверки ПМЛА MVP."
+  },
+  "emergency_services": [
+    {
+      "service_type": "fire",
+      "name": "Демо пожарно-спасательная часть",
+      "address": "г. Тюмень, ул. Учебная, д. 20",
+      "phone": "101",
+      "dispatcher_phone": "+7 (3452) 00-02-01",
+      "municipality": "г. Тюмень",
+      "settlement": "Тюмень",
+      "service_area": "район демо-площадки",
+      "notes": "Пожарная охрана для demo validation."
+    },
+    {
+      "service_type": "medical",
+      "name": "Демо станция скорой медицинской помощи",
+      "address": "г. Тюмень, ул. Учебная, д. 21",
+      "phone": "103",
+      "dispatcher_phone": "+7 (3452) 00-02-03",
+      "municipality": "г. Тюмень",
+      "settlement": "Тюмень",
+      "service_area": "район демо-площадки",
+      "notes": "Скорая помощь для demo validation."
+    },
+    {
+      "service_type": "police",
+      "name": "Демо отдел полиции",
+      "address": "г. Тюмень, ул. Учебная, д. 22",
+      "phone": "102",
+      "dispatcher_phone": "+7 (3452) 00-02-02",
+      "municipality": "г. Тюмень",
+      "settlement": "Тюмень",
+      "service_area": "район демо-площадки",
+      "notes": "Полиция для demo validation."
+    },
+    {
+      "service_type": "gas",
+      "name": "Демо аварийная газовая служба",
+      "address": "г. Тюмень, ул. Учебная, д. 23",
+      "phone": "104",
+      "dispatcher_phone": "+7 (3452) 00-02-04",
+      "municipality": "г. Тюмень",
+      "settlement": "Тюмень",
+      "service_area": "район демо-площадки",
+      "notes": "Газовая служба для demo validation."
+    },
+    {
+      "service_type": "edds",
+      "name": "Демо ЕДДС муниципального образования",
+      "address": "г. Тюмень, ул. Учебная, д. 24",
+      "phone": "112",
+      "dispatcher_phone": "+7 (3452) 00-02-12",
+      "municipality": "г. Тюмень",
+      "settlement": "Тюмень",
+      "service_area": "г. Тюмень",
+      "notes": "ЕДДС для demo validation."
+    }
+  ],
+  "questionnaire": {
+    "incident_history": {
+      "has_incidents": false,
+      "period": "за период эксплуатации демо-объекта",
+      "items": []
+    },
+    "operation_mode": {
+      "mode": "периодическая эксплуатация производственной площадки",
+      "shifts": 1,
+      "staff_per_shift": 4,
+      "night_shift": false,
+      "has_dispatcher": true
+    },
+    "selected_scenarios": [
+      {
+        "scenario_code": "СГ-ДЕМО-1",
+        "scenario_name": "Разгерметизация участка газопровода с выбросом природного газа",
+        "factor_type": "выброс горючего газа",
+        "probability": "средняя",
+        "consequences": "образование взрывоопасной газовоздушной смеси в зоне утечки"
+      },
+      {
+        "scenario_code": "СГ-ДЕМО-2",
+        "scenario_name": "Воспламенение газовоздушной смеси на площадке ГРПШ",
+        "factor_type": "тепловое излучение",
+        "probability": "низкая",
+        "consequences": "локальное тепловое воздействие на персонал и оборудование"
+      }
+    ],
+    "custom_scenarios": [
+      {
+        "title": "Повреждение запорной арматуры при техническом обслуживании",
+        "description": "Демо-сценарий для проверки ручного текста в ПМЛА.",
+        "source_equipment": "ГРПШ-ДЕМО",
+        "substance": "природный газ",
+        "consequences": "локальная утечка газа без аварийных последствий при своевременном перекрытии",
+        "personnel_actions": "остановить работы, вывести персонал, сообщить диспетчеру, перекрыть подачу газа"
+      }
+    ],
+    "organization_resources": {
+      "actual_items": [
+        {
+          "name": "Переносной газоанализатор",
+          "quantity": "1",
+          "location": "пост ответственного за газовое хозяйство"
+        },
+        {
+          "name": "Первичные средства пожаротушения",
+          "quantity": "4",
+          "location": "у входа на площадку ГРПШ"
+        },
+        {
+          "name": "Комплект инструмента для перекрытия арматуры",
+          "quantity": "1",
+          "location": "шкаф аварийного инвентаря"
+        }
+      ],
+      "recommended_items": [],
+      "user_notes": "Данные обезличены и предназначены только для локальной проверки MVP."
+    },
+    "notification_scheme": {
+      "first_receiver": "дежурный диспетчер организации",
+      "responsible_manager": "инженер по промышленной безопасности",
+      "calls_pasf": "диспетчер организации вызывает ПАСФ по телефону +7 (3452) 00-01-01",
+      "calls_fire": "при признаках пожара вызывается пожарная охрана по телефону 101",
+      "meets_services": "ответственный за площадку встречает прибывающие службы у КПП",
+      "contacts": [
+        {
+          "role": "диспетчер организации",
+          "phone": "+7 (900) 000-00-03"
+        },
+        {
+          "role": "инженер по промышленной безопасности",
+          "phone": "+7 (900) 000-00-02"
+        }
+      ]
+    },
+    "training": {
+      "conducted": true,
+      "frequency": "ежегодно",
+      "last_date": "2026-06-01",
+      "last_topic": "Действия персонала при обнаружении запаха газа",
+      "participants": "оперативный персонал производственной площадки"
+    },
+    "financial_reserve": {
+      "created": true,
+      "order_number": "ДЕМО-РЕЗ-01",
+      "order_date": "2026-01-15",
+      "amount": "500000 руб."
+    },
+    "insurance": {
+      "has_contract": true,
+      "company": "АО \"Демо Страхование\"",
+      "contract_number": "ДЕМО-ОПО-0001",
+      "valid_until": "2027-12-31"
+    },
+    "attachments_checklist": [
+      "схема расположения ОПО",
+      "схема оповещения",
+      "перечень сил и средств",
+      "копия свидетельства ПАСФ",
+      "копия договора страхования"
+    ],
+    "source_notes": [
+      "Демо-набор обезличен.",
+      "Данные не предназначены для production deployment.",
+      "Инженерная проверка обязательна."
+    ]
+  }
+}
