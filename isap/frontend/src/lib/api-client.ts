@@ -219,4 +219,11 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/directories/emergency-services/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteEmergencyService: (id: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/directories/emergency-services/${id}`, { method: "DELETE" }),
+
+  // Import
+  previewImport: (importType: string, file: File) =>
+    apiUpload<{ job: { id: string; status: string; error_rows?: number; created_rows?: number; updated_rows?: number }; rows: Array<Record<string, unknown>> }>(
+      `/api/v1/imports/${importType}/preview`,
+      file
+    ),
 }

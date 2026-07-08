@@ -30,6 +30,16 @@ from src.application.services.prompts import (
 )
 from src.application.services.types import GeneratedDocument
 from src.application.services.validation import DocumentValidator
+from src.infrastructure.export.docx_helpers import (
+    add_body_paragraph as helper_add_body_paragraph,
+    add_data_table,
+    add_heading as helper_add_heading,
+    add_kv_table,
+    create_title_page,
+    safe_text,
+    set_default_font,
+    set_document_margins,
+)
 from src.infrastructure.llm.providers import LLMMessage, LLMProvider
 from src.infrastructure.rag.pipeline import Retriever
 from src.infrastructure.repositories.document_repo import DocumentRepository
@@ -388,6 +398,7 @@ class EnhancedDocumentGenerator:
                 {"section": i.section, "reason": i.reason, "severity": i.severity}
                 for i in validation.issues
             ],
+            "context": context,
         }
         docx_bytes = self._build_docx(structure["title"], rendered_sections, metadata)
         metadata["debug_report"] = {
@@ -871,16 +882,35 @@ class EnhancedDocumentGenerator:
         doc = DocxDocument()
         self._setup_document_defaults(doc)
 
-        # Заголовок
-        self._add_heading(doc, title, level=0, center=True)
+        # Титульный лист
+        context = metadata.get("context", {})
+        create_title_page(doc, context)
 
-        # Метаданные
-        self._add_body_paragraph(doc, f"Версия: {metadata['version']}")
-        self._add_body_paragraph(doc, f"Дата генерации: {metadata['generated_at']}")
-        self._add_body_paragraph(doc, f"Статус: {metadata['status']}")
-        doc.add_paragraph()
+        # Журнал корректировки
+        if "Журнал корректировки документа" in sections:
+            content = sections.pop("Журнал корректировки документа")
+            self._add_heading(doc, "Журнал корректировки документа", level=1, center=False)
+            if isinstance(content, list) and content:
+                self._render_blocks(doc, content)
+            elif isinstance(content, str):
+                for line in content.strip().split("\n"):
+                    if line.strip():
+                        self._add_body_paragraph(doc, line.strip())
+            doc.add_paragraph()
 
-        # Разделы
+        # Содержание
+        if "Содержание" in sections:
+            content = sections.pop("Содержание")
+            self._add_heading(doc, "Содержание", level=1, center=False)
+            if isinstance(content, list) and content:
+                self._render_blocks(doc, content)
+            elif isinstance(content, str):
+                for line in content.strip().split("\n"):
+                    if line.strip():
+                        self._add_body_paragraph(doc, line.strip())
+            doc.add_paragraph()
+
+        # Основные разделы
         for section_title, content_or_blocks in sections.items():
             self._add_heading(doc, section_title, level=1, center=False)
 
@@ -893,6 +923,12 @@ class EnhancedDocumentGenerator:
                     if line.strip():
                         self._add_body_paragraph(doc, line.strip())
             doc.add_paragraph()
+
+        # Приложения
+        attachments = context.get("attachments_checklist") or []
+        if attachments:
+            from src.infrastructure.export.docx_helpers import add_appendices_section
+            add_appendices_section(doc, attachments)
 
         # Нормативные ссылки
         if metadata.get("calculation_results"):

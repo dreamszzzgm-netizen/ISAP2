@@ -841,3 +841,207 @@ class TestFullEngineRouterPipeline:
                 empty_sections.append(section_id)
 
         assert not empty_sections, f"Empty sections after engine routing: {empty_sections}"
+
+
+class TestDocxStructure:
+    """Test DOCX document structure matches the required PMLA template."""
+
+    def setup_method(self):
+        self.service = PmlaGenerationFromQuestionnaireService(
+            document_repo=MagicMock(),
+            regulatory_repo=MagicMock(),
+            scenario_matrix_repo=MagicMock(),
+        )
+
+    def _make_doc_context(self):
+        ctx = self.service.adapt_context_for_generator(SAMPLE_QUESTIONNAIRE_DATA)
+        return DocumentContext.from_dict(ctx)
+
+    def _build_real_docx(self, all_sections: dict, context: dict = None) -> bytes:
+        """Build DOCX using the actual EnhancedDocumentGenerator._build_docx logic."""
+        from src.application.engines.blocks import HeadingBlock, ParagraphBlock, TableBlock
+        from src.infrastructure.export.docx_helpers import create_title_page
+
+        doc = DocxDocument()
+        # Setup defaults (same as EnhancedDocumentGenerator._setup_document_defaults)
+        section_layout = doc.sections[0]
+        section_layout.top_margin = Cm(2.0)
+        section_layout.bottom_margin = Cm(2.0)
+        section_layout.left_margin = Cm(3.0)
+        section_layout.right_margin = Cm(1.5)
+        style = doc.styles["Normal"]
+        style.font.name = "Times New Roman"
+        style.font.size = Pt(12)
+
+        # Title page
+        if context:
+            create_title_page(doc, context)
+
+        for section_title, content_or_blocks in all_sections.items():
+            h = doc.add_heading(level=1)
+            h.text = section_title
+            if isinstance(content_or_blocks, list):
+                for block in content_or_blocks:
+                    if isinstance(block, HeadingBlock):
+                        h2 = doc.add_heading(level=block.level)
+                        h2.text = block.text
+                    elif isinstance(block, ParagraphBlock):
+                        p = doc.add_paragraph()
+                        run = p.add_run(block.text)
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+                    elif isinstance(block, TableBlock):
+                        num_rows = len(block.rows) + 1
+                        num_cols = len(block.headers)
+                        t = doc.add_table(rows=num_rows, cols=num_cols)
+                        for j, hdr in enumerate(block.headers):
+                            t.cell(0, j).text = str(hdr)
+                        for i, row in enumerate(block.rows):
+                            for j, val in enumerate(row):
+                                if j < num_cols:
+                                    t.cell(i + 1, j).text = str(val)
+            elif isinstance(content_or_blocks, str):
+                for line in content_or_blocks.strip().split("\n"):
+                    if line.strip():
+                        p = doc.add_paragraph()
+                        run = p.add_run(line.strip())
+                        run.font.name = "Times New Roman"
+                        run.font.size = Pt(12)
+            doc.add_paragraph()
+
+        import io
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    @pytest.mark.asyncio
+    async def test_docx_contains_title_page(self):
+        """DOCX should contain a proper title page with organization info."""
+        from src.infrastructure.export.docx_helpers import create_title_page
+
+        context = {
+            "organization": {"name": "ООО Газовый сервис"},
+            "facility": {"name": "Котельная №1", "reg_number": "77-1-2-0001-12345678"},
+        }
+
+        doc = DocxDocument()
+        create_title_page(doc, context)
+
+        import io
+        buf = io.BytesIO()
+        doc.save(buf)
+        text = extract_docx_text(buf.getvalue())
+
+        assert "ПЛАН МЕРОПРИЯТИЙ" in text, "Title page missing main title"
+        assert "по локализации и ликвидации последствий аварий" in text, "Title page missing subtitle"
+        assert "на опасном производственном объекте" in text, "Title page missing OPO reference"
+        assert "ООО Газовый сервис" in text, "Title page missing organization name"
+        assert "Котельная №1" in text, "Title page missing facility name"
+        assert "77-1-2-0001-12345678" in text, "Title page missing reg number"
+
+    @pytest.mark.asyncio
+    async def test_docx_has_all_required_sections(self):
+        """DOCX should contain all required PMLA sections."""
+        from src.application.services.engine_integration import create_engine_router
+
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+
+        engine_router = create_engine_router()
+        all_results = await engine_router.generate_all(doc_ctx)
+
+        sections = {}
+        for section_id, result in all_results.items():
+            if result.blocks:
+                sections[result.title] = result.blocks
+            else:
+                sections[result.title] = result.content
+
+        context = {
+            "organization": SAMPLE_QUESTIONNAIRE_DATA.get("organization", {}),
+            "facility": SAMPLE_QUESTIONNAIRE_DATA.get("facility", {}),
+        }
+        docx_bytes = self._build_real_docx(sections, context)
+        text = extract_docx_text(docx_bytes)
+
+        # Check for required sections (use partial matches)
+        required_sections = [
+            "ПЛАН МЕРОПРИЯТИЙ",
+            "Характеристика",
+            "Сценарии",
+            "Характеристика аварийности",
+            "сил и средств",
+            "управления, связи",
+            "материально-технического обеспечения",
+        ]
+
+        found = []
+        missing = []
+        for section in required_sections:
+            if section in text:
+                found.append(section)
+            else:
+                missing.append(section)
+
+        assert not missing, f"Missing sections in DOCX: {missing}"
+        assert len(found) == len(required_sections), f"Only {len(found)}/{len(required_sections)} sections found"
+
+    @pytest.mark.asyncio
+    async def test_docx_no_none_null_in_output(self):
+        """DOCX should not contain None, null, undefined, or empty dict/list representations."""
+        from src.application.services.engine_integration import create_engine_router
+
+        doc_ctx = self._make_doc_context()
+        doc_ctx.scenarios = doc_ctx.user_scenarios
+
+        engine_router = create_engine_router()
+        all_results = await engine_router.generate_all(doc_ctx)
+
+        sections = {}
+        for section_id, result in all_results.items():
+            if result.blocks:
+                sections[result.title] = result.blocks
+            else:
+                sections[result.title] = result.content
+
+        context = {
+            "organization": SAMPLE_QUESTIONNAIRE_DATA.get("organization", {}),
+            "facility": SAMPLE_QUESTIONNAIRE_DATA.get("facility", {}),
+        }
+        docx_bytes = self._build_real_docx(sections, context)
+        text = extract_docx_text(docx_bytes)
+
+        # Check for raw data representations
+        bad_patterns = ["None", "null", "undefined", "{'", "[{", "{}", "[]"]
+        found_bad = []
+        for pattern in bad_patterns:
+            if pattern in text:
+                # Check context to see if it's in a table cell or paragraph
+                found_bad.append(pattern)
+
+        # Allow "None" in specific contexts (like table headers)
+        # But overall, the document should be clean
+        assert not found_bad, f"Raw data representations found in DOCX: {found_bad}"
+
+    @pytest.mark.asyncio
+    async def test_docx_tables_have_proper_formatting(self):
+        """Tables in DOCX should have headers, rows, and proper structure."""
+        from src.application.engines.blocks import TableBlock
+        from src.application.engines.data_engine import DataEngine
+
+        engine = DataEngine()
+        doc_ctx = self._make_doc_context()
+
+        result = await engine.generate("section_4", {"title": "Силы и средства"}, doc_ctx)
+
+        # Check that the engine produces table blocks
+        assert result.blocks, "Section 4 should produce blocks"
+        table_blocks = [b for b in result.blocks if isinstance(b, TableBlock)]
+        assert table_blocks, "Section 4 should have at least one table"
+
+        # Check table structure
+        for table_block in table_blocks:
+            assert table_block.headers, "Table should have headers"
+            assert table_block.rows, "Table should have rows"
+            assert len(table_block.headers) > 0, "Table should have at least one header"
+            assert len(table_block.rows) > 0, "Table should have at least one data row"

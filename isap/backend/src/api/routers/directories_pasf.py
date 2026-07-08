@@ -1,9 +1,12 @@
 """CRUD endpoints for ПАСФ / АСФ directory."""
 from __future__ import annotations
 
+import csv
+import io
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -115,3 +118,39 @@ async def delete_pasf(pasf_id: UUID, repo: EmergencyRescueUnitRepository = Depen
     if not deleted:
         raise HTTPException(status_code=404, detail="ПАСФ не найден")
     return {"ok": True}
+
+
+@router.get("/export/csv")
+async def export_pasf_csv(
+    search: str | None = Query(None),
+    repo: EmergencyRescueUnitRepository = Depends(get_emergency_rescue_unit_repo),
+):
+    if search:
+        items = await repo.search(search)
+    else:
+        items = await repo.get_multi(limit=10000)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Наименование", "Краткое название", "Юридический адрес", "Фактический адрес",
+        "Телефон диспетчера", "Email", "Руководитель", "Номер свидетельства",
+        "Дата свидетельства", "Свидетельство действительно до", "Кол-во сотрудников",
+        "Режим готовности", "Район обслуживания", "Примечания"
+    ])
+    for item in items:
+        writer.writerow([
+            item.name or "", item.short_name or "", item.legal_address or "",
+            item.actual_address or "", item.dispatch_phone or "", item.email or "",
+            item.manager_name or "", item.certificate_number or "",
+            item.certificate_date or "", item.certificate_valid_until or "",
+            item.staff_count or "", item.readiness_mode or "",
+            item.service_area or "", item.notes or ""
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pasf_export.csv"}
+    )

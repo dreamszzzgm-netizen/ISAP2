@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertTriangle, CheckCircle2, FileUp, Loader2, Plus, RefreshCcw, Trash2 } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Download, FileUp, Loader2, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,6 +49,7 @@ function PasfDirectory() {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [showForm, setShowForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<AnyRecord | null>(null)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [form, setForm] = useState<AnyRecord>({})
@@ -57,7 +58,7 @@ function PasfDirectory() {
     setLoading(true)
     setError("")
     try {
-      setItems(await isapApi.getPasfUnits(search || undefined))
+      setItems((await isapApi.getPasfUnits(search || undefined)) as AnyRecord[])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки")
     } finally {
@@ -80,6 +81,28 @@ function PasfDirectory() {
     }
   }
 
+  const handleEdit = (item: AnyRecord) => {
+    setEditingItem(item)
+    setForm({ ...item })
+    setShowForm(false)
+    setError("")
+    setMessage("")
+  }
+
+  const handleUpdate = async () => {
+    if (!editingItem?.id) return
+    if (!form.name) { setError("Введите наименование"); return }
+    try {
+      await isapApi.updatePasfUnit(String(editingItem.id), form)
+      setMessage("ПАСФ обновлён")
+      setEditingItem(null)
+      setForm({})
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка обновления")
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm("Удалить ПАСФ?")) return
     try {
@@ -90,6 +113,29 @@ function PasfDirectory() {
       setError(err instanceof Error ? err.message : "Ошибка удаления")
     }
   }
+
+  const PasfForm = () => (
+    <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
+      <div><Label>Наименование *</Label><Input value={(form.name as string) || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+      <div><Label>Краткое название</Label><Input value={(form.short_name as string) || ""} onChange={(e) => setForm({ ...form, short_name: e.target.value })} /></div>
+      <div><Label>Юридический адрес</Label><Input value={(form.legal_address as string) || ""} onChange={(e) => setForm({ ...form, legal_address: e.target.value })} /></div>
+      <div><Label>Фактический адрес</Label><Input value={(form.actual_address as string) || ""} onChange={(e) => setForm({ ...form, actual_address: e.target.value })} /></div>
+      <div><Label>Телефон диспетчера</Label><Input value={(form.dispatch_phone as string) || ""} onChange={(e) => setForm({ ...form, dispatch_phone: e.target.value })} /></div>
+      <div><Label>Email</Label><Input value={(form.email as string) || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+      <div><Label>Руководитель</Label><Input value={(form.manager_name as string) || ""} onChange={(e) => setForm({ ...form, manager_name: e.target.value })} /></div>
+      <div><Label>Номер свидетельства</Label><Input value={(form.certificate_number as string) || ""} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} /></div>
+      <div><Label>Дата свидетельства</Label><Input value={(form.certificate_date as string) || ""} onChange={(e) => setForm({ ...form, certificate_date: e.target.value })} /></div>
+      <div><Label>Свидетельство действительно до</Label><Input value={(form.certificate_valid_until as string) || ""} onChange={(e) => setForm({ ...form, certificate_valid_until: e.target.value })} /></div>
+      <div><Label>Кол-во сотрудников</Label><Input value={(form.staff_count as string) || ""} onChange={(e) => setForm({ ...form, staff_count: e.target.value })} /></div>
+      <div><Label>Режим готовности</Label><Input value={(form.readiness_mode as string) || ""} onChange={(e) => setForm({ ...form, readiness_mode: e.target.value })} /></div>
+      <div><Label>Район обслуживания</Label><Input value={(form.service_area as string) || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
+      <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={(form.notes as string) || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+      <div className="md:col-span-2 flex gap-2">
+        <Button onClick={editingItem ? handleUpdate : handleCreate}>{editingItem ? "Сохранить" : "Создать"}</Button>
+        <Button variant="outline" onClick={() => { setShowForm(false); setEditingItem(null); setForm({}) }}>Отмена</Button>
+      </div>
+    </div>
+  )
 
   return (
     <Card>
@@ -105,24 +151,12 @@ function PasfDirectory() {
           <Input placeholder="Поиск..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} className="max-w-sm" />
           <Button variant="outline" onClick={load} disabled={loading}><RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button>
           <ImportWidget importType="pasf_units" onImported={load} />
-          <Button onClick={() => setShowForm(!showForm)} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
+          <ExportWidget directoryType="pasf" />
+          <Button onClick={() => { setShowForm(!showForm); setEditingItem(null); setForm({}) }} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
         </div>
 
-        {showForm && (
-          <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
-            <div><Label>Наименование *</Label><Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div><Label>Краткое название</Label><Input value={form.short_name || ""} onChange={(e) => setForm({ ...form, short_name: e.target.value })} /></div>
-            <div><Label>Фактический адрес</Label><Input value={form.actual_address || ""} onChange={(e) => setForm({ ...form, actual_address: e.target.value })} /></div>
-            <div><Label>Телефон диспетчера</Label><Input value={form.dispatch_phone || ""} onChange={(e) => setForm({ ...form, dispatch_phone: e.target.value })} /></div>
-            <div><Label>Номер свидетельства</Label><Input value={form.certificate_number || ""} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} /></div>
-            <div><Label>Район обслуживания</Label><Input value={form.service_area || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
-            <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-            <div className="md:col-span-2 flex gap-2">
-              <Button onClick={handleCreate}>Создать</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Отмена</Button>
-            </div>
-          </div>
-        )}
+        {showForm && <PasfForm />}
+        {editingItem && <PasfForm />}
 
         <div className="overflow-auto rounded-md border">
           <Table>
@@ -144,7 +178,12 @@ function PasfDirectory() {
                   <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{String(item.actual_address || "—")}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm">{String(item.dispatch_phone || "—")}</TableCell>
                   <TableCell className="hidden lg:table-cell text-sm">{String(item.certificate_number || "—")}</TableCell>
-                  <TableCell><Button variant="ghost" size="icon" onClick={() => handleDelete(String(item.id))}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button></TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(String(item.id))}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -162,6 +201,7 @@ function EmergencyServicesDirectory() {
   const [search, setSearch] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [showForm, setShowForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<AnyRecord | null>(null)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [form, setForm] = useState<AnyRecord>({})
@@ -170,10 +210,10 @@ function EmergencyServicesDirectory() {
     setLoading(true)
     setError("")
     try {
-      setItems(await isapApi.getEmergencyServices({
+      setItems((await isapApi.getEmergencyServices({
         search: search || undefined,
         service_type: filterType !== "all" ? filterType : undefined,
-      }))
+      })) as AnyRecord[])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки")
     } finally {
@@ -193,6 +233,28 @@ function EmergencyServicesDirectory() {
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка создания")
+    }
+  }
+
+  const handleEdit = (item: AnyRecord) => {
+    setEditingItem(item)
+    setForm({ ...item })
+    setShowForm(false)
+    setError("")
+    setMessage("")
+  }
+
+  const handleUpdate = async () => {
+    if (!editingItem?.id) return
+    if (!form.name) { setError("Введите наименование"); return }
+    try {
+      await isapApi.updateEmergencyService(String(editingItem.id), form)
+      setMessage("Служба обновлена")
+      setEditingItem(null)
+      setForm({})
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка обновления")
     }
   }
 
@@ -219,6 +281,31 @@ function EmergencyServicesDirectory() {
     return <Badge variant={cfg.variant}>{cfg.label}</Badge>
   }
 
+  const ServiceForm = () => (
+    <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
+      <div><Label>Тип службы *</Label>
+        <Select value={(form.service_type as string) || "fire"} onValueChange={(v) => setForm({ ...form, service_type: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>{Object.entries(SERVICE_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <div><Label>Наименование *</Label><Input value={(form.name as string) || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+      <div><Label>Адрес</Label><Input value={(form.address as string) || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+      <div><Label>Телефон</Label><Input value={(form.phone as string) || ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+      <div><Label>Телефон диспетчера</Label><Input value={(form.dispatcher_phone as string) || ""} onChange={(e) => setForm({ ...form, dispatcher_phone: e.target.value })} /></div>
+      <div><Label>Муниципалитет</Label><Input value={(form.municipality as string) || ""} onChange={(e) => setForm({ ...form, municipality: e.target.value })} /></div>
+      <div><Label>Населённый пункт</Label><Input value={(form.settlement as string) || ""} onChange={(e) => setForm({ ...form, settlement: e.target.value })} /></div>
+      <div><Label>Район обслуживания</Label><Input value={(form.service_area as string) || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
+      <div><Label>Широта</Label><Input value={(form.latitude as string) || ""} onChange={(e) => setForm({ ...form, latitude: e.target.value })} /></div>
+      <div><Label>Долгота</Label><Input value={(form.longitude as string) || ""} onChange={(e) => setForm({ ...form, longitude: e.target.value })} /></div>
+      <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={(form.notes as string) || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+      <div className="md:col-span-2 flex gap-2">
+        <Button onClick={editingItem ? handleUpdate : handleCreate}>{editingItem ? "Сохранить" : "Создать"}</Button>
+        <Button variant="outline" onClick={() => { setShowForm(false); setEditingItem(null); setForm({}) }}>Отмена</Button>
+      </div>
+    </div>
+  )
+
   return (
     <Card>
       <CardHeader>
@@ -240,29 +327,12 @@ function EmergencyServicesDirectory() {
           </Select>
           <Button variant="outline" onClick={load} disabled={loading}><RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button>
           <ImportWidget importType="emergency_services" onImported={load} />
-          <Button onClick={() => setShowForm(!showForm)} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
+          <ExportWidget directoryType="emergency-services" />
+          <Button onClick={() => { setShowForm(!showForm); setEditingItem(null); setForm({}) }} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
         </div>
 
-        {showForm && (
-          <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
-            <div><Label>Тип службы *</Label>
-              <Select value={form.service_type || "fire"} onValueChange={(v) => setForm({ ...form, service_type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{Object.entries(SERVICE_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label>Наименование *</Label><Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div><Label>Адрес</Label><Input value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-            <div><Label>Телефон</Label><Input value={form.phone || ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-            <div><Label>Телефон диспетчера</Label><Input value={form.dispatcher_phone || ""} onChange={(e) => setForm({ ...form, dispatcher_phone: e.target.value })} /></div>
-            <div><Label>Район обслуживания</Label><Input value={form.service_area || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
-            <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-            <div className="md:col-span-2 flex gap-2">
-              <Button onClick={handleCreate}>Создать</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Отмена</Button>
-            </div>
-          </div>
-        )}
+        {showForm && <ServiceForm />}
+        {editingItem && <ServiceForm />}
 
         <div className="overflow-auto rounded-md border">
           <Table>
@@ -284,7 +354,12 @@ function EmergencyServicesDirectory() {
                   <TableCell className="font-medium">{String(item.name)}</TableCell>
                   <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{String(item.address || "—")}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm">{String(item.phone || "—")}</TableCell>
-                  <TableCell><Button variant="ghost" size="icon" onClick={() => handleDelete(String(item.id))}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button></TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(String(item.id))}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -293,6 +368,42 @@ function EmergencyServicesDirectory() {
         <div className="text-xs text-muted-foreground">Всего: {items.length}</div>
       </CardContent>
     </Card>
+  )
+}
+
+function ExportWidget({ directoryType }: { directoryType: string }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleExport = async (format: "csv" | "xlsx") => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/v1/directories/${directoryType}/export?format=${format}`, {
+        headers: { Authorization: "Bearer isap-secret-2026" },
+      })
+      if (!response.ok) throw new Error("Ошибка экспорта")
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `directories_${directoryType}_${new Date().toISOString().slice(0, 10)}.${format === "csv" ? "csv" : "xlsx"}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Ошибка экспорта")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex gap-1">
+      <Button variant="outline" size="sm" onClick={() => handleExport("csv")} disabled={loading} className="gap-1">
+        <Download className="h-3.5 w-3.5" /> CSV
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")} disabled={loading} className="gap-1">
+        <Download className="h-3.5 w-3.5" /> Excel
+      </Button>
+    </div>
   )
 }
 
@@ -357,7 +468,7 @@ function ImportWidget({ importType, onImported }: { importType: string; onImport
         <div className="col-span-full space-y-3 p-4 border rounded-md bg-muted/30">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">
-              Preview: {job.filename} ({previewRows.length} строк)
+              Preview: {String(job.filename || "импорт")} ({previewRows.length} строк)
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleConfirm} disabled={importing} className="gap-2">
@@ -370,9 +481,9 @@ function ImportWidget({ importType, onImported }: { importType: string; onImport
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           {message && <Alert><CheckCircle2 className="h-4 w-4" /><AlertDescription>{message}</AlertDescription></Alert>}
           <div className="flex gap-3 text-xs">
-            <Badge variant="default">Создать: {job.created_rows || 0}</Badge>
-            <Badge variant="secondary">Обновить: {job.updated_rows || 0}</Badge>
-            <Badge variant="outline">Ошибки: {job.error_rows || 0}</Badge>
+            <Badge variant="default">Создать: {String(job.created_rows || 0)}</Badge>
+            <Badge variant="secondary">Обновить: {String(job.updated_rows || 0)}</Badge>
+            <Badge variant="outline">Ошибки: {String(job.error_rows || 0)}</Badge>
           </div>
           {previewRows.length > 0 && (
             <div className="max-h-60 overflow-auto rounded border">
@@ -385,11 +496,11 @@ function ImportWidget({ importType, onImported }: { importType: string; onImport
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {previewRows.slice(0, 20).map((row) => (
-                    <TableRow key={row.id || row.row_number}>
-                      <TableCell className="text-xs">{row.row_number}</TableCell>
+                  {previewRows.slice(0, 20).map((row, idx) => (
+                    <TableRow key={String(row.id || idx)}>
+                      <TableCell className="text-xs">{String(row.row_number || idx + 1)}</TableCell>
                       <TableCell className="text-xs max-w-[300px] truncate">
-                        {Object.entries(row.normalized_data || {}).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(", ")}
+                        {Object.entries((row.normalized_data as Record<string, unknown>) || {}).slice(0, 3).map(([k, v]) => `${k}: ${String(v)}`).join(", ")}
                       </TableCell>
                       <TableCell>
                         <Badge variant={row.status === "invalid" ? "destructive" : row.status === "duplicate" ? "secondary" : "default"}>

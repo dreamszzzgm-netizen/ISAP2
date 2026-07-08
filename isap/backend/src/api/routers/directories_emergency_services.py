@@ -1,9 +1,12 @@
 """CRUD endpoints for emergency services directory."""
 from __future__ import annotations
 
+import csv
+import io
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,3 +108,34 @@ async def delete_emergency_service(service_id: UUID, repo: EmergencyServiceRepos
     if not deleted:
         raise HTTPException(status_code=404, detail="Служба не найдена")
     return {"ok": True}
+
+
+@router.get("/export/csv")
+async def export_emergency_services_csv(
+    search: str | None = Query(None),
+    service_type: str | None = Query(None),
+    repo: EmergencyServiceRepository = Depends(get_emergency_service_repo),
+):
+    items = await repo.search(query_str=search, service_type=service_type)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Тип службы", "Наименование", "Адрес", "Телефон", "Телефон диспетчера",
+        "Муниципалитет", "Населённый пункт", "Широта", "Долгота",
+        "Район обслуживания", "Примечания"
+    ])
+    for item in items:
+        writer.writerow([
+            item.service_type or "", item.name or "", item.address or "",
+            item.phone or "", item.dispatcher_phone or "", item.municipality or "",
+            item.settlement or "", item.latitude or "", item.longitude or "",
+            item.service_area or "", item.notes or ""
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=emergency_services_export.csv"}
+    )
