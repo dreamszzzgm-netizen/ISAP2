@@ -1,18 +1,13 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-08T12:00
+**Дата обновления:** 2026-07-08T14:00
 **Проект:** ISAP — Industrial Safety AI Platform
 
 ---
 
-## MVP PMLA E2E flow verified
+## MVP E2E Tests Complete
 
-### Что проверено
-
-Полный пользовательский сценарий ПМЛА:
-1. ОПО → Анкета → Справочники → Генерация → DOCX → Quality Review → Версии → Ручная проверка
-
-### E2E backend test
+### 1. Service-Level E2E Test
 
 **Файл:** `tests/test_pmla_mvp_e2e_flow.py`
 
@@ -27,30 +22,37 @@
 - Review workflow: needs_review → in_review → approved → ready_to_issue → issued
 - Повторная генерация (симуляция версионирования)
 
-### Endpoints проверены
+**Тестов:** 6
 
-| Endpoint | Статус |
-|----------|--------|
-| EngineRouter.generate_all() | ✅ |
-| DOCX build | ✅ |
-| Quality review | ✅ |
-| DocumentReviewService.get_review_status() | ✅ |
-| DocumentReviewService.update_review_status() | ✅ |
-| Transition rules (5 переходов) | ✅ |
+### 2. API Smoke Test
 
-### DOCX проверен
+**Файл:** `tests/test_pmla_api_smoke_flow.py`
 
-- Титульный лист с организацией и ОПО
-- Обязательные фразы: "Отказ запорной арматуры", "Газоанализатор", "Огнетушитель", и др.
-- Нет сырого мусора (None, null, undefined, {', [{)
+**Проверенные HTTP endpoints:**
+- `GET /api/v1/facilities/{facility_id}`
+- `GET /api/v1/pmla-questionnaires/facility/{facility_id}`
+- `PATCH /api/v1/pmla-questionnaires/{id}/blocks/{block_name}`
+- `POST /api/v1/pmla-questionnaires/{id}/generate`
+- `GET /api/v1/pmla-questionnaires/{id}/documents`
+- `GET /api/v1/pmla/{id}/download`
+- `GET /api/v1/pmla/{id}/review`
+- `PATCH /api/v1/pmla/{id}/review`
+
+**Проверки:**
+- Download endpoint возвращает DOCX bytes (status=200)
+- Invalid transition возвращает 400
+- Review workflow через API до issued
+
+**Тестов:** 3
 
 ### Результаты проверок
 
 | Проверка | Результат |
 |----------|-----------|
-| `pytest -q` | 356 passed |
+| `pytest -q` | 359 passed |
 | `npm run build` | ✓ Compiled successfully |
 | `git status` | Clean |
+| `git log` | `30ad3d7 test: API smoke test` |
 
 ### Что осталось вне MVP
 
@@ -58,6 +60,7 @@
 - Email/webhook уведомления
 - PDF экспорт (конвертация из DOCX)
 - Интеграция с реальным LM Studio / OpenAI
+- E2E test через HTTP endpoints с реальной БД
 - E2E test через HTTP endpoints (интеграционный тест с FastAPI TestClient)
 
 ---
