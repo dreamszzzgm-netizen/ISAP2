@@ -177,6 +177,146 @@ def add_data_table(doc: DocxDocument, headers: list[str], rows: list[list[str]],
     doc.add_paragraph()
 
 
+def _first_text(*values) -> str:
+    """Return the first meaningful text value without leaking raw placeholders."""
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if cleaned and cleaned not in ("None", "null", "undefined", "{}", "[]", "—"):
+                return cleaned
+        elif not isinstance(value, (list, dict)):
+            cleaned = str(value).strip()
+            if cleaned:
+                return cleaned
+    return ""
+
+
+def _person_name(person: dict | str | None) -> str:
+    if isinstance(person, str):
+        return _first_text(person)
+    if not isinstance(person, dict):
+        return ""
+    return _first_text(
+        person.get("full_name"),
+        person.get("name"),
+        person.get("fio"),
+        person.get("display_name"),
+    )
+
+
+def _person_position(person: dict | str | None) -> str:
+    if not isinstance(person, dict):
+        return ""
+    return _first_text(person.get("position"), person.get("title"), person.get("role_label"))
+
+
+def _role_text(person: dict) -> str:
+    role_parts = [
+        person.get("role"),
+        person.get("position"),
+        person.get("title"),
+        person.get("role_label"),
+    ]
+    return " ".join(str(part).lower() for part in role_parts if part)
+
+
+def _find_person_by_role(persons: list[dict], keywords: tuple[str, ...]) -> dict | None:
+    for person in persons:
+        if not isinstance(person, dict):
+            continue
+        role_text = _role_text(person)
+        if any(keyword in role_text for keyword in keywords):
+            return person
+    return None
+
+
+def _person_from_any(value) -> dict:
+    if isinstance(value, dict):
+        return {
+            "full_name": _person_name(value),
+            "position": _person_position(value),
+        }
+    if isinstance(value, str) and value.strip():
+        return {"full_name": value.strip(), "position": ""}
+    return {}
+
+
+def _approval_row(role: str, position: str, name: str) -> list[str]:
+    return [
+        role,
+        position or "__________________",
+        name or "__________________",
+        "__________",
+        "__________",
+    ]
+
+
+def build_approval_rows(context: dict) -> list[list[str]]:
+    """Build approval-sheet rows from known PMLA context fields.
+
+    The sheet is informational and does not change the review workflow. Missing
+    people are rendered as blank signature fields.
+    """
+    persons = [
+        person for person in context.get("responsible_persons", []) or []
+        if isinstance(person, dict)
+    ]
+    questionnaire = context.get("questionnaire") or {}
+    q_persons = questionnaire.get("responsible_persons") or []
+    if isinstance(q_persons, list):
+        persons.extend(person for person in q_persons if isinstance(person, dict))
+
+    developer = (
+        _find_person_by_role(persons, ("developer", "engineer", "industrial_safety", "разработ", "инженер"))
+        or persons[0] if persons else {}
+    )
+    reviewer = (
+        _find_person_by_role(persons, ("review", "check", "safety", "провер", "ответствен"))
+        or {}
+    )
+
+    organization = context.get("organization") or {}
+    facility = context.get("facility") or {}
+    approver = _person_from_any(context.get("approver"))
+    if not _person_name(approver):
+        approver = _person_from_any(organization.get("director"))
+    if not _person_name(approver):
+        approver = _person_from_any(organization.get("manager"))
+    if not _person_name(approver):
+        approver = _person_from_any(facility.get("responsible_person"))
+
+    return [
+        _approval_row(
+            "Разработал",
+            _person_position(developer) or "Инженер",
+            _person_name(developer),
+        ),
+        _approval_row(
+            "Проверил",
+            _person_position(reviewer) or "Ответственный специалист",
+            _person_name(reviewer),
+        ),
+        _approval_row(
+            "Утвердил",
+            _person_position(approver) or "Руководитель организации",
+            _person_name(approver),
+        ),
+    ]
+
+
+def add_approval_sheet(doc: DocxDocument, context: dict | None = None) -> None:
+    """Add the PMLA approval sheet after the title page."""
+    add_heading(doc, "Лист согласования", level=1, center=False)
+    add_data_table(
+        doc,
+        ["Роль", "Должность", "ФИО", "Подпись", "Дата"],
+        build_approval_rows(context or {}),
+    )
+    doc.add_page_break()
+
+
 def create_title_page(doc: DocxDocument, context: dict) -> None:
     """Create a professional title page for the PMLA document."""
     # Organization info

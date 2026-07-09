@@ -31,6 +31,7 @@ from src.application.services.prompts import (
 from src.application.services.types import GeneratedDocument
 from src.application.services.validation import DocumentValidator
 from src.infrastructure.export.docx_helpers import (
+    add_approval_sheet,
     add_body_paragraph as helper_add_body_paragraph,
     add_data_table,
     add_heading as helper_add_heading,
@@ -936,6 +937,11 @@ class EnhancedDocumentGenerator:
         # Титульный лист
         context = metadata.get("context", {})
         create_title_page(doc, context)
+        sections.pop("Титульный лист", None)
+
+        # Лист согласования — служебный front matter, не review workflow.
+        sections.pop("Лист согласования", None)
+        add_approval_sheet(doc, context)
 
         # Журнал корректировки
         if "Журнал корректировки документа" in sections:

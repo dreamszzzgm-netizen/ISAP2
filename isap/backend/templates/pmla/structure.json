@@ -17,6 +17,15 @@
       "description": "Титульный лист с подписями руководства"
     },
     {
+      "id": "approval_sheet",
+      "title": "Лист согласования",
+      "template": "sections/00_approval_sheet.j2",
+      "content_type": "data",
+      "slot_type": "fact",
+      "data_sources": ["organization", "facility", "responsible_persons", "approver"],
+      "description": "Служебный лист согласования ПМЛА с ролями разработал, проверил, утвердил"
+    },
+    {
       "id": "correction_log",
       "title": "Журнал корректировки документа",
       "template": "sections/00_correction_log.j2",

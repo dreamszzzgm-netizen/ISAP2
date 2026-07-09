@@ -288,6 +288,95 @@ class TestGostFormatting:
         result = gen._build_docx("Тест", sections, metadata)
         assert isinstance(result, bytes)
 
+    def test_build_docx_adds_approval_sheet_before_correction_log(self):
+        from docx import Document as DocxDocument
+
+        retriever = _make_retriever()
+        doc_repo = AsyncMock()
+        reg_repo = AsyncMock()
+        reg_repo.session = AsyncMock()
+
+        gen = EnhancedDocumentGenerator(
+            local_llm=None, external_llm=None, retriever=retriever,
+            document_repo=doc_repo, regulatory_repo=reg_repo,
+        )
+
+        sections = {
+            "Лист согласования": "Этот текст не должен попасть дублем",
+            "Журнал корректировки документа": "Журнал корректировки документа\nВерсия 1",
+            "Содержание": "Раздел 1",
+            "Раздел 1": "Содержимое раздела",
+        }
+        metadata = {
+            "context": {
+                "organization": {"name": "ООО Тест"},
+                "facility": {"name": "ОПО Тест"},
+                "responsible_persons": [
+                    {"full_name": "Иванов И.И.", "position": "Инженер", "role": "engineer"},
+                    {"full_name": "Петров П.П.", "position": "Ответственный специалист", "role": "reviewer"},
+                ],
+                "approver": {"name": "Сидоров С.С.", "position": "Директор"},
+            }
+        }
+
+        result = gen._build_docx("Тест", sections, metadata)
+        doc = DocxDocument(io.BytesIO(result))
+        text = "\n".join(
+            [p.text for p in doc.paragraphs if p.text]
+            + [cell.text for table in doc.tables for row in table.rows for cell in row.cells if cell.text]
+        )
+
+        assert "Лист согласования" in text
+        assert "Журнал корректировки документа" in text
+        assert text.index("Лист согласования") < text.index("Журнал корректировки документа")
+        assert text.count("Лист согласования") == 1
+        assert "Этот текст не должен попасть дублем" not in text
+
+    def test_build_docx_approval_sheet_has_roles_fields_and_no_raw_markup(self):
+        from docx import Document as DocxDocument
+
+        retriever = _make_retriever()
+        doc_repo = AsyncMock()
+        reg_repo = AsyncMock()
+        reg_repo.session = AsyncMock()
+
+        gen = EnhancedDocumentGenerator(
+            local_llm=None, external_llm=None, retriever=retriever,
+            document_repo=doc_repo, regulatory_repo=reg_repo,
+        )
+
+        result = gen._build_docx(
+            "Тест",
+            {"Раздел 1": "Содержимое раздела"},
+            {
+                "context": {
+                    "organization": {"name": "ООО Тест"},
+                    "facility": {"name": "ОПО Тест"},
+                    "responsible_persons": [],
+                }
+            },
+        )
+        doc = DocxDocument(io.BytesIO(result))
+        text = "\n".join(
+            [p.text for p in doc.paragraphs if p.text]
+            + [cell.text for table in doc.tables for row in table.rows for cell in row.cells if cell.text]
+        )
+
+        for expected in [
+            "Лист согласования",
+            "Разработал",
+            "Проверил",
+            "Утвердил",
+            "Должность",
+            "ФИО",
+            "Подпись",
+            "Дата",
+        ]:
+            assert expected in text
+
+        for forbidden in ["None", "undefined", "{}", "[]", "{'", "[{", "<table", "<tr", "<td", "<p", "</"]:
+            assert forbidden not in text
+
     def test_setup_document_defaults_sets_margins(self):
         from docx import Document as DocxDocument
         retriever = _make_retriever()

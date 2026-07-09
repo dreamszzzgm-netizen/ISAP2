@@ -18,6 +18,7 @@ TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates"
 # Эти шаблоны не требуют LLM — только подстановка данных из контекста.
 TEMPLATE_SECTIONS = {
     "title_page",           # Титульный лист
+    "approval_sheet",       # Лист согласования
     "correction_log",       # Журнал корректировки
     "toc",                  # Содержание
     "abbreviations",        # Обозначения и сокращения
