@@ -27,3 +27,6 @@ backend/.pytest_tmp/
 .mcp.json
 .codebase-memory/
 .tokensave
+
+# Local real/anonymized OPO validation materials
+docs/inbox/
