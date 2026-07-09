@@ -131,7 +131,8 @@ class PmlaGenerationFromQuestionnaireService:
 
         # Quality review: structured report for human review.
         docx_path = None
-        if fresh_doc and fresh_doc.content_docx:
+        content_docx = fresh_doc.content_docx if fresh_doc and fresh_doc.content_docx else None
+        if content_docx:
             package_dir = QUESTIONNAIRE_DEBUG_DIR / f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{doc.id.hex[:8]}"
             docx_path = str(package_dir / "output.docx")
         review_service = PmlaQualityReviewService()
@@ -139,6 +140,7 @@ class PmlaGenerationFromQuestionnaireService:
             questionnaire_context=context,
             generation_meta=generation_meta,
             docx_path=docx_path,
+            content_docx=content_docx,
         ).to_dict()
 
         artifacts = None
@@ -210,12 +212,31 @@ class PmlaGenerationFromQuestionnaireService:
         # material_reserve/context_params names.
         financial = questionnaire.get("financial_reserve") or {}
         insurance = questionnaire.get("insurance") or {}
+        insurance_amount = (
+            insurance.get("insured_amount")
+            or insurance.get("insurance_amount")
+            or insurance.get("amount")
+            or insurance.get("sum")
+            or insurance.get("sum_rub")
+            or "—"
+        )
         ctx["material_reserve"] = {
             "fin_reserve_order": self._join_order(financial),
             "fin_reserve_amount": financial.get("amount") or "—",
             "insurance_company": insurance.get("company") or "—",
             "insurance_contract": insurance.get("contract_number") or "—",
             "insurance_valid_until": insurance.get("valid_until") or "—",
+            "insurance_amount": insurance_amount,
+        }
+        # Дублируем страховой блок на верхний уровень ctx, чтобы движки,
+        # читающие ctx.insurance напрямую (DataEngine._render_section_13),
+        # тоже получали страховую сумму.
+        ctx["insurance"] = {
+            "company": insurance.get("company") or "—",
+            "contract_number": insurance.get("contract_number") or "—",
+            "valid_until": insurance.get("valid_until") or "—",
+            "insured_amount": insurance_amount,
+            "has_contract": insurance.get("has_contract"),
         }
         ctx["context_params"] = {
             "fin_reserve_order": ctx["material_reserve"]["fin_reserve_order"],
@@ -228,7 +249,26 @@ class PmlaGenerationFromQuestionnaireService:
         actual_items = resources.get("actual_items") if isinstance(resources, dict) else []
         ctx["protective_equipment"] = self._normalize_resources(actual_items or [])
         ctx["organization_resources"] = resources
-        ctx["notification_scheme"] = questionnaire.get("notification_scheme") or {}
+        # Нормализуем схему оповещения: поддерживаем и канонические ключи
+        # движка (incident_commander/pasf_caller/fire_caller/medical_caller),
+        # и ключи DEFAULT_QUESTIONNAIRE (responsible_manager/calls_pasf/calls_fire).
+        # Контакты (contacts) сохраняем без изменений.
+        raw_notification = questionnaire.get("notification_scheme") or {}
+        notification = dict(raw_notification)
+        _notification_aliases = {
+            "incident_commander": ["responsible_manager", "incident_commander"],
+            "pasf_caller": ["calls_pasf", "pasf_caller"],
+            "fire_caller": ["calls_fire", "fire_caller"],
+            "medical_caller": ["medical_caller"],
+        }
+        for canonical, aliases in _notification_aliases.items():
+            if not notification.get(canonical):
+                for alias in aliases:
+                    if notification.get(alias):
+                        notification[canonical] = notification[alias]
+                        break
+        notification.setdefault("contacts", raw_notification.get("contacts") or [])
+        ctx["notification_scheme"] = notification
 
         # Training and attachments are factual questionnaire sections, preserved
         # for narrative sections and context snapshots.

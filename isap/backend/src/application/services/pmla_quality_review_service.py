@@ -69,11 +69,26 @@ class PmlaQualityReviewService:
         "first_receiver": ["first_receiver"],
     }
 
+    # Локальная карта нормализации типов аварийных служб.
+    # Не импортируется из smart_import — самодостаточна в этом файле.
+    EMERGENCY_SERVICE_ALIASES = {
+        "ambulance": "medical",
+        "скорая": "medical",
+        "скорая помощь": "medical",
+        "медицинская помощь": "medical",
+        "medical": "medical",
+        "fire": "fire",
+        "пожарная": "fire",
+        "пожарные": "fire",
+        "мчс": "fire",
+    }
+
     def review(
         self,
         questionnaire_context: dict[str, Any],
         generation_meta: dict[str, Any] | None = None,
         docx_path: str | None = None,
+        content_docx: bytes | None = None,
     ) -> QualityReviewReport:
         checks: list[CheckResult] = []
 
@@ -86,7 +101,7 @@ class PmlaQualityReviewService:
         checks.append(self._check_financial_reserve(questionnaire_context))
         checks.append(self._check_insurance(questionnaire_context))
         checks.append(self._check_attachments_checklist(questionnaire_context))
-        checks.append(self._check_docx_created(docx_path))
+        checks.append(self._check_docx_created(docx_path, content_docx))
 
         missing = [c.message for c in checks if c.status == "critical"]
         manual = []
@@ -214,7 +229,16 @@ class PmlaQualityReviewService:
                 status="critical",
                 message="Аварийные службы полностью отсутствуют",
             )
-        types = {s.get("service_type") for s in services if isinstance(s, dict)}
+
+        def _normalize_service_type(raw: Any) -> str:
+            key = str(raw or "").strip().lower()
+            return self.EMERGENCY_SERVICE_ALIASES.get(key, key)
+
+        types = {
+            _normalize_service_type(s.get("service_type"))
+            for s in services
+            if isinstance(s, dict)
+        }
         required = {"fire", "medical"}
         missing_types = required - types
         if missing_types:
@@ -237,14 +261,36 @@ class PmlaQualityReviewService:
 
     def _check_organization_resources(self, ctx: dict[str, Any]) -> CheckResult:
         resources = ctx.get("organization_resources") or {}
-        actual = resources.get("actual_items") if isinstance(resources, dict) else []
-        if actual:
+        if not isinstance(resources, dict):
+            resources = {}
+        # Блок считается заполненным, если хотя бы один из ключей несёт
+        # значимые данные (поддержка канонических и расширенных имён полей).
+        resource_keys = (
+            "actual_items",
+            "recommended_items",
+            "user_notes",
+            "ppe",
+            "fire_fighting",
+            "monitoring",
+            "communication",
+            "instruments",
+            "personnel",
+        )
+        filled: dict[str, int] = {}
+        for key in resource_keys:
+            value = resources.get(key)
+            if isinstance(value, (list, tuple, dict, str)):
+                if len(value) > 0:
+                    filled[key] = len(value)
+            elif value:
+                filled[key] = 1
+        if filled:
             return CheckResult(
                 code="organization_resources",
                 title="Силы и средства организации",
                 status="ok",
-                message=f"Фактических средств: {len(actual)}",
-                details={"count": len(actual)},
+                message=f"Заполнено разделов: {len(filled)}",
+                details={"filled_sections": sorted(filled.keys())},
             )
         return CheckResult(
             code="organization_resources",
@@ -391,7 +437,21 @@ class PmlaQualityReviewService:
             details={"missing": missing},
         )
 
-    def _check_docx_created(self, docx_path: str | None) -> CheckResult:
+    def _check_docx_created(
+        self,
+        docx_path: str | None,
+        content_docx: bytes | None = None,
+    ) -> CheckResult:
+        # Байты DOCX в DocumentModel.content_docx — источник истины;
+        # файл в debug-директории может быть ещё не записан на момент review().
+        if content_docx:
+            return CheckResult(
+                code="docx_created",
+                title="DOCX файл",
+                status="ok",
+                message="DOCX сгенерирован",
+                details={"size_bytes": len(content_docx)},
+            )
         if docx_path is None:
             return CheckResult(
                 code="docx_created",

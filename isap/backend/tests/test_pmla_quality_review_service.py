@@ -160,3 +160,99 @@ def test_notification_scheme_warning_when_partial():
     report = _service().review(ctx)
     notify_check = next(c for c in report.checks if c.code == "notification_scheme")
     assert notify_check.status == "warning"
+
+
+# --- Patch A regression tests (P0-1, P1-4, P1-5) ---
+
+
+def test_docx_created_ok_when_content_docx_bytes_present():
+    """P0-1: DOCX хранится байтами в content_docx — check должен быть ok,
+    даже если debug-файл ещё не записан на диск."""
+    report = _service().review(_full_context(), content_docx=b"fake docx bytes")
+    docx_check = next(c for c in report.checks if c.code == "docx_created")
+    assert docx_check.status == "ok"
+
+
+def test_docx_created_bytes_win_over_missing_path():
+    """P0-1: байты имеют приоритет — даже с несуществующим путём файловый
+    fallback не должен давать critical, если байты есть."""
+    report = _service().review(
+        _full_context(), docx_path="/nonexistent/output.docx", content_docx=b"docx"
+    )
+    docx_check = next(c for c in report.checks if c.code == "docx_created")
+    assert docx_check.status == "ok"
+
+
+def test_docx_created_warning_when_no_bytes_no_path():
+    """P0-1: ни байтов, ни пути — warning (не critical)."""
+    report = _service().review(_full_context())
+    docx_check = next(c for c in report.checks if c.code == "docx_created")
+    assert docx_check.status == "warning"
+
+
+def test_organization_resources_ok_with_alternative_keys():
+    """P1-4: расширенные ключи ppe/fire_fighting считаются заполненным блоком."""
+    ctx = _full_context()
+    ctx["organization_resources"] = {
+        "ppe": [{"name": "Противогаз"}],
+        "fire_fighting": [{"name": "Огнетушитель ОП-10"}],
+    }
+    report = _service().review(ctx)
+    res_check = next(c for c in report.checks if c.code == "organization_resources")
+    assert res_check.status == "ok"
+
+
+def test_organization_resources_ok_with_single_alt_key():
+    """P1-4: один расширенный ключ (monitoring) достаточен."""
+    ctx = _full_context()
+    ctx["organization_resources"] = {"monitoring": [{"name": "Газоанализатор"}]}
+    report = _service().review(ctx)
+    res_check = next(c for c in report.checks if c.code == "organization_resources")
+    assert res_check.status == "ok"
+
+
+def test_organization_resources_warning_when_all_empty():
+    """P1-4: все расширенные ключи пусты — warning."""
+    ctx = _full_context()
+    ctx["organization_resources"] = {"ppe": [], "fire_fighting": [], "actual_items": []}
+    report = _service().review(ctx)
+    res_check = next(c for c in report.checks if c.code == "organization_resources")
+    assert res_check.status == "warning"
+
+
+def test_emergency_services_ambulance_recognized_as_medical():
+    """P1-5: service_type=ambulance закрывает requirement medical."""
+    ctx = _full_context()
+    ctx["emergency_services"] = [
+        {"service_type": "fire", "name": "ПСЧ-1"},
+        {"service_type": "ambulance", "name": "Скорая"},
+    ]
+    report = _service().review(ctx)
+    es_check = next(c for c in report.checks if c.code == "emergency_services")
+    assert es_check.status == "ok"
+
+
+def test_emergency_services_russian_aliases_recognized():
+    """P1-5: русские алиасы (скорая/МЧС) нормализуются."""
+    ctx = _full_context()
+    ctx["emergency_services"] = [
+        {"service_type": "МЧС", "name": "Пожарные"},
+        {"service_type": "скорая помощь", "name": "Скорая"},
+    ]
+    report = _service().review(ctx)
+    es_check = next(c for c in report.checks if c.code == "emergency_services")
+    assert es_check.status == "ok"
+
+
+def test_emergency_services_other_types_not_broken():
+    """P1-5: police/gas/edds проходят через нормализацию без изменений."""
+    ctx = _full_context()
+    ctx["emergency_services"] = [
+        {"service_type": "fire", "name": "ПСЧ-1"},
+        {"service_type": "medical", "name": "Больница"},
+        {"service_type": "police", "name": "ОВД"},
+        {"service_type": "gas", "name": "АГС"},
+    ]
+    report = _service().review(ctx)
+    es_check = next(c for c in report.checks if c.code == "emergency_services")
+    assert es_check.status == "ok"

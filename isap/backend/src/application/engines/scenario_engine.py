@@ -297,6 +297,52 @@ class ScenarioEngine(BaseEngine):
             blocks.append(ParagraphBlock(text="Этап 6. Вторичные последствия (каскадный эффект)"))
             blocks.append(ParagraphBlock(text="Этап 7. Последствия для персонала и населения"))
 
+        # Расчётные параметры зон поражения (из context.calculation_results).
+        # Выводим только успешные расчёты; ошибочные пропускаем.
+        calc_results = getattr(context, "calculation_results", None) or []
+        valid_calcs = [c for c in calc_results if c.get("validation_status") != "error"]
+        if valid_calcs:
+            blocks.append(HeadingBlock(text="Расчётные параметры зон поражения", level=2))
+            method_titles = {
+                "thermal_radiation_v1": "Тепловое излучение",
+                "tnt_equivalent_v1": "Взрыв (ТНТ-эквивалент)",
+                "toxic_dispersion_v1": "Токсическое поражение",
+            }
+            for calc in valid_calcs:
+                method_id = calc.get("method_id", "—")
+                substance = calc.get("substance") or "—"
+                results = calc.get("results") or {}
+                title = method_titles.get(method_id, method_id)
+                blocks.append(ParagraphBlock(text=f"{title} — вещество: {substance}.", bold=True))
+                if method_id == "thermal_radiation_v1":
+                    zone = results.get("radiation_zone_m")
+                    flux = results.get("heat_flux_kw_m2")
+                    if zone is not None:
+                        blocks.append(ParagraphBlock(text=f"Радиус зоны теплового излучения: {zone} м."))
+                    if flux is not None:
+                        blocks.append(ParagraphBlock(text=f"Плотность теплового потока на границе: {flux} кВт/м²."))
+                elif method_id == "tnt_equivalent_v1":
+                    outer = results.get("zone_radius_m")
+                    if outer is not None:
+                        blocks.append(ParagraphBlock(text=f"Радиус зоны возможного поражения: {outer} м."))
+                    zones = results.get("zones") or {}
+                    for zone_name, zone_val in zones.items():
+                        if zone_val is not None:
+                            blocks.append(ParagraphBlock(text=f"{zone_name.capitalize()}: {zone_val} м."))
+                elif method_id == "toxic_dispersion_v1":
+                    zone = results.get("toxic_zone_m")
+                    conc = results.get("concentration_at_boundary")
+                    if zone is not None:
+                        blocks.append(ParagraphBlock(text=f"Радиус зоны токсического поражения: {zone} м."))
+                    if conc is not None:
+                        blocks.append(ParagraphBlock(text=f"Концентрация на границе зоны: {conc} мг/м³."))
+                else:
+                    # Универсальный вывод числовых полей результата.
+                    for k, v in results.items():
+                        if v is not None and not isinstance(v, (dict, list)):
+                            blocks.append(ParagraphBlock(text=f"{k}: {v}."))
+            blocks.append(ParagraphBlock(text="Значения получены расчётным путём по утверждённым методикам."))
+
         return blocks
 
     def _render_special_section(self, scenarios: list[dict], context: DocumentContext) -> list[Block]:

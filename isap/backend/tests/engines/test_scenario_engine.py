@@ -219,3 +219,106 @@ class TestScenarioTemplatesAllTypes:
             template = _load_scenario_templates(ft)
             assert template is not None, f"No template for {ft}"
             assert len(template["scenarios"]) >= 2, f"Too few scenarios for {ft}"
+
+
+# --- Patch A regression tests (P2-6: расчётные зоны в section 2) ---
+
+
+class TestScenarioEngineCalculationResults:
+    """P2-6: calculation_results рендерятся в раздел 2."""
+
+    @pytest.mark.asyncio
+    async def test_section_2_renders_thermal_calculation(self, engine, gas_network_context):
+        gas_network_context.calculation_results = [
+            {
+                "method_id": "thermal_radiation_v1",
+                "substance": "Природный газ",
+                "results": {"radiation_zone_m": 32.6, "heat_flux_kw_m2": 12.5},
+                "validation_status": "valid",
+            }
+        ]
+        section_def = {"id": "section_2", "title": "2. Сценарии аварий"}
+        result = await engine.generate("section_2", section_def, gas_network_context)
+
+        # HeadingBlock рендерится в верхнем регистре в текстовом fallback.
+        assert "РАСЧЁТНЫЕ ПАРАМЕТРЫ ЗОН ПОРАЖЕНИЯ" in result.content
+        assert "32.6" in result.content
+        assert "12.5" in result.content
+        assert "теплового излучения" in result.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_section_2_renders_explosion_calculation(self, engine, gas_network_context):
+        gas_network_context.calculation_results = [
+            {
+                "method_id": "tnt_equivalent_v1",
+                "substance": "Природный газ",
+                "results": {
+                    "zone_radius_m": 6.2,
+                    "zones": {"зона смертельного поражения": 1.7, "зона минимального воздействия": 6.2},
+                },
+                "validation_status": "valid",
+            }
+        ]
+        section_def = {"id": "section_2", "title": "2. Сценарии аварий"}
+        result = await engine.generate("section_2", section_def, gas_network_context)
+
+        assert "6.2" in result.content
+        assert "1.7" in result.content
+        assert "взрыв" in result.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_section_2_renders_toxic_calculation(self, engine, gas_network_context):
+        gas_network_context.calculation_results = [
+            {
+                "method_id": "toxic_dispersion_v1",
+                "substance": "Хлор",
+                "results": {"toxic_zone_m": 150.0, "concentration_at_boundary": 300.0},
+                "validation_status": "valid",
+            }
+        ]
+        section_def = {"id": "section_2", "title": "2. Сценарии аварий"}
+        result = await engine.generate("section_2", section_def, gas_network_context)
+
+        assert "150" in result.content
+        assert "300" in result.content
+        assert "токсическ" in result.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_section_2_skips_error_calculation(self, engine, gas_network_context):
+        gas_network_context.calculation_results = [
+            {
+                "method_id": "thermal_radiation_v1",
+                "substance": "Газ",
+                "validation_status": "error",
+                "error": "ValueError",
+            }
+        ]
+        section_def = {"id": "section_2", "title": "2. Сценарии аварий"}
+        result = await engine.generate("section_2", section_def, gas_network_context)
+
+        # Ошибочные расчёты пропускаются — подраздел не появляется.
+        assert "РАСЧЁТНЫЕ ПАРАМЕТРЫ ЗОН ПОРАЖЕНИЯ" not in result.content
+        assert "получены расчётным путём" not in result.content
+
+    @pytest.mark.asyncio
+    async def test_section_2_no_calculation_results_no_subsection(self, engine, gas_network_context):
+        gas_network_context.calculation_results = []
+        section_def = {"id": "section_2", "title": "2. Сценарии аварий"}
+        result = await engine.generate("section_2", section_def, gas_network_context)
+
+        assert "РАСЧЁТНЫЕ ПАРАМЕТРЫ ЗОН ПОРАЖЕНИЯ" not in result.content
+
+    @pytest.mark.asyncio
+    async def test_section_2_calculation_results_no_none(self, engine, gas_network_context):
+        gas_network_context.calculation_results = [
+            {
+                "method_id": "thermal_radiation_v1",
+                "substance": "Газ",
+                "results": {"radiation_zone_m": 32.6},
+                "validation_status": "valid",
+            }
+        ]
+        section_def = {"id": "section_2", "title": "2. Сценарии аварий"}
+        result = await engine.generate("section_2", section_def, gas_network_context)
+
+        assert "None" not in result.content
