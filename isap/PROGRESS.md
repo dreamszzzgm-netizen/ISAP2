@@ -1354,3 +1354,35 @@ Notes:
 - No runtime/behavioral changes beyond the explosion-zone radius semantics: `zone_radius_m` now reports the outer (maximum-area) zone instead of the lethal (smallest) radius. Consumers were checked (`enhanced_generator` uses `calc_result.results` via registry wrapping) and tests confirm larger-quantity → larger-radius and confined > open invariants still hold.
 - Changes are uncommitted in the working tree; a follow-up commit is recommended once reviewed.
 - Docker Desktop was reinstalled during the session with disk image location moved to `D:\DockerData` (via `CustomWslDistroDir` in `settings-store.json`); ISAP stack (`isap_db`, `isap_chromadb`, `isap_backend`, `isap_frontend`) was recreated via `docker compose up -d` with a clean data start.
+
+## PMLA MVP — First Real/Ops Validation Stage
+
+Date: 2026-07-09
+Stage: First real / anonymized OPO validation
+
+Goal of this stage: validate the PMLA MVP on the first real or anonymized OPO and determine whether the generated DOCX can serve as an engineering draft, then collect engineer findings.
+
+Status:
+- Demo walkthrough (`docs/PMLA_DEMO_DATA_WALKTHROUGH.md`) completed end-to-end: questionnaire -> generation -> document -> DOCX (validated, DOCX present, quality review returned a score and checks).
+- Stabilization patch applied (see earlier section: `attachments_checklist`, HTML stripping from DOCX, PASF/emergency services, quality review sync).
+- Code health sweep applied and committed on `fix/code-health-sweep-ts-eslint-calc` (TypeScript 25 -> 0 errors, ESLint 4 -> 0 errors, explosion-zone logic fixed, silent-exception handling hardened; `382 passed`).
+- Next stage: the first real / anonymized OPO.
+
+Next stage objective:
+- Validate DOCX quality and questionnaire completeness on a real (or anonymized) OPO.
+- Collect engineer findings on structure, content, formatting (no `None`/`undefined`/raw JSON/HTML), and required manual edits.
+
+Scope guardrails (out of scope for this stage, intentionally):
+- No new large features, no RAG, no geocoding or route/time-to-arrival, no architecture changes, no migrations, no seed scripts.
+- No backend/frontend logic changes.
+
+Deliverables added this stage (documentation and control workflow only):
+- `docs/PMLA_REAL_OPO_INPUT_TEMPLATE.md` — input data template for collecting real/anonymized OPO data (organization, OPO, hazard substances, equipment, scenarios, incidents, PASF/ASF, emergency services, forces, notification, financial reserve, insurance, attachments, unknown fields).
+- `docs/PMLA_REAL_OPO_VALIDATION_WALKTHROUGH.md` — step-by-step safe workflow: anonymization, create organization, create OPO, fill questionnaire, select PASF and emergency services, generate DOCX, download, check quality review, pass manual review workflow, record engineer findings.
+- `docs/PMLA_ENGINEER_REVIEW_CHECKLIST.md` — DOCX engineer review checklist (title page, approval sheet, OPO general info, substances, equipment, scenarios, PASF/ASF, emergency services, forces, notification, first-response actions, financials, insurance, attachments; formatting checks for empty fields / `None` / `undefined` / raw JSON / HTML tags; structure compliance; manual-edit-required items).
+
+Engineer review remains mandatory: the system does not auto-approve. Status `approved` in the review workflow is set only after an engineer passes `PMLA_ENGINEER_REVIEW_CHECKLIST.md`.
+
+Notes:
+- This stage is documentation-only; no code, migrations, or seed data were added. Findings from real OPO runs will be triaged into a follow-up backlog separately.
+- Real/anonymized input templates, findings, and downloaded DOCX must not be committed without review (the input template/findings go in `docs/inbox/`, DOCX is already gitignored).
