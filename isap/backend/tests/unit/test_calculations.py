@@ -82,6 +82,25 @@ class TestExplosionZone:
         expected_tnt = energy_mj / ExplosionZoneCalculation.TNT_ENERGY_MJ_PER_KG
         assert abs(expected_tnt - 1000) < 0.01
 
+    def test_all_four_zones_present_and_ordered(self):
+        """Согласно РД 03-409-01 определяются 4 зоны; смертельная зона —
+        наименьшая (в эпицентре), зона минимального воздействия — внешняя,
+        наибольшая по радиусу."""
+        params = ExplosionParams(
+            substance_name="Метан", quantity_kg=50000,
+            explosion_energy_mj=1000, physical_state="газ",
+        )
+        result = ExplosionZoneCalculation.calculate(params)
+        assert len(result.zones) == 4
+        r_lethal = result.zones["зона смертельного поражения"]
+        r_severe = result.zones["зона тяжёлых травм"]
+        r_moderate = result.zones["зона среднего поражения"]
+        r_minor = result.zones["зона минимального воздействия"]
+        # Радиусы возрастают от тяжёлой зоны к лёгкой.
+        assert 0 < r_lethal < r_severe < r_moderate < r_minor
+        # zone_radius_m — радиус внешней зоны (всей зоны возможного поражения).
+        assert result.zone_radius_m == r_minor
+
 
 # ── ThermalRadiationCalculation ──────────────────────────────────────────────
 

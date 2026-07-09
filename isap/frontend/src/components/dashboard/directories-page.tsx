@@ -44,6 +44,39 @@ export function DirectoriesPage() {
   )
 }
 
+interface PasfFormProps {
+  form: AnyRecord
+  setForm: (value: AnyRecord) => void
+  editingItem: AnyRecord | null
+  onSubmit: () => void
+  onCancel: () => void
+}
+
+function PasfForm({ form, setForm, editingItem, onSubmit, onCancel }: PasfFormProps) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
+      <div><Label>Наименование *</Label><Input value={(form.name as string) || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+      <div><Label>Краткое название</Label><Input value={(form.short_name as string) || ""} onChange={(e) => setForm({ ...form, short_name: e.target.value })} /></div>
+      <div><Label>Юридический адрес</Label><Input value={(form.legal_address as string) || ""} onChange={(e) => setForm({ ...form, legal_address: e.target.value })} /></div>
+      <div><Label>Фактический адрес</Label><Input value={(form.actual_address as string) || ""} onChange={(e) => setForm({ ...form, actual_address: e.target.value })} /></div>
+      <div><Label>Телефон диспетчера</Label><Input value={(form.dispatch_phone as string) || ""} onChange={(e) => setForm({ ...form, dispatch_phone: e.target.value })} /></div>
+      <div><Label>Email</Label><Input value={(form.email as string) || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+      <div><Label>Руководитель</Label><Input value={(form.manager_name as string) || ""} onChange={(e) => setForm({ ...form, manager_name: e.target.value })} /></div>
+      <div><Label>Номер свидетельства</Label><Input value={(form.certificate_number as string) || ""} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} /></div>
+      <div><Label>Дата свидетельства</Label><Input value={(form.certificate_date as string) || ""} onChange={(e) => setForm({ ...form, certificate_date: e.target.value })} /></div>
+      <div><Label>Свидетельство действительно до</Label><Input value={(form.certificate_valid_until as string) || ""} onChange={(e) => setForm({ ...form, certificate_valid_until: e.target.value })} /></div>
+      <div><Label>Кол-во сотрудников</Label><Input value={(form.staff_count as string) || ""} onChange={(e) => setForm({ ...form, staff_count: e.target.value })} /></div>
+      <div><Label>Режим готовности</Label><Input value={(form.readiness_mode as string) || ""} onChange={(e) => setForm({ ...form, readiness_mode: e.target.value })} /></div>
+      <div><Label>Район обслуживания</Label><Input value={(form.service_area as string) || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
+      <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={(form.notes as string) || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+      <div className="md:col-span-2 flex gap-2">
+        <Button onClick={onSubmit}>{editingItem ? "Сохранить" : "Создать"}</Button>
+        <Button variant="outline" onClick={onCancel}>Отмена</Button>
+      </div>
+    </div>
+  )
+}
+
 function PasfDirectory() {
   const [items, setItems] = useState<AnyRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -114,29 +147,6 @@ function PasfDirectory() {
     }
   }
 
-  const PasfForm = () => (
-    <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
-      <div><Label>Наименование *</Label><Input value={(form.name as string) || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-      <div><Label>Краткое название</Label><Input value={(form.short_name as string) || ""} onChange={(e) => setForm({ ...form, short_name: e.target.value })} /></div>
-      <div><Label>Юридический адрес</Label><Input value={(form.legal_address as string) || ""} onChange={(e) => setForm({ ...form, legal_address: e.target.value })} /></div>
-      <div><Label>Фактический адрес</Label><Input value={(form.actual_address as string) || ""} onChange={(e) => setForm({ ...form, actual_address: e.target.value })} /></div>
-      <div><Label>Телефон диспетчера</Label><Input value={(form.dispatch_phone as string) || ""} onChange={(e) => setForm({ ...form, dispatch_phone: e.target.value })} /></div>
-      <div><Label>Email</Label><Input value={(form.email as string) || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-      <div><Label>Руководитель</Label><Input value={(form.manager_name as string) || ""} onChange={(e) => setForm({ ...form, manager_name: e.target.value })} /></div>
-      <div><Label>Номер свидетельства</Label><Input value={(form.certificate_number as string) || ""} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} /></div>
-      <div><Label>Дата свидетельства</Label><Input value={(form.certificate_date as string) || ""} onChange={(e) => setForm({ ...form, certificate_date: e.target.value })} /></div>
-      <div><Label>Свидетельство действительно до</Label><Input value={(form.certificate_valid_until as string) || ""} onChange={(e) => setForm({ ...form, certificate_valid_until: e.target.value })} /></div>
-      <div><Label>Кол-во сотрудников</Label><Input value={(form.staff_count as string) || ""} onChange={(e) => setForm({ ...form, staff_count: e.target.value })} /></div>
-      <div><Label>Режим готовности</Label><Input value={(form.readiness_mode as string) || ""} onChange={(e) => setForm({ ...form, readiness_mode: e.target.value })} /></div>
-      <div><Label>Район обслуживания</Label><Input value={(form.service_area as string) || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
-      <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={(form.notes as string) || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-      <div className="md:col-span-2 flex gap-2">
-        <Button onClick={editingItem ? handleUpdate : handleCreate}>{editingItem ? "Сохранить" : "Создать"}</Button>
-        <Button variant="outline" onClick={() => { setShowForm(false); setEditingItem(null); setForm({}) }}>Отмена</Button>
-      </div>
-    </div>
-  )
-
   return (
     <Card>
       <CardHeader>
@@ -155,8 +165,8 @@ function PasfDirectory() {
           <Button onClick={() => { setShowForm(!showForm); setEditingItem(null); setForm({}) }} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
         </div>
 
-        {showForm && <PasfForm />}
-        {editingItem && <PasfForm />}
+        {showForm && <PasfForm form={form} setForm={setForm} editingItem={editingItem} onSubmit={handleCreate} onCancel={() => { setShowForm(false); setEditingItem(null); setForm({}) }} />}
+        {editingItem && <PasfForm form={form} setForm={setForm} editingItem={editingItem} onSubmit={handleUpdate} onCancel={() => { setShowForm(false); setEditingItem(null); setForm({}) }} />}
 
         <div className="overflow-auto rounded-md border">
           <Table>
@@ -192,6 +202,41 @@ function PasfDirectory() {
         <div className="text-xs text-muted-foreground">Всего: {items.length}</div>
       </CardContent>
     </Card>
+  )
+}
+
+interface ServiceFormProps {
+  form: AnyRecord
+  setForm: (value: AnyRecord) => void
+  editingItem: AnyRecord | null
+  onSubmit: () => void
+  onCancel: () => void
+}
+
+function ServiceForm({ form, setForm, editingItem, onSubmit, onCancel }: ServiceFormProps) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
+      <div><Label>Тип службы *</Label>
+        <Select value={(form.service_type as string) || "fire"} onValueChange={(v) => setForm({ ...form, service_type: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>{Object.entries(SERVICE_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <div><Label>Наименование *</Label><Input value={(form.name as string) || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+      <div><Label>Адрес</Label><Input value={(form.address as string) || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+      <div><Label>Телефон</Label><Input value={(form.phone as string) || ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+      <div><Label>Телефон диспетчера</Label><Input value={(form.dispatcher_phone as string) || ""} onChange={(e) => setForm({ ...form, dispatcher_phone: e.target.value })} /></div>
+      <div><Label>Муниципалитет</Label><Input value={(form.municipality as string) || ""} onChange={(e) => setForm({ ...form, municipality: e.target.value })} /></div>
+      <div><Label>Населённый пункт</Label><Input value={(form.settlement as string) || ""} onChange={(e) => setForm({ ...form, settlement: e.target.value })} /></div>
+      <div><Label>Район обслуживания</Label><Input value={(form.service_area as string) || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
+      <div><Label>Широта</Label><Input value={(form.latitude as string) || ""} onChange={(e) => setForm({ ...form, latitude: e.target.value })} /></div>
+      <div><Label>Долгота</Label><Input value={(form.longitude as string) || ""} onChange={(e) => setForm({ ...form, longitude: e.target.value })} /></div>
+      <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={(form.notes as string) || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+      <div className="md:col-span-2 flex gap-2">
+        <Button onClick={onSubmit}>{editingItem ? "Сохранить" : "Создать"}</Button>
+        <Button variant="outline" onClick={onCancel}>Отмена</Button>
+      </div>
+    </div>
   )
 }
 
@@ -281,31 +326,6 @@ function EmergencyServicesDirectory() {
     return <Badge variant={cfg.variant}>{cfg.label}</Badge>
   }
 
-  const ServiceForm = () => (
-    <div className="grid gap-3 md:grid-cols-2 p-4 border rounded-md">
-      <div><Label>Тип службы *</Label>
-        <Select value={(form.service_type as string) || "fire"} onValueChange={(v) => setForm({ ...form, service_type: v })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{Object.entries(SERVICE_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-        </Select>
-      </div>
-      <div><Label>Наименование *</Label><Input value={(form.name as string) || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-      <div><Label>Адрес</Label><Input value={(form.address as string) || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-      <div><Label>Телефон</Label><Input value={(form.phone as string) || ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-      <div><Label>Телефон диспетчера</Label><Input value={(form.dispatcher_phone as string) || ""} onChange={(e) => setForm({ ...form, dispatcher_phone: e.target.value })} /></div>
-      <div><Label>Муниципалитет</Label><Input value={(form.municipality as string) || ""} onChange={(e) => setForm({ ...form, municipality: e.target.value })} /></div>
-      <div><Label>Населённый пункт</Label><Input value={(form.settlement as string) || ""} onChange={(e) => setForm({ ...form, settlement: e.target.value })} /></div>
-      <div><Label>Район обслуживания</Label><Input value={(form.service_area as string) || ""} onChange={(e) => setForm({ ...form, service_area: e.target.value })} /></div>
-      <div><Label>Широта</Label><Input value={(form.latitude as string) || ""} onChange={(e) => setForm({ ...form, latitude: e.target.value })} /></div>
-      <div><Label>Долгота</Label><Input value={(form.longitude as string) || ""} onChange={(e) => setForm({ ...form, longitude: e.target.value })} /></div>
-      <div className="md:col-span-2"><Label>Примечания</Label><Textarea value={(form.notes as string) || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-      <div className="md:col-span-2 flex gap-2">
-        <Button onClick={editingItem ? handleUpdate : handleCreate}>{editingItem ? "Сохранить" : "Создать"}</Button>
-        <Button variant="outline" onClick={() => { setShowForm(false); setEditingItem(null); setForm({}) }}>Отмена</Button>
-      </div>
-    </div>
-  )
-
   return (
     <Card>
       <CardHeader>
@@ -331,8 +351,8 @@ function EmergencyServicesDirectory() {
           <Button onClick={() => { setShowForm(!showForm); setEditingItem(null); setForm({}) }} className="gap-2"><Plus className="h-4 w-4" />Добавить</Button>
         </div>
 
-        {showForm && <ServiceForm />}
-        {editingItem && <ServiceForm />}
+        {showForm && <ServiceForm form={form} setForm={setForm} editingItem={editingItem} onSubmit={handleCreate} onCancel={() => { setShowForm(false); setEditingItem(null); setForm({}) }} />}
+        {editingItem && <ServiceForm form={form} setForm={setForm} editingItem={editingItem} onSubmit={handleUpdate} onCancel={() => { setShowForm(false); setEditingItem(null); setForm({}) }} />}
 
         <div className="overflow-auto rounded-md border">
           <Table>

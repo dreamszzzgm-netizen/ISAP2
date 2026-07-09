@@ -22,6 +22,7 @@ graphify-out/
 backend/src/graphify-out/
 .opencode/
 frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
 backend/.pytest_tmp/
 .mcp.json
 .codebase-memory/

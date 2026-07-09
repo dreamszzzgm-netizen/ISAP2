@@ -525,8 +525,23 @@ class EnhancedDocumentGenerator:
                                 "validation_status": "valid",
                             }
                         )
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - расчёт не должен рвать генерацию
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "Расчёт зоны взрыва для '%s' не выполнен: %s: %s",
+                        name,
+                        type(e).__name__,
+                        str(e)[:200],
+                    )
+                    results.append(
+                        {
+                            "method_id": "tnt_equivalent_v1",
+                            "substance": name,
+                            "validation_status": "error",
+                            "error": f"{type(e).__name__}: {e}",
+                        }
+                    )
 
             # Расчёт теплового излучения
             if "combustion_energy_mj_kg" in hazard_props:
@@ -554,8 +569,23 @@ class EnhancedDocumentGenerator:
                                 "validation_status": "valid",
                             }
                         )
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - расчёт не должен рвать генерацию
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "Расчёт теплового излучения для '%s' не выполнен: %s: %s",
+                        name,
+                        type(e).__name__,
+                        str(e)[:200],
+                    )
+                    results.append(
+                        {
+                            "method_id": "thermal_radiation_v1",
+                            "substance": name,
+                            "validation_status": "error",
+                            "error": f"{type(e).__name__}: {e}",
+                        }
+                    )
 
             # Расчёт токсического поражения
             if "mac_mg_m3" in hazard_props:
@@ -583,19 +613,41 @@ class EnhancedDocumentGenerator:
                                 "validation_status": "valid",
                             }
                         )
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - расчёт не должен рвать генерацию
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "Расчёт токсического поражения для '%s' не выполнен: %s: %s",
+                        name,
+                        type(e).__name__,
+                        str(e)[:200],
+                    )
+                    results.append(
+                        {
+                            "method_id": "toxic_dispersion_v1",
+                            "substance": name,
+                            "validation_status": "error",
+                            "error": f"{type(e).__name__}: {e}",
+                        }
+                    )
 
         return results
 
     def _get_calc_placeholders(
         self, section_id: str, calculation_results: list[dict]
     ) -> dict:
-        """Получение плейсхолдеров расчётных данных для раздела."""
+        """Получение плейсхолдеров расчётных данных для раздела.
+
+        Результаты с ``validation_status == "error"`` (расчёт не выполнен)
+        пропускаются: для них нет данных, но они сохранены в логах и общем
+        списке результатов для прозрачности.
+        """
         placeholders = {}
         for calc in calculation_results:
+            if calc.get("validation_status") == "error":
+                continue
             method_id = calc["method_id"]
-            results = calc["results"]
+            results = calc.get("results", {})
             substance = calc.get("substance", "")
 
             for key, value in results.items():

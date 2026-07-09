@@ -1330,3 +1330,27 @@ Notes:
 - Context quality still reports warnings when PASF/emergency services are not selected in the questionnaire; this is expected data completeness feedback, not a runtime failure.
 - AI review/LLM provider connection can fail when the local provider is unavailable; generation falls back and still produces DOCX/debug artifacts.
 - Existing dev servers on ports 3000/8000 were left running; a restart may be needed for the browser to pick up latest local code changes.
+
+## Code Health Sweep: TypeScript, ESLint, and Calculation Bug Fixes (2026-07-09)
+
+Goal: systematic static analysis and fix of all errors/bugs found across frontend (TypeScript + ESLint) and backend (Python), working autonomously with subagents.
+
+Done:
+- Frontend — runtime crash fix: added missing `AlertTriangle` import in `frontend/src/components/dashboard/document-detail-page.tsx`; the error alert would have thrown `ReferenceError` on render.
+- Frontend — missing `PAGE_TITLES` keys: added `facilityDetail` and `documentDetail` entries in `frontend/src/app/page.tsx` so `Record<PageKey, ...>` is complete.
+- Frontend — API typing (20 errors): introduced a `DocumentReviewWorkflow` type and tightened return types in `frontend/src/lib/api-client.ts` (`getPmlaDocumentVersions`, `getQuestionnaireDocuments`, `getPmlaDocumentStatus`, `facilities`, `getPasfUnits`, `getEmergencyServices`); removed point-of-use casts/`unknown` access in `document-detail-page.tsx`, `pmla-questionnaire-page.tsx`, `facility-detail-page.tsx`.
+- Frontend — ESLint "Cannot create components during render": extracted inner `PasfForm` and `ServiceForm` from `PasfDirectory`/`EmergencyServicesDirectory` render scope to module level in `frontend/src/components/dashboard/directories-page.tsx` with explicit props interfaces (no behavior change).
+- Backend — explosion zone calculation logic: fixed contradictory radius selection in `backend/src/application/services/calculations/explosion_zone.py`. Per РД 03-409-01 the lethal zone is the smallest (epicenter); the code now computes all four zones (lethal < severe < moderate < minor) and exposes them via a new `zones` dict on `ExplosionResult`, with `zone_radius_m` = outer (max) zone. `K_SEVERE`/`K_MINOR` are now used (previously declared but dead).
+- Backend — silent exception handling: replaced three `except Exception: pass` blocks in `EnhancedDocumentGenerator._run_calculations` (explosion/thermal/toxic) with logged warnings and `validation_status: "error"` result entries; hardened `_get_calc_placeholders` to skip error entries instead of raising `KeyError`.
+- Added `backend/.dockerignore` to exclude root-owned `__pycache__`/`.pytest_cache` from the build context (the pytest cache was blocking `docker compose build`).
+- Added regression test `test_all_four_zones_present_and_ordered` covering the new four-zone explosion result.
+
+Verified:
+- `npx tsc --noEmit` -> 0 errors (was 25).
+- `npx eslint .` -> 0 errors, 74 warnings (was 4 errors; remaining warnings are pre-existing `react-hooks` style in legacy pages).
+- `python -m pytest -q` -> `382 passed, 41 warnings` (full backend suite green, including the new test).
+
+Notes:
+- No runtime/behavioral changes beyond the explosion-zone radius semantics: `zone_radius_m` now reports the outer (maximum-area) zone instead of the lethal (smallest) radius. Consumers were checked (`enhanced_generator` uses `calc_result.results` via registry wrapping) and tests confirm larger-quantity → larger-radius and confined > open invariants still hold.
+- Changes are uncommitted in the working tree; a follow-up commit is recommended once reviewed.
+- Docker Desktop was reinstalled during the session with disk image location moved to `D:\DockerData` (via `CustomWslDistroDir` in `settings-store.json`); ISAP stack (`isap_db`, `isap_chromadb`, `isap_backend`, `isap_frontend`) was recreated via `docker compose up -d` with a clean data start.

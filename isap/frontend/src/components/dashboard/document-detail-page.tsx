@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
@@ -23,7 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { isapApi } from "@/lib/api-client"
+import { isapApi, type DocumentReviewWorkflow } from "@/lib/api-client"
 import { useNavStore } from "@/lib/nav-store"
 
 type AnyRecord = Record<string, unknown>
@@ -38,7 +39,7 @@ export function DocumentDetailPage() {
   const [preview, setPreview] = useState<AnyRecord | null>(null)
   const [versions, setVersions] = useState<AnyRecord[]>([])
   const [aiReview, setAiReview] = useState<AnyRecord | null>(null)
-  const [reviewWorkflow, setReviewWorkflow] = useState<AnyRecord | null>(null)
+  const [reviewWorkflow, setReviewWorkflow] = useState<DocumentReviewWorkflow | null>(null)
   const [reviewComment, setReviewComment] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -198,9 +199,9 @@ export function DocumentDetailPage() {
 
   const status = String(doc?.status || "—")
   const statusVariant = status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"
-  const version = doc?.version_number ?? doc?.version ?? "—"
+  const version = String(doc?.version_number ?? doc?.version ?? "—")
   const title = String(doc?.title || "ПМЛА")
-  const source = String(doc?.generation_meta?.source || "—")
+  const source = String((doc?.generation_meta as AnyRecord | undefined)?.source || "—")
   const canReview = status === "pending_review"
 
   return (
@@ -409,9 +410,9 @@ export function DocumentDetailPage() {
               <CardDescription>Разделы DOCX, извлечённые из сохранённого файла.</CardDescription>
             </CardHeader>
             <CardContent>
-              {preview?.sections && preview.sections.length > 0 ? (
+              {preview?.sections && (preview.sections as Array<{ title?: string; content?: string }>).length > 0 ? (
                 <div className="space-y-4 max-h-[600px] overflow-auto">
-                  {preview.sections.map((section: AnyRecord, i: number) => (
+                  {(preview.sections as Array<{ title?: string; content?: string }>).map((section, i: number) => (
                     <div key={i} className="rounded-md border p-3">
                       <div className="font-medium text-sm mb-1">{String(section.title || `Раздел ${i + 1}`)}</div>
                       <div className="text-xs text-muted-foreground whitespace-pre-wrap">{String(section.content || "—")}</div>
@@ -435,7 +436,7 @@ export function DocumentDetailPage() {
                 <div className="space-y-2">
                   {versions.map((v: AnyRecord, i: number) => {
                     const isCurrent = String(v.document_id) === docId
-                    const qualityScore = v.quality_score
+                    const qualityScore = v.quality_score as number | undefined
                     const qualityStatus = v.quality_status as string | undefined
                     const scoreColor = qualityStatus === "critical" ? "text-red-600" : qualityStatus === "warning" ? "text-yellow-600" : "text-green-600"
                     return (
@@ -443,7 +444,7 @@ export function DocumentDetailPage() {
                         <div className="flex items-center gap-3">
                           <span className="font-medium">Версия {String(v.version ?? i + 1)}</span>
                           {isCurrent && <Badge variant="default" className="text-xs">Текущая</Badge>}
-                          {v.created_at && <span className="text-muted-foreground text-xs">{new Date(v.created_at).toLocaleString("ru-RU")}</span>}
+                          {v.created_at ? <span className="text-muted-foreground text-xs">{new Date(v.created_at as string).toLocaleString("ru-RU")}</span> : null}
                           {qualityScore != null && (
                             <span className={`text-xs font-medium ${scoreColor}`}>{qualityScore} / 100</span>
                           )}

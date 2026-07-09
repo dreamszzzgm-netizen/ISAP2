@@ -111,6 +111,18 @@ export type PmlaDocumentListItem = {
   download_available?: boolean
 }
 
+// Review Workflow (ручная проверка) — shape returned by /api/v1/pmla/{id}/review.
+export type DocumentReviewWorkflow = {
+  document_id: string
+  review_status: string
+  review_status_label: string
+  review_comment?: string | null
+  reviewed_by?: string | null
+  reviewed_at?: string | null
+  issued_at?: string | null
+  allowed_transitions: string[]
+}
+
 export type ImportPreviewResult = {
   job?: { id: string; status: string; error_rows?: number; warning_rows?: number; created_rows?: number }
   rows?: Array<Record<string, unknown>>
@@ -120,7 +132,7 @@ export type ImportPreviewResult = {
 export const isapApi = {
   health: () => apiRequest<{ status: string }>("/health"),
   organizations: () => apiRequest<unknown[]>("/api/v1/organizations/"),
-  facilities: () => apiRequest<unknown[]>("/api/v1/facilities/"),
+  facilities: () => apiRequest<Record<string, unknown>[]>("/api/v1/facilities/"),
   pmlaDocuments: () => apiRequest<unknown[]>("/api/v1/pmla/"),
   pmlaExpiring: (days = 30) => apiRequest<unknown[]>(`/api/v1/pmla/expiring?days=${days}`),
   aiConfig: () => apiRequest<Record<string, unknown>>("/api/v1/ai/config"),
@@ -182,7 +194,7 @@ export const isapApi = {
   getPmlaDocumentPreview: (documentId: string) =>
     apiRequest<{ sections: Array<{ title: string; content: string }> }>(`/api/v1/pmla/${documentId}/preview`),
   getPmlaDocumentVersions: (documentId: string) =>
-    apiRequest<unknown[]>(`/api/v1/pmla/${documentId}/versions`),
+    apiRequest<Record<string, unknown>[]>(`/api/v1/pmla/${documentId}/versions`),
   reviewPmlaDocument: (documentId: string, action: "approve" | "reject", comment?: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/review`, {
       method: "POST",
@@ -191,27 +203,9 @@ export const isapApi = {
 
   // Review Workflow (ручная проверка)
   getDocumentReview: (documentId: string) =>
-    apiRequest<{
-      document_id: string;
-      review_status: string;
-      review_status_label: string;
-      review_comment?: string | null;
-      reviewed_by?: string | null;
-      reviewed_at?: string | null;
-      issued_at?: string | null;
-      allowed_transitions: string[];
-    }>(`/api/v1/pmla/${documentId}/review`),
+    apiRequest<DocumentReviewWorkflow>(`/api/v1/pmla/${documentId}/review`),
   updateDocumentReview: (documentId: string, data: { review_status: string; review_comment?: string; reviewed_by?: string }) =>
-    apiRequest<{
-      document_id: string;
-      review_status: string;
-      review_status_label: string;
-      review_comment?: string | null;
-      reviewed_by?: string | null;
-      reviewed_at?: string | null;
-      issued_at?: string | null;
-      allowed_transitions: string[];
-    }>(`/api/v1/pmla/${documentId}/review`, {
+    apiRequest<DocumentReviewWorkflow>(`/api/v1/pmla/${documentId}/review`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
@@ -224,7 +218,7 @@ export const isapApi = {
 
   // Directories: ПАСФ
   getPasfUnits: (search?: string) =>
-    apiRequest<unknown[]>(`/api/v1/directories/pasf${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+    apiRequest<Record<string, unknown>[]>(`/api/v1/directories/pasf${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   createPasfUnit: (data: Record<string, unknown>) =>
     apiRequest<Record<string, unknown>>("/api/v1/directories/pasf", { method: "POST", body: JSON.stringify(data) }),
   updatePasfUnit: (id: string, data: Record<string, unknown>) =>
@@ -238,7 +232,7 @@ export const isapApi = {
     if (params?.search) q.set("search", params.search)
     if (params?.service_type) q.set("service_type", params.service_type)
     const qs = q.toString()
-    return apiRequest<unknown[]>(`/api/v1/directories/emergency-services${qs ? `?${qs}` : ""}`)
+    return apiRequest<Record<string, unknown>[]>(`/api/v1/directories/emergency-services${qs ? `?${qs}` : ""}`)
   },
   createEmergencyService: (data: Record<string, unknown>) =>
     apiRequest<Record<string, unknown>>("/api/v1/directories/emergency-services", { method: "POST", body: JSON.stringify(data) }),
