@@ -1,7 +1,96 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-08T19:00
+**Дата обновления:** 2026-07-09T00:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA Assembly Layer - Hybrid Generation Architecture (2026-07-09)
+
+Goal: hybrid PMLA assembly - static sections from templates, variable with substitution, dynamic from questionnaire/LLM, appendices as manifest. Reduce generation complexity, minimize LLM dependency.
+
+Done:
+- Created block type registry (6 types: static, variable, generated, word_toc, appendix_ref, external_file)
+- Added correction journal as proper DOCX table
+- Added Word TOC placeholder with Heading styles
+- Added appendices manifest table
+- Updated structure.json with block_type for all 27 sections
+- Created assembly strategy documentation
+
+Section classification:
+- static_block (4): correction_log, abbreviations, terms, bibliography
+- variable_block (11): title_page, approval_sheet, section_1, 3, 4, 6, 8, 13, familiarization_sheet, appendix_1, 5
+- generated_block (10): introduction, section_2, 5, 7, 9, 10, 11, 12, special_section
+- word_toc_block (1): toc
+- appendix_reference (5): appendix_1-5
+
+Changed files: pmla_assembly_blocks.py, test_pmla_assembly.py, PMLA_ASSEMBLY_STRATEGY.md, structure.json, docx_helpers.py, enhanced_generator.py
+
+Tests: 21 new, 424 total passed. Frontend build OK.
+
+---
+
+## PMLA Patch B — Approval Sheet in DOCX (2026-07-09)
+
+Goal: add a dedicated front-matter "Лист согласования" to generated PMLA DOCX without changing review workflow, database schema, frontend UI, RAG, geocoding, routes, or migrations.
+
+Done:
+- Added a DOCX approval sheet after the title page and before "Журнал корректировки документа" / "Содержание".
+- Added a real DOCX helper `add_approval_sheet()` with a table:
+  - `Роль`
+  - `Должность`
+  - `ФИО`
+  - `Подпись`
+  - `Дата`
+- Added minimum rows:
+  - `Разработал`
+  - `Проверил`
+  - `Утвердил`
+- Added safe data mapping from existing context only:
+  - `responsible_persons`
+  - `approver`
+  - `organization.director`
+  - `organization.manager`
+  - `facility.responsible_person`
+- Added fallbacks that do not imply real approval:
+  - `Инженер`
+  - `Ответственный специалист`
+  - `Руководитель организации`
+  - blank signature/date fields
+- Added `approval_sheet` to PMLA `structure.json` and `TemplateEngine` for template/debug visibility.
+- Added `00_approval_sheet.j2` template.
+- Prevented duplicate front-matter rendering by popping `Титульный лист` and `Лист согласования` before rendering main sections.
+- Preserved review workflow: generated documents are not marked `approved`; approval still requires manual review workflow.
+
+Changed files:
+- `backend/src/infrastructure/export/docx_helpers.py`
+- `backend/src/application/services/enhanced_generator.py`
+- `backend/src/application/engines/template_engine.py`
+- `backend/templates/pmla/structure.json`
+- `backend/templates/pmla/sections/00_approval_sheet.j2`
+- `backend/tests/test_enhanced_generator.py`
+
+Regression tests added:
+- `_build_docx` contains "Лист согласования".
+- Approval sheet contains `Разработал`, `Проверил`, `Утвердил`.
+- Approval sheet contains `Должность`, `ФИО`, `Подпись`, `Дата`.
+- Approval sheet appears before "Журнал корректировки документа".
+- Approval sheet is not duplicated when present in `sections`.
+- DOCX output does not contain `None`, `undefined`, raw JSON markers, or HTML table tags.
+
+Verified:
+- Focused DOCX tests: `9 passed`.
+- Related DOCX/template tests: `41 passed`.
+- Full backend suite: `403 passed, 41 warnings`.
+- Frontend build: `npm run build` completed successfully.
+- Git hygiene checks: no tracked `.next`, `node_modules`, `.env.local`, `tsconfig.tsbuildinfo`, logs, zips, patches, `output.docx`, `generated_documents`, or `docs/inbox`.
+
+Commit:
+- `8004164 feat(PMLA): add approval sheet to DOCX`
+
+Notes:
+- `docs/inbox/` remains local validation material and must not be committed.
+- Patch B is intentionally a DOCX-generation patch only.
 
 ---
 

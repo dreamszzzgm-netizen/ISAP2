@@ -396,3 +396,106 @@ def add_appendices_section(doc: DocxDocument, attachments_checklist: list[dict |
         status = "" if present else " — не представлено"
         add_body_paragraph(doc, f"Приложение {appendix_num}. {name}{status}")
         appendix_num += 1
+
+
+# ---------------------------------------------------------------------------
+# PMLA Assembly Layer helpers
+# ---------------------------------------------------------------------------
+
+
+def add_correction_journal(doc: DocxDocument, corrections: list[dict] | None = None) -> None:
+    """Add the correction journal as a proper DOCX table.
+
+    Columns: № п/п | Дата изменения | Раздел / страница | Содержание изменения | Основание | Подпись
+    Default: header row + 1 empty data row.
+    """
+    add_heading(doc, "Журнал корректировки документа", level=1, center=False)
+
+    headers = ["№ п/п", "Дата изменения", "Раздел / страница", "Содержание изменения", "Основание", "Подпись"]
+    rows: list[list[str]] = []
+
+    if corrections:
+        for i, c in enumerate(corrections, 1):
+            rows.append([
+                str(i),
+                str(c.get("date", "")),
+                str(c.get("section_page", "")),
+                str(c.get("description", "")),
+                str(c.get("basis", "")),
+                str(c.get("signature", "")),
+            ])
+    else:
+        rows.append(["", "", "", "", "", ""])
+
+    add_data_table(doc, headers, rows)
+    doc.add_page_break()
+
+
+def add_toc_placeholder(doc: DocxDocument) -> None:
+    """Insert a Word TOC field placeholder.
+
+    After opening in Word, user right-clicks → Update Field to populate page numbers.
+    The TOC reads Heading 1 / Heading 2 styles from the document.
+    """
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    add_heading(doc, "Содержание", level=1, center=False)
+
+    # Create TOC field: { TOC \o "1-2" \h \z \u }
+    paragraph = doc.add_paragraph()
+    paragraph.paragraph_format.first_line_indent = Cm(0)
+
+    run = paragraph.add_run()
+    fld_char_begin = OxmlElement("w:fldChar")
+    fld_char_begin.set(qn("w:fldCharType"), "begin")
+    run._element.append(fld_char_begin)
+
+    run2 = paragraph.add_run()
+    instr_text = OxmlElement("w:instrText")
+    instr_text.set(qn("xml:space"), "preserve")
+    instr_text.text = ' TOC \\o "1-2" \\h \\z \\u '
+    run2._element.append(instr_text)
+
+    run3 = paragraph.add_run()
+    fld_char_separate = OxmlElement("w:fldChar")
+    fld_char_separate.set(qn("w:fldCharType"), "separate")
+    run3._element.append(fld_char_separate)
+
+    run4 = paragraph.add_run("[Обновите содержание: правый клик → Обновить поле]")
+    run4.font.name = BODY_FONT_NAME
+    run4.font.size = Pt(BODY_FONT_SIZE_PT)
+    run4.font.italic = True
+
+    run5 = paragraph.add_run()
+    fld_char_end = OxmlElement("w:fldChar")
+    fld_char_end.set(qn("w:fldCharType"), "end")
+    run5._element.append(fld_char_end)
+
+    doc.add_page_break()
+
+
+def add_appendices_manifest(doc: DocxDocument, appendices: list[dict] | None = None) -> None:
+    """Add the Appendices manifest as a DOCX table.
+
+    Columns: № приложения | Наименование | Файл | Наличие
+    Each appendix entry gets a row.
+    """
+    add_heading(doc, "Приложения", level=1, center=False)
+
+    if not appendices:
+        add_body_paragraph(doc, "Приложения не представлены.")
+        return
+
+    headers = ["№ приложения", "Наименование", "Файл", "Наличие"]
+    rows: list[list[str]] = []
+
+    for entry in appendices:
+        num = str(entry.get("appendix_number", ""))
+        title = str(entry.get("title", ""))
+        filename = str(entry.get("filename", "")) or "—"
+        present = entry.get("present", False)
+        status = "представлен" if present else "не представлен"
+        rows.append([num, title, filename, status])
+
+    add_data_table(doc, headers, rows)

@@ -31,11 +31,14 @@ from src.application.services.prompts import (
 from src.application.services.types import GeneratedDocument
 from src.application.services.validation import DocumentValidator
 from src.infrastructure.export.docx_helpers import (
+    add_appendices_manifest,
     add_approval_sheet,
     add_body_paragraph as helper_add_body_paragraph,
+    add_correction_journal,
     add_data_table,
     add_heading as helper_add_heading,
     add_kv_table,
+    add_toc_placeholder,
     create_title_page,
     safe_text,
     set_default_font,
@@ -943,31 +946,13 @@ class EnhancedDocumentGenerator:
         sections.pop("Лист согласования", None)
         add_approval_sheet(doc, context)
 
-        # Журнал корректировки
-        if "Журнал корректировки документа" in sections:
-            content = sections.pop("Журнал корректировки документа")
-            self._add_heading(doc, "Журнал корректировки документа", level=1, center=False)
-            if isinstance(content, list) and content:
-                self._render_blocks(doc, content)
-            elif isinstance(content, str):
-                cleaned = strip_html(content)
-                for line in cleaned.strip().split("\n"):
-                    if line.strip():
-                        self._add_body_paragraph(doc, line.strip())
-            doc.add_paragraph()
+        # Журнал корректировки — статичная DOCX-таблица
+        sections.pop("Журнал корректировки документа", None)
+        add_correction_journal(doc, context.get("corrections"))
 
-        # Содержание
-        if "Содержание" in sections:
-            content = sections.pop("Содержание")
-            self._add_heading(doc, "Содержание", level=1, center=False)
-            if isinstance(content, list) and content:
-                self._render_blocks(doc, content)
-            elif isinstance(content, str):
-                cleaned = strip_html(content)
-                for line in cleaned.strip().split("\n"):
-                    if line.strip():
-                        self._add_body_paragraph(doc, line.strip())
-            doc.add_paragraph()
+        # Содержание — Word TOC field
+        sections.pop("Содержание", None)
+        add_toc_placeholder(doc)
 
         # Основные разделы
         for section_title, content_or_blocks in sections.items():
@@ -984,9 +969,12 @@ class EnhancedDocumentGenerator:
                         self._add_body_paragraph(doc, line.strip())
             doc.add_paragraph()
 
-        # Приложения
+        # Приложения — манифест таблица
+        appendices_manifest = context.get("appendices_manifest") or []
         attachments = context.get("attachments_checklist") or []
-        if attachments:
+        if appendices_manifest:
+            add_appendices_manifest(doc, appendices_manifest)
+        elif attachments:
             from src.infrastructure.export.docx_helpers import add_appendices_section
             add_appendices_section(doc, attachments)
 
