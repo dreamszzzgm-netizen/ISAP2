@@ -39,6 +39,7 @@ from src.infrastructure.export.docx_helpers import (
     add_heading as helper_add_heading,
     add_kv_table,
     add_toc_placeholder,
+    configure_heading_styles,
     create_title_page,
     safe_text,
     set_default_font,
@@ -248,6 +249,14 @@ class EnhancedDocumentGenerator:
             "material_reserves": [],
         }
         enriched["material_reserve"].update(context.get("material_reserve") or {})
+
+        # Манифест приложений: если он ещё не задан явно, синтезируем из
+        # канонических записей реестра (5 приложений) и статуса наличия из
+        # attachments_checklist анкеты.
+        if not enriched.get("appendices_manifest"):
+            enriched["appendices_manifest"] = _synthesize_appendices_manifest(
+                enriched.get("attachments_checklist") or [],
+            )
 
         return enriched
 
@@ -894,9 +903,24 @@ class EnhancedDocumentGenerator:
         pf.line_spacing = 1.0
         pf.space_after = Pt(0)
 
+        # Встроенные стили Heading 1/2 приводим к Times New Roman / чёрному,
+        # чтобы Word TOC field собирал заголовки при сохранении визуала эталона.
+        configure_heading_styles(doc)
+
     def _add_heading(self, doc: DocxDocument, text: str, *, level: int, center: bool = True) -> None:
-        """Заголовок в стиле эталона: Times New Roman, жирный, без синего цвета Word-стиля."""
+        """Заголовок в стиле эталона: Times New Roman, жирный, без синего цвета Word-стиля.
+
+        Для level >= 1 назначается встроенный стиль ``Heading {level}`` — это
+        позволяет Word TOC field (``TOC \\o "1-2"``) собирать заголовки при
+        обновлении поля. Визуальное оформление задаётся поверх стиля на уровне
+        run, переопределяя стиль. level == 0 стиль не назначается.
+        """
         paragraph = doc.add_paragraph()
+        if level >= 1:
+            try:
+                paragraph.style = doc.styles[f"Heading {level}"]
+            except KeyError:
+                pass
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if center else WD_ALIGN_PARAGRAPH.LEFT
         paragraph.paragraph_format.first_line_indent = Cm(0)
         run = paragraph.add_run(text)
@@ -937,21 +961,32 @@ class EnhancedDocumentGenerator:
         doc = DocxDocument()
         self._setup_document_defaults(doc)
 
-        # Титульный лист
         context = metadata.get("context", {})
+
+        # Front matter выделяется по section_id из ASSEMBLY_REGISTRY (а не по
+        # хардкоженным русским строкам):title_page, approval_sheet,
+        # correction_log, toc рендерятся специальными хелперами и не должны
+        # попасть в общий цикл секций ниже.
+        from src.application.services.pmla_assembly_blocks import (
+            get_front_matter_section_ids,
+            get_section_title,
+        )
+        for sid in get_front_matter_section_ids():
+            title = get_section_title(sid)
+            if title:
+                sections.pop(title, None)
+
+        # Титульный лист
         create_title_page(doc, context)
-        sections.pop("Титульный лист", None)
 
         # Лист согласования — служебный front matter, не review workflow.
-        sections.pop("Лист согласования", None)
         add_approval_sheet(doc, context)
 
         # Журнал корректировки — статичная DOCX-таблица
-        sections.pop("Журнал корректировки документа", None)
         add_correction_journal(doc, context.get("corrections"))
 
-        # Содержание — Word TOC field
-        sections.pop("Содержание", None)
+        # Содержание — Word TOC field (заголовок "Содержание" рендерится
+        # без стиля Heading, чтобы оглавление не сошлалось само на себя).
         add_toc_placeholder(doc)
 
         # Основные разделы
@@ -1076,3 +1111,59 @@ class EnhancedDocumentGenerator:
             run = cap.add_run(block.caption)
             run.font.name = BODY_FONT_NAME
             run.font.size = Pt(BODY_FONT_SIZE_PT - 1)
+
+
+# ---------------------------------------------------------------------------
+# Манифест приложений: сопоставление реестра приложений и attachments_checklist
+#
+# Module-level helpers, используемые EnhancedDocumentGenerator._enrich_context.
+# Ключевые слова для сопоставления канонического приложения (по section_id из
+# ASSEMBLY_REGISTRY) с записями attachments_checklist анкеты. Сопоставление
+# регистронезависимое, по подстроке в поле name записи checklist.
+# ---------------------------------------------------------------------------
+
+_APPENDIX_MATCH_KEYWORDS: dict[str, list[str]] = {
+    "appendix_1": ["изучен", "порядок изучен", "обучен"],
+    "appendix_2": ["оперативн", "сообщен об инцидент", "форма сообщен"],
+    "appendix_3": ["пасф", "состав пасф", "состав формирован"],
+    "appendix_4": ["оснащен", "оснащение пасф", "средств защит", "сиз"],
+    "appendix_5": ["оповещ", "схема оповещ"],
+}
+
+
+def _checklist_matches(checklist: list, keywords: list[str]) -> bool:
+    """Проверяет, есть ли в checklist запись с present=True и совпадением имени."""
+    for item in checklist:
+        if not isinstance(item, dict):
+            continue
+        if not item.get("present", False):
+            continue
+        name = str(item.get("name", "")).lower()
+        if any(kw in name for kw in keywords):
+            return True
+    return False
+
+
+def _synthesize_appendices_manifest(checklist: list) -> list[dict]:
+    """Синтезирует appendices_manifest из реестра приложений + статуса наличия.
+
+    Возвращает записи вида::
+        {"appendix_number": 1, "title": "Приложение 1. ...",
+         "filename": "—", "present": bool}
+    filename всегда "—" (загрузка файлов приложений не реализована).
+    """
+    from src.application.services.pmla_assembly_blocks import get_appendix_manifest_entries
+
+    entries = get_appendix_manifest_entries()
+    manifest: list[dict] = []
+    for entry in entries:
+        sid = entry["section_id"]
+        keywords = _APPENDIX_MATCH_KEYWORDS.get(sid, [])
+        present = _checklist_matches(checklist, keywords)
+        manifest.append({
+            "appendix_number": entry["appendix_number"],
+            "title": entry["title"],
+            "filename": "—",
+            "present": present,
+        })
+    return manifest

@@ -66,9 +66,50 @@ def set_default_font(doc: DocxDocument, font_name: str = BODY_FONT_NAME, font_si
     rfonts.set(qn("w:eastAsia"), font_name)
 
 
+def configure_heading_styles(doc: DocxDocument) -> None:
+    """Переопределяет встроенные стили Heading 1/2 под эталон ПМЛА.
+
+    python-docx создаёт документы на дефолтном шаблоне, где ``Heading 1``/2
+    имеют голубой цвет и шрифт Calibri. Чтобы Word-овский TOC field
+    (``TOC \\o "1-2"``) собирал заголовки, параграфам назначаются встроенные
+    стили — но при этом сами стили приводятся к Times New Roman / чёрному,
+    сохраняя визуал эталона (ГОСТ).
+    """
+    from docx.enum.style import WD_STYLE_TYPE
+    for level, size in ((1, HEADING_FONT_SIZE_PT), (2, HEADING_FONT_SIZE_PT - 1)):
+        style_name = f"Heading {level}"
+        try:
+            style = doc.styles[style_name]
+        except KeyError:  # дефолтный шаблон всегда содержит Heading 1/2
+            style = doc.styles.add_style(style_name, WD_STYLE_TYPE.PARAGRAPH)
+        style.font.name = BODY_FONT_NAME
+        style.font.size = Pt(size)
+        style.font.bold = True
+        style.font.color.rgb = RGBColor(0, 0, 0)
+        # East Asian font binding (иначе Word подставляет свой CJK-шрифт)
+        rpr = style.element.get_or_add_rPr()
+        rfonts = rpr.find(qn("w:rFonts"))
+        if rfonts is None:
+            rfonts = rpr.makeelement(qn("w:rFonts"), {})
+            rpr.append(rfonts)
+        rfonts.set(qn("w:eastAsia"), BODY_FONT_NAME)
+
+
 def add_heading(doc: DocxDocument, text: str, level: int = 1, center: bool = False) -> None:
-    """Add a heading with proper formatting."""
+    """Add a heading with proper formatting.
+
+    Для level >= 1 назначается встроенный стиль ``Heading {level}``, чтобы
+    Word TOC field собирал заголовки разделов и подразделов. Визуальное
+    оформление (bold, чёрный цвет, Times New Roman) задаётся поверх стиля
+    на уровне run и переопределяет стиль. level == 0 (заголовок документа,
+    служебные заголовки вне нумерации TOC) стиль не назначается.
+    """
     paragraph = doc.add_paragraph()
+    if level >= 1:
+        try:
+            paragraph.style = doc.styles[f"Heading {level}"]
+        except KeyError:
+            pass  # стиль не настроен — рендеримся как раньше
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if center else WD_ALIGN_PARAGRAPH.LEFT
     paragraph.paragraph_format.first_line_indent = Cm(0)
     run = paragraph.add_run(safe_text(text))
@@ -440,7 +481,9 @@ def add_toc_placeholder(doc: DocxDocument) -> None:
     from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
 
-    add_heading(doc, "Содержание", level=1, center=False)
+    # Заголовок «Содержание» — без стиля Heading (level=0), иначе оглавление
+    # сошлётся само на себя.
+    add_heading(doc, "Содержание", level=0, center=False)
 
     # Create TOC field: { TOC \o "1-2" \h \z \u }
     paragraph = doc.add_paragraph()

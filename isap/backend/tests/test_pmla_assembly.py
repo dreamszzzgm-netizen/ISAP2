@@ -337,3 +337,240 @@ class TestStaticBlocksNoLlm:
         """Раздел correction_log — static_block."""
         from src.application.services.pmla_assembly_blocks import get_block_type, BlockType
         assert get_block_type("correction_log") == BlockType.STATIC
+
+
+# ===========================================================================
+# 7. Heading styles & Word TOC support
+# ===========================================================================
+
+class TestHeadingStyles:
+    """Заголовки используют встроенные стили Heading 1/2, чтобы Word TOC
+    field (TOC \\o "1-2") собирал их при обновлении поля."""
+
+    def test_configure_heading_styles_sets_times_new_roman_black(self):
+        """configure_heading_styles приводит Heading 1/2 к Times New Roman, чёрный."""
+        from docx.shared import RGBColor
+        from src.infrastructure.export.docx_helpers import (
+            BODY_FONT_NAME,
+            configure_heading_styles,
+        )
+        doc = DocxDocument()
+        configure_heading_styles(doc)
+        for name in ("Heading 1", "Heading 2"):
+            style = doc.styles[name]
+            assert style.font.name == BODY_FONT_NAME
+            assert style.font.color.rgb == RGBColor(0, 0, 0)
+
+    def test_add_heading_level1_assigns_heading_style(self):
+        """add_heading с level=1 назначает параграфу стиль Heading 1."""
+        from src.infrastructure.export.docx_helpers import add_heading
+        doc = DocxDocument()
+        add_heading(doc, "Раздел 1", level=1)
+        assert doc.paragraphs[0].style.name == "Heading 1"
+
+    def test_add_heading_level2_assigns_heading2_style(self):
+        """add_heading с level=2 назначает параграфу стиль Heading 2."""
+        from src.infrastructure.export.docx_helpers import add_heading
+        doc = DocxDocument()
+        add_heading(doc, "Подраздел", level=2)
+        assert doc.paragraphs[0].style.name == "Heading 2"
+
+    def test_add_heading_level0_no_heading_style(self):
+        """level=0 (заголовок документа/служебный) не назначает стиль Heading —
+        иначе оглавление сошлётся само на себя."""
+        from src.infrastructure.export.docx_helpers import add_heading
+        doc = DocxDocument()
+        add_heading(doc, "Служебный заголовок", level=0)
+        assert doc.paragraphs[0].style.name != "Heading 1"
+        assert doc.paragraphs[0].style.name != "Heading 2"
+
+    def test_generator_add_heading_assigns_style(self):
+        """EnhancedDocumentGenerator._add_heading с level=1 назначает Heading 1."""
+        gen = _make_gen()
+        doc = DocxDocument()
+        gen._setup_document_defaults(doc)
+        gen._add_heading(doc, "Тестовый раздел", level=1, center=False)
+        assert doc.paragraphs[-1].style.name == "Heading 1"
+
+    def test_heading_block_level2_gets_heading2_style(self):
+        """HeadingBlock(level=2) из scenario_engine получает стиль Heading 2."""
+        from src.application.engines.blocks import HeadingBlock
+        gen = _make_gen()
+        doc = DocxDocument()
+        gen._setup_document_defaults(doc)
+        gen._render_blocks(doc, [HeadingBlock(text="Сценарий С-1", level=2)])
+        assert doc.paragraphs[-1].style.name == "Heading 2"
+
+    def test_section_headings_in_build_docx_have_heading1_style(self):
+        """Заголовки разделов в собранном DOCX имеют стиль Heading 1."""
+        gen = _make_gen()
+        sections = {"1. Тестовый раздел": "Содержимое"}
+        metadata = {"context": _minimal_context()}
+        docx_bytes = gen._build_docx("Документ", sections, metadata)
+        doc = DocxDocument(io.BytesIO(docx_bytes))
+        heading1_paras = [p for p in doc.paragraphs if p.style.name == "Heading 1"]
+        assert any("Тестовый раздел" in p.text for p in heading1_paras)
+
+    def test_toc_heading_is_not_heading_style(self):
+        """Заголовок «Содержание» не имеет стиля Heading — оглавление не
+        должно ссылаться само на себя."""
+        from src.infrastructure.export.docx_helpers import add_toc_placeholder
+        doc = DocxDocument()
+        add_toc_placeholder(doc)
+        content_paras = [p for p in doc.paragraphs if p.text.strip() == "Содержание"]
+        assert content_paras, "Заголовок «Содержание» должен присутствовать"
+        for p in content_paras:
+            assert p.style.name not in ("Heading 1", "Heading 2")
+
+
+# ===========================================================================
+# 8. Registry-driven front matter & section titles
+# ===========================================================================
+
+class TestRegistryTitlesAndFrontMatter:
+    """Реестр как источник русских названий и front matter для _build_docx."""
+
+    def test_get_section_title_returns_russian_title(self):
+        """get_section_title возвращает русское название из structure.json."""
+        from src.application.services.pmla_assembly_blocks import get_section_title
+        assert get_section_title("toc") == "Содержание"
+        assert get_section_title("correction_log") == "Журнал корректировки документа"
+        assert get_section_title("title_page") == "Титульный лист"
+        assert get_section_title("section_1") == "1. Характеристика опасного производственного объекта"
+        assert get_section_title("nonexistent") is None
+
+    def test_get_front_matter_section_ids(self):
+        """get_front_matter_section_ids возвращает 4 id front matter в порядке рендеринга."""
+        from src.application.services.pmla_assembly_blocks import get_front_matter_section_ids
+        ids = get_front_matter_section_ids()
+        assert ids == ["title_page", "approval_sheet", "correction_log", "toc"]
+
+    def test_registry_titles_match_structure_json(self):
+        """Инвариант: каждый title в ASSEMBLY_REGISTRY совпадает с title
+        в structure.json. Защита от рассинхронизации двух источников."""
+        import json
+        from pathlib import Path
+        from src.application.services.pmla_assembly_blocks import ASSEMBLY_REGISTRY
+
+        structure_path = (
+            Path(__file__).parent.parent / "templates" / "pmla" / "structure.json"
+        )
+        structure = json.loads(structure_path.read_text(encoding="utf-8"))
+        json_titles = {s["id"]: s["title"] for s in structure["sections"]}
+
+        for sid, block_def in ASSEMBLY_REGISTRY.items():
+            assert sid in json_titles, f"{sid} отсутствует в structure.json"
+            assert block_def.title == json_titles[sid], (
+                f"title рассинхронизирован для {sid}: "
+                f"registry={block_def.title!r} structure.json={json_titles[sid]!r}"
+            )
+
+    def test_build_docx_pops_front_matter_by_registry(self):
+        """_build_docx убирает front matter из общего цикла секций по registry,
+        а не по хардкоженным русским строкам."""
+        gen = _make_gen()
+        # Кладём все 4 front-matter названия в sections — они не должны
+        # задвоиться в теле документа.
+        sections = {
+            "Титульный лист": "должно быть убрано",
+            "Лист согласования": "должно быть убрано",
+            "Журнал корректировки документа": "должно быть убрано",
+            "Содержание": "должно быть убрано",
+            "1. Реальный раздел": "содержимое реального раздела",
+        }
+        metadata = {"context": _minimal_context()}
+        docx_bytes = gen._build_docx("Документ", sections, metadata)
+        text = _extract_docx_text(docx_bytes)
+        # Реальный раздел присутствует
+        assert "содержимое реального раздела" in text.lower() or "содержимое реального раздела" in text
+        # Front matter убран из тела (значения-заглушки не попадают в output)
+        assert "должно быть убрано" not in text
+
+
+# ===========================================================================
+# 9. Appendices manifest synthesis
+# ===========================================================================
+
+class TestAppendicesManifestSynthesis:
+    """Синтез appendices_manifest из реестра приложений + attachments_checklist."""
+
+    def test_manifest_contains_five_appendices(self):
+        """Синтезированный манифест содержит 5 приложений с корректными номерами."""
+        from src.application.services.enhanced_generator import _synthesize_appendices_manifest
+        manifest = _synthesize_appendices_manifest([])
+        assert len(manifest) == 5
+        assert [m["appendix_number"] for m in manifest] == [1, 2, 3, 4, 5]
+
+    def test_manifest_titles_from_registry(self):
+        """Названия приложений берутся из реестра."""
+        from src.application.services.enhanced_generator import _synthesize_appendices_manifest
+        manifest = _synthesize_appendices_manifest([])
+        titles = [m["title"] for m in manifest]
+        assert any("изучения ПМЛА" in t for t in titles)
+        assert any("оперативного сообщения" in t for t in titles)
+        assert any("Состав ПАСФ" in t for t in titles)
+        assert any("Оснащение ПАСФ" in t for t in titles)
+        assert any("Схема оповещения" in t for t in titles)
+
+    def test_manifest_default_all_not_present(self):
+        """Без checklist все приложения отмечены как не представленные."""
+        from src.application.services.enhanced_generator import _synthesize_appendices_manifest
+        manifest = _synthesize_appendices_manifest([])
+        for entry in manifest:
+            assert entry["present"] is False
+            assert entry["filename"] == "—"
+
+    def test_manifest_present_status_from_checklist(self):
+        """Статус наличия берётся из attachments_checklist по совпадению имени."""
+        from src.application.services.enhanced_generator import _synthesize_appendices_manifest
+        checklist = [
+            {"name": "Схема оповещения при аварии", "present": True},
+            {"name": "Состав ПАСФ", "present": True},
+            {"name": "Не относящееся", "present": True},
+        ]
+        manifest = _synthesize_appendices_manifest(checklist)
+        by_num = {m["appendix_number"]: m for m in manifest}
+        # appendix_5 = Схема оповещения → present
+        assert by_num[5]["present"] is True
+        # appendix_3 = Состав ПАСФ → present
+        assert by_num[3]["present"] is True
+        # appendix_1 = Порядок изучения → не matched
+        assert by_num[1]["present"] is False
+
+    def test_manifest_present_false_when_checklist_item_not_present(self):
+        """Если checklist-элемент совпадает по имени, но present=False — не отмечен."""
+        from src.application.services.enhanced_generator import _synthesize_appendices_manifest
+        checklist = [{"name": "Схема оповещения", "present": False}]
+        manifest = _synthesize_appendices_manifest(checklist)
+        by_num = {m["appendix_number"]: m for m in manifest}
+        assert by_num[5]["present"] is False
+
+    def test_enrich_context_synthesizes_manifest(self):
+        """_enrich_context добавляет appendices_manifest, если его нет в контексте."""
+        gen = _make_gen()
+        ctx = _minimal_context()
+        ctx["attachments_checklist"] = [{"name": "Схема оповещения", "present": True}]
+        enriched = gen._enrich_context(ctx, scenarios=[], calculations=[])
+        assert "appendices_manifest" in enriched
+        assert len(enriched["appendices_manifest"]) == 5
+
+    def test_enrich_context_preserves_explicit_manifest(self):
+        """Явно заданный appendices_manifest не перезаписывается."""
+        gen = _make_gen()
+        ctx = _minimal_context()
+        explicit = [{"appendix_number": 99, "title": "external", "present": True}]
+        ctx["appendices_manifest"] = explicit
+        enriched = gen._enrich_context(ctx, scenarios=[], calculations=[])
+        assert enriched["appendices_manifest"] == explicit
+
+    def test_build_docx_renders_manifest_table(self):
+        """Собранный DOCX содержит таблицу манифеста приложений."""
+        gen = _make_gen()
+        ctx = _minimal_context()
+        ctx["attachments_checklist"] = [{"name": "Схема оповещения", "present": True}]
+        sections = {"1. Раздел": "контент"}
+        metadata = {"context": ctx}
+        docx_bytes = gen._build_docx("Документ", sections, metadata)
+        text = _extract_docx_text(docx_bytes)
+        # Манифест рендерится как таблица с заголовком
+        assert "Приложения" in text or "приложен" in text.lower()
