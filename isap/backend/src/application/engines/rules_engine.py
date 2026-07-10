@@ -355,8 +355,20 @@ class RulesEngine(BaseEngine):
         blocks: list[Block] = []
 
         instructions = get_scenario_instructions(facility_type)
+        # NO fallback to gas network scenarios for other facility types
         if not instructions:
-            instructions = get_scenario_instructions("Сеть газопотребления")
+            # Use generic first actions for unknown facility types
+            blocks.append(ParagraphBlock(text=(
+                "Первоочередные действия по локализации и ликвидации аварий "
+                f"на объекте типа «{facility_type}»:"
+            )))
+            blocks.append(ParagraphBlock(text="1. Немедленно сообщить диспетчеру;"))
+            blocks.append(ParagraphBlock(text="2. Перекрыть источник аварии;"))
+            blocks.append(ParagraphBlock(text="3. Эвакуировать людей из опасной зоны;"))
+            blocks.append(ParagraphBlock(text="4. Вызвать аварийные службы;"))
+            blocks.append(ParagraphBlock(text="5. Оцепить зону аварии;"))
+            blocks.append(ParagraphBlock(text="6. Оказать первую помощь пострадавшим."))
+            return blocks
 
         if instructions:
             blocks.append(ParagraphBlock(text=(
