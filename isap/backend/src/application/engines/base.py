@@ -102,6 +102,7 @@ class DocumentContext:
     accidents_and_incidents: list[dict[str, Any]] = field(default_factory=list)
     insurance: dict[str, Any] = field(default_factory=dict)
     accident_samples: list[dict[str, Any]] | None = None  # Примеры аварий (None → hardcoded)
+    rag_contexts: dict[str, dict[str, Any]] = field(default_factory=dict)  # RAG chunks per section_id
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DocumentContext:
@@ -130,6 +131,7 @@ class DocumentContext:
             incident_history=data.get("incident_history", {}),
             accidents_and_incidents=data.get("accidents_and_incidents", []),
             insurance=data.get("insurance", {}),
+            rag_contexts=data.get("rag_contexts", {}),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -158,6 +160,7 @@ class DocumentContext:
             "incident_history": self.incident_history,
             "accidents_and_incidents": self.accidents_and_incidents,
             "insurance": self.insurance,
+            "rag_contexts": self.rag_contexts,
         }
 
 

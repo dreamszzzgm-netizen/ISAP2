@@ -252,6 +252,27 @@ class EnhancedDocumentGenerator:
         }
         enriched["material_reserve"].update(context.get("material_reserve") or {})
 
+        # RAG context for generated blocks — pre-fetch for all generated sections
+        from src.application.services.pmla_rag_adapter import PmlaRagAdapter
+        try:
+            rag_adapter = PmlaRagAdapter()
+            from src.application.services.pmla_assembly_blocks import get_generated_sections
+            rag_contexts: dict[str, dict] = {}
+            for sid in get_generated_sections():
+                rag_ctx = rag_adapter.get_context(enriched, sid)
+                if not rag_ctx.is_empty:
+                    rag_contexts[sid] = {
+                        "chunks": [
+                            {"source_id": c.source_id, "source_title": c.source_title, "text": c.text}
+                            for c in rag_ctx.chunks
+                        ],
+                        "summary": rag_ctx.summary,
+                    }
+            enriched["rag_contexts"] = rag_contexts
+        except Exception as e:
+            logger.warning("RAG adapter failed: %s", e)
+            enriched["rag_contexts"] = {}
+
         # Манифест приложений: если он ещё не задан явно, синтезируем из
         # канонических записей реестра (5 приложений) и статуса наличия из
         # attachments_checklist анкеты.

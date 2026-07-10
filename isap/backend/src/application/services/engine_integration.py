@@ -114,4 +114,5 @@ def build_document_context(
         incident_history=raw_context.get("incident_history", {}),
         accidents_and_incidents=raw_context.get("accidents_and_incidents", []),
         insurance=raw_context.get("insurance", {}),
+        rag_contexts=raw_context.get("rag_contexts", {}),
     )
