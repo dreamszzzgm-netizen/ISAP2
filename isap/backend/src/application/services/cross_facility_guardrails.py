@@ -10,10 +10,32 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Facility type normalization aliases
+FACILITY_TYPE_ALIASES: dict[str, str] = {
+    "сеть газопотребления": "сеть газопотребления",
+    "котельная": "котельная",
+    "компрессорная станция": "компрессорная станция",
+    "азс": "азс",
+    "агзс": "агзс",
+    "станция газозаправочная автомобильная": "агзс",
+    "автомобильная газозаправочная станция": "агзс",
+    "газозаправочная станция": "агзс",
+}
+
+
+def normalize_facility_type(facility_type: str) -> str:
+    """Normalize facility type to canonical internal key."""
+    lower = facility_type.lower().strip()
+    for alias, canonical in FACILITY_TYPE_ALIASES.items():
+        if alias in lower or lower in alias:
+            return canonical
+    return lower
+
+
 # Forbidden terms per facility type.
 # If these terms appear in generated text for a facility type, it's contamination.
 # NOTE: some terms like "газопровод" may be legitimate for gas-consuming facilities
-# (котельная with gas supply), so we only block clearly wrong terms.
+# (котельная with gas supply, АГЗС with pipelines), so we only block clearly wrong terms.
 CROSS_FACILITY_FORBIDDEN: dict[str, list[str]] = {
     "котельная": [
         "ГРПШ",
@@ -33,6 +55,13 @@ CROSS_FACILITY_FORBIDDEN: dict[str, list[str]] = {
         "ШРП",
         "водогрейный котёл",
         "котёл",
+    ],
+    "агзс": [
+        "водогрейный котёл",
+        "котельная",
+        "теплосеть",
+        "ГРПШ",
+        "ШРП",
     ],
 }
 
@@ -59,7 +88,7 @@ def check_cross_facility_contamination(
 
     Args:
         text: Generated text to check.
-        facility_type: Current facility type.
+        facility_type: Current facility type (will be normalized).
         context_equipment: Equipment list from context (to exclude legit terms).
 
     Returns:
@@ -68,10 +97,10 @@ def check_cross_facility_contamination(
     if not facility_type:
         return []
 
-    lower_type = facility_type.lower().strip()
+    normalized = normalize_facility_type(facility_type)
     forbidden = []
     for ftype, terms in CROSS_FACILITY_FORBIDDEN.items():
-        if ftype in lower_type or lower_type in ftype:
+        if ftype in normalized or normalized in ftype:
             forbidden = terms
             break
 
