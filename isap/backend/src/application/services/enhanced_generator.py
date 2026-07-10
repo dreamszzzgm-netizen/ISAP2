@@ -924,7 +924,7 @@ class EnhancedDocumentGenerator:
                 pass
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if center else WD_ALIGN_PARAGRAPH.LEFT
         paragraph.paragraph_format.first_line_indent = Cm(0)
-        run = paragraph.add_run(text)
+        run = paragraph.add_run(sanitize_cyrillic_text(text))
         run.font.name = BODY_FONT_NAME
         run.font.bold = True
         run.font.size = Pt(HEADING_FONT_SIZE_PT if level == 0 else HEADING_FONT_SIZE_PT - 2)
@@ -1044,7 +1044,7 @@ class EnhancedDocumentGenerator:
                 if block.bold:
                     p = doc.add_paragraph()
                     p.paragraph_format.first_line_indent = Cm(FIRST_LINE_INDENT_CM)
-                    run = p.add_run(block.text)
+                    run = p.add_run(sanitize_cyrillic_text(block.text))
                     run.font.name = BODY_FONT_NAME
                     run.font.bold = True
                     run.font.size = Pt(BODY_FONT_SIZE_PT)
@@ -1062,7 +1062,7 @@ class EnhancedDocumentGenerator:
             cap = doc.add_paragraph()
             cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
             cap.paragraph_format.first_line_indent = Cm(0)
-            run = cap.add_run(block.caption)
+            run = cap.add_run(sanitize_cyrillic_text(block.caption))
             run.font.name = BODY_FONT_NAME
             run.font.bold = True
             run.font.size = Pt(BODY_FONT_SIZE_PT)
@@ -1078,7 +1078,7 @@ class EnhancedDocumentGenerator:
             cell = table.rows[0].cells[i]
             cell.text = ""
             p = cell.paragraphs[0]
-            run = p.add_run(header)
+            run = p.add_run(sanitize_cyrillic_text(header))
             run.font.name = BODY_FONT_NAME
             run.font.bold = True
             run.font.size = Pt(BODY_FONT_SIZE_PT)
@@ -1090,7 +1090,7 @@ class EnhancedDocumentGenerator:
                     cell = table.rows[row_idx].cells[col_idx]
                     cell.text = ""
                     p = cell.paragraphs[0]
-                    run = p.add_run(str(cell_text))
+                    run = p.add_run(sanitize_cyrillic_text(str(cell_text)))
                     run.font.name = BODY_FONT_NAME
                     run.font.size = Pt(BODY_FONT_SIZE_PT)
 
