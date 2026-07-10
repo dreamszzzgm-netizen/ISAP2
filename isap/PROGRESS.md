@@ -1,7 +1,41 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-11T00:00
+**Дата обновления:** 2026-07-11T01:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA Cross-Facility Guardrails (2026-07-11)
+
+Goal: prevent content from one facility type from appearing in another.
+
+### What was built
+- `cross_facility_guardrails.py` — forbidden terms dictionary + contamination check
+- Quality review `cross_facility_contamination` check (warning level)
+- RAG adapter filter for contaminated chunks
+- 15 regression tests
+
+### Forbidden terms
+| Facility type | Forbidden terms |
+|---------------|-----------------|
+| Котельная | ГРПШ, ШРП, газорегуляторный пункт |
+| Компрессорная станция | ГРПШ, ШРП, водогрейный котёл, котёл |
+| АЗС | ГРПШ, ШРП, водогрейный котёл, котёл |
+
+### Guardrails active
+1. RulesEngine: NO fallback to gas network scenarios for other facility types
+2. RAG adapter: filters chunks with cross-facility contamination
+3. Quality review: warns on cross-facility contamination
+4. Equipment exclusion: terms found in equipment context are not flagged
+
+### Files
+- `cross_facility_guardrails.py` (new, 100 lines)
+- `pmla_quality_review_service.py` (+30 lines — contamination check)
+- `pmla_rag_adapter.py` (+15 lines — RAG filter)
+- `test_cross_facility_guardrails.py` (new, 15 tests)
+
+### Tests
+526 passed, 41 warnings.
 
 ---
 
