@@ -51,7 +51,8 @@ def test_full_context_gives_ok():
         report = _service().review(_full_context(), docx_path=docx_path)
         assert report.overall_status == "ok"
         assert report.score == 100
-        assert len(report.checks) == 10
+        # v2: 10 data checks + 6 block-aware checks = 16
+        assert len(report.checks) == 16
         assert all(c.status == "ok" for c in report.checks)
     finally:
         os.unlink(docx_path)

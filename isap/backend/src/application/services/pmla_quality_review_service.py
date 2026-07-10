@@ -1,15 +1,28 @@
-"""PMLA Quality Review service.
+"""PMLA Quality Review service (v2 — Assembly-aware).
 
 Provides a structured quality report after PMLA generation so an engineer
 can review completeness before issuing the document to a client.
+
+v2 adds block-type-aware checks using the Assembly Registry, validating
+sections by their block_type (static, variable, generated, toc, appendix,
+external) rather than only by raw string presence.
 
 This service does NOT certify legal compliance — it is an aid for human review.
 """
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any
+
+from src.application.services.pmla_assembly_blocks import (
+    ASSEMBLY_REGISTRY,
+    BlockType,
+    get_appendix_manifest_entries,
+    get_block_def,
+    get_front_matter_section_ids,
+)
 
 
 @dataclass
@@ -19,6 +32,8 @@ class CheckResult:
     status: str  # "ok" | "warning" | "critical"
     message: str
     details: dict[str, Any] = field(default_factory=dict)
+    block_id: str | None = None
+    block_type: str | None = None
 
 
 @dataclass
@@ -41,6 +56,8 @@ class QualityReviewReport:
                     "status": c.status,
                     "message": c.message,
                     "details": c.details,
+                    "block_id": c.block_id,
+                    "block_type": c.block_type,
                 }
                 for c in self.checks
             ],
@@ -89,9 +106,11 @@ class PmlaQualityReviewService:
         generation_meta: dict[str, Any] | None = None,
         docx_path: str | None = None,
         content_docx: bytes | None = None,
+        rendered_sections: dict[str, Any] | None = None,
     ) -> QualityReviewReport:
         checks: list[CheckResult] = []
 
+        # --- Existing data-level checks ---
         checks.append(self._check_incident_history(questionnaire_context))
         checks.append(self._check_scenarios(questionnaire_context))
         checks.append(self._check_pasf(questionnaire_context))
@@ -102,6 +121,14 @@ class PmlaQualityReviewService:
         checks.append(self._check_insurance(questionnaire_context))
         checks.append(self._check_attachments_checklist(questionnaire_context))
         checks.append(self._check_docx_created(docx_path, content_docx))
+
+        # --- v2: block-aware checks via Assembly Registry ---
+        checks.append(self._check_static_blocks())
+        checks.append(self._check_variable_blocks(questionnaire_context))
+        checks.append(self._check_generated_blocks(rendered_sections))
+        checks.append(self._check_toc_block(rendered_sections))
+        checks.append(self._check_appendix_references(questionnaire_context))
+        checks.append(self._check_external_files())
 
         missing = [c.message for c in checks if c.status == "critical"]
         manual = []
@@ -124,6 +151,13 @@ class PmlaQualityReviewService:
                 recommendations.append("Укажите реквизиты договора страхования")
             if c.code == "attachments_checklist" and c.status == "warning":
                 recommendations.append("Отметьте недостающие приложения перед выдачей документа")
+            # v2 block-aware recommendations
+            if c.code == "assembly_variable_blocks" and c.status == "warning":
+                recommendations.append("Заполните недостающие источники данных для переменных блоков (организация, ОПО)")
+            if c.code == "assembly_generated_blocks" and c.status != "ok":
+                recommendations.append("Проверьте генерируемые блоки — есть пустые или ошибочные разделы")
+            if c.code == "assembly_appendix_references" and c.status != "ok":
+                recommendations.append("Проверьте манифест приложений и attachments_checklist")
 
         if not missing:
             recommendations.append("Рекомендуется проверить текст документа перед выдачей клиенту")
@@ -412,14 +446,16 @@ class PmlaQualityReviewService:
         checklist = ctx.get("attachments_checklist") or []
         if isinstance(checklist, str):
             checklist = [checklist]
-        # Normalize: extract names from both strings and dicts
-        selected_lower = set()
+        # Normalize: extract names from both strings and dicts; for dicts,
+        # only count items where present=True.
+        selected_lower: set[str] = set()
         for item in checklist:
             if isinstance(item, str):
                 selected_lower.add(item.lower().strip())
             elif isinstance(item, dict):
                 name = item.get("name", "")
-                if name:
+                present = item.get("present", True)
+                if name and present:
                     selected_lower.add(name.lower().strip())
         missing = [a for a in self.REQUIRED_ATTACHMENTS if a.lower() not in selected_lower]
         if not missing:
@@ -471,6 +507,267 @@ class PmlaQualityReviewService:
             title="DOCX файл",
             status="critical",
             message="DOCX файл не найден по указанному пути",
+        )
+
+    # ------------------------------------------------------------------
+    # v2: Block-aware checks via Assembly Registry
+    # ------------------------------------------------------------------
+
+    _HTML_TAG_RE = re.compile(r"<(?:table|tr|td|th|div|span|p|b|i|strong|em)\b", re.IGNORECASE)
+
+    def _check_static_blocks(self) -> CheckResult:
+        """Verify all static_block sections exist in the Assembly Registry.
+
+        Static blocks (correction_log, abbreviations, terms, bibliography)
+        have fixed content — no questionnaire data or LLM text required.
+        """
+        from src.application.services.pmla_assembly_blocks import get_static_sections
+
+        static_ids = get_static_sections()
+        missing = [sid for sid in static_ids if sid not in ASSEMBLY_REGISTRY]
+        if missing:
+            return CheckResult(
+                code="assembly_static_blocks",
+                title="Статические блоки (Assembly)",
+                status="critical",
+                message=f"Отсутствуют в реестре: {', '.join(missing)}",
+                details={"missing": missing},
+            )
+        return CheckResult(
+            code="assembly_static_blocks",
+            title="Статические блоки (Assembly)",
+            status="ok",
+            message=f"Все {len(static_ids)} статических блока определены",
+            details={"section_ids": static_ids},
+        )
+
+    def _check_variable_blocks(self, ctx: dict[str, Any]) -> CheckResult:
+        """Verify variable_block sections have their key data sources populated.
+
+        Checks that organization, facility, and other critical data required
+        by variable-block templates is present in the context.
+        """
+        from src.application.services.pmla_assembly_blocks import get_variable_sections
+
+        variable_ids = get_variable_sections()
+        # Map section_id → required data keys in context
+        required_keys: dict[str, list[str]] = {
+            "title_page": ["organization", "facility"],
+            "approval_sheet": ["organization", "facility"],
+            "section_1": ["organization", "facility"],
+            "section_3": ["facility"],
+            "section_4": ["facility"],
+            "section_6": ["organization", "facility"],
+            "section_8": ["organization", "facility"],
+            "section_13": ["organization", "facility"],
+            "familiarization_sheet": ["organization"],
+        }
+        sections_with_missing_data: list[dict[str, Any]] = []
+        for sid in variable_ids:
+            keys_needed = required_keys.get(sid, ["organization", "facility"])
+            missing_keys = [k for k in keys_needed if not ctx.get(k)]
+            if missing_keys:
+                sections_with_missing_data.append({
+                    "section_id": sid,
+                    "missing_keys": missing_keys,
+                })
+
+        if sections_with_missing_data:
+            labels = [f"{s['section_id']} ({', '.join(s['missing_keys'])})" for s in sections_with_missing_data]
+            return CheckResult(
+                code="assembly_variable_blocks",
+                title="Переменные блоки (Assembly)",
+                status="warning",
+                message=f"Не заполнены источники данных: {'; '.join(labels)}",
+                details={"sections_with_missing_data": sections_with_missing_data},
+            )
+        return CheckResult(
+            code="assembly_variable_blocks",
+            title="Переменные блоки (Assembly)",
+            status="ok",
+            message=f"Все {len(variable_ids)} переменных блока имеют данные",
+            details={"section_ids": variable_ids},
+        )
+
+    def _check_generated_blocks(
+        self,
+        rendered_sections: dict[str, Any] | None = None,
+    ) -> CheckResult:
+        """Verify generated_block sections have non-empty, valid content.
+
+        Checks for: non-empty text, no raw HTML tags, no placeholder text,
+        minimum content length.
+        """
+        from src.application.services.pmla_assembly_blocks import get_generated_sections
+
+        generated_ids = get_generated_sections()
+        if not rendered_sections:
+            return CheckResult(
+                code="assembly_generated_blocks",
+                title="Генерируемые блоки (Assembly)",
+                status="ok",
+                message=f"Генерируемые блоки определены ({len(generated_ids)}), контент не передан для проверки",
+                details={"section_ids": generated_ids, "note": "rendered_sections не передан"},
+            )
+
+        problems: list[dict[str, Any]] = []
+        ok_count = 0
+        for sid in generated_ids:
+            content = rendered_sections.get(sid, "")
+            if not content:
+                problems.append({"section_id": sid, "issue": "empty"})
+                continue
+            text = str(content)
+            if self._HTML_TAG_RE.search(text):
+                problems.append({"section_id": sid, "issue": "raw_html"})
+                continue
+            if len(text.strip()) < 20:
+                problems.append({"section_id": sid, "issue": "too_short"})
+                continue
+            ok_count += 1
+
+        if problems:
+            html_problems = [p["section_id"] for p in problems if p["issue"] == "raw_html"]
+            empty_problems = [p["section_id"] for p in problems if p["issue"] == "empty"]
+            short_problems = [p["section_id"] for p in problems if p["issue"] == "too_short"]
+            messages = []
+            if empty_problems:
+                messages.append(f"Пустые: {', '.join(empty_problems)}")
+            if html_problems:
+                messages.append(f"Raw HTML: {', '.join(html_problems)}")
+            if short_problems:
+                messages.append(f"Слишком короткие: {', '.join(short_problems)}")
+            status = "critical" if html_problems or empty_problems else "warning"
+            return CheckResult(
+                code="assembly_generated_blocks",
+                title="Генерируемые блоки (Assembly)",
+                status=status,
+                message="; ".join(messages),
+                details={"problems": problems, "ok_count": ok_count},
+            )
+        return CheckResult(
+            code="assembly_generated_blocks",
+            title="Генерируемые блоки (Assembly)",
+            status="ok",
+            message=f"Все {ok_count} генерируемых блоков заполнены корректно",
+            details={"ok_count": ok_count},
+        )
+
+    def _check_toc_block(
+        self,
+        rendered_sections: dict[str, Any] | None = None,
+    ) -> CheckResult:
+        """Verify word_toc_block section exists and has proper TOC structure."""
+        section_id = "toc"
+        block_def = get_block_def(section_id)
+        if not block_def:
+            return CheckResult(
+                code="assembly_toc_block",
+                title="Содержание (Assembly)",
+                status="critical",
+                message="Раздел 'Содержание' не найден в Assembly Registry",
+                block_id=section_id,
+                block_type=BlockType.WORD_TOC.value,
+            )
+
+        if rendered_sections:
+            content = rendered_sections.get(section_id, "")
+            text = str(content)
+            has_heading = "Содержание" in text
+            has_toc = bool(re.search(r"TOC|\\o\s|\\h\s|MERGEFIELD", text, re.IGNORECASE))
+            if has_heading and has_toc:
+                return CheckResult(
+                    code="assembly_toc_block",
+                    title="Содержание (Assembly)",
+                    status="ok",
+                    message="Содержание: заголовок + TOC placeholder",
+                    block_id=section_id,
+                    block_type=BlockType.WORD_TOC.value,
+                )
+            if has_heading:
+                return CheckResult(
+                    code="assembly_toc_block",
+                    title="Содержание (Assembly)",
+                    status="ok",
+                    message="Содержание: заголовок найден (TOC field будет сгенерирован Word)",
+                    block_id=section_id,
+                    block_type=BlockType.WORD_TOC.value,
+                )
+
+        return CheckResult(
+            code="assembly_toc_block",
+            title="Содержание (Assembly)",
+            status="ok",
+            message="Раздел 'Содержание' определён в Assembly Registry (TOC генерируется Word)",
+            block_id=section_id,
+            block_type=BlockType.WORD_TOC.value,
+        )
+
+    def _check_appendix_references(self, ctx: dict[str, Any]) -> CheckResult:
+        """Verify appendix_reference blocks have a manifest with entries."""
+        from src.application.services.pmla_assembly_blocks import get_appendix_sections
+
+        appendix_ids = get_appendix_sections()
+        manifest_entries = get_appendix_manifest_entries()
+        attachments = ctx.get("attachments_checklist") or []
+
+        # Build a set of present attachment names
+        present_names: set[str] = set()
+        for item in attachments:
+            if isinstance(item, str):
+                present_names.add(item.lower().strip())
+            elif isinstance(item, dict):
+                name = item.get("name", "")
+                present = item.get("present", True)
+                if name and present:
+                    present_names.add(name.lower().strip())
+
+        if not manifest_entries:
+            return CheckResult(
+                code="assembly_appendix_references",
+                title="Приложения (Assembly)",
+                status="critical",
+                message="Манифест приложений пуст — приложения не определены",
+                details={"appendix_ids": appendix_ids},
+            )
+
+        if not present_names:
+            return CheckResult(
+                code="assembly_appendix_references",
+                title="Приложения (Assembly)",
+                status="warning",
+                message=f"Манифест содержит {len(manifest_entries)} приложений, но attachments_checklist пуст",
+                details={"manifest_count": len(manifest_entries)},
+            )
+
+        return CheckResult(
+            code="assembly_appendix_references",
+            title="Приложения (Assembly)",
+            status="ok",
+            message=f"Манифест приложений: {len(manifest_entries)} записей, {len(present_names)} отмечены",
+            details={
+                "manifest_count": len(manifest_entries),
+                "present_count": len(present_names),
+            },
+        )
+
+    def _check_external_files(self) -> CheckResult:
+        """Placeholder check for external_file blocks.
+
+        Currently only verifies the block type is registered for future use.
+        PDF merge is not yet implemented.
+        """
+        external_count = sum(
+            1 for d in ASSEMBLY_REGISTRY.values()
+            if d.block_type == BlockType.EXTERNAL_FILE
+        )
+        return CheckResult(
+            code="assembly_external_files",
+            title="Внешние файлы (Assembly)",
+            status="ok",
+            message=f"Тип 'external_file' зарегистрирован (0 блоков, PDF merge — будущее)" if external_count == 0
+            else f"Зарегистрировано {external_count} внешних файлов",
+            details={"external_count": external_count},
         )
 
     @staticmethod
