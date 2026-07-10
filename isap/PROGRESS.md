@@ -1,7 +1,39 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T23:00
+**Дата обновления:** 2026-07-11T00:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Real OPO Validation #4 — Second Facility Type (2026-07-10)
+
+Goal: verify PMLA generation works for non-gas facility types.
+
+### Facility
+- **Type:** Котельная (boiler)
+- **Name:** Котельная производственной площадки
+- **Organization:** ООО "ТеплоСервис"
+- **Equipment:** Котёл, Горелка, Газопровод НД, Насос
+
+### Critical issue found and fixed
+- **Bug:** section_10 contained gas network scenarios (ГРПШ) for boiler facility
+- **Root cause:** `_render_section_10` fallback used gas network scenarios when no boiler-specific scenarios found
+- **Fix:** Replaced gas network fallback with generic first actions for unknown facility types
+- **File:** `rules_engine.py`
+
+### Results after fix
+- **Mojibake:** 0
+- **Chinese:** 0
+- **Gas-network terms in boiler DOCX:** 0 (was 18+, fixed)
+- **Quality review:** warning (data gaps, not code issues)
+- **Critical issues:** 0
+
+### Files
+- `rules_engine.py` (+13 lines — removed gas network fallback)
+- `REAL_OPO_VALIDATION_4_REPORT.md` (new)
+
+### Tests
+511 passed, 41 warnings.
 
 ---
 
