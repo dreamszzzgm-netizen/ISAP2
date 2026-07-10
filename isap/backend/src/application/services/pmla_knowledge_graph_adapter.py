@@ -248,7 +248,8 @@ class PmlaKnowledgeGraphAdapter:
             with warnings if data is insufficient.
         """
         warnings: list[str] = []
-        facility_type = (facility_context.get("facility_type") or "").strip()
+        raw = facility_context.get("facility_type")
+        facility_type = str(raw).strip() if raw else ""
 
         if not facility_type:
             warnings.append("Тип ОПО не указан — контекст графа знаний пуст")
