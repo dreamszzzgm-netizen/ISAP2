@@ -1,7 +1,45 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T17:00
+**Дата обновления:** 2026-07-10T18:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA Data Completeness & Input Quality (2026-07-10)
+
+Goal: improve data completeness and context mapping so DOCX requires less manual editing.
+
+### Important issues closed
+
+| # | Issue | Fix |
+|---|-------|-----|
+| I4 | Appendix responsible persons show "— — —" | Fixed `30_appendix_1.j2` template: uses `person.full_name` with fallback to `person.name`, uses `approver.name` in fallback |
+| I5 | Bibliography contains Chinese/English text | Fixed `40_bibliography.j2`: replaced "生产" → "производства", "equipment" → "оборудования" |
+| I6 | Familiarization sheet missing date/number | Added `document_date` to `enhanced_generator._enrich_context()` (defaults to generation date) |
+
+### New quality review checks (6)
+
+| Check | Status | What it validates |
+|-------|--------|-------------------|
+| `emergency_service_phones` | warning | Emergency services have phone numbers |
+| `notification_responsible` | warning | Notification scheme has responsible persons |
+| `financial_reserve_data` | warning | Financial reserve data completeness |
+| `insurance_data` | warning | Insurance data completeness |
+| `familiarization_date` | warning | Registration number for familiarization sheet |
+| `appendix_signatures` | warning | Responsible persons with positions for appendix signatures |
+
+All new checks are **warning** level (not critical) — they guide the engineer without blocking document generation.
+
+### Files changed
+- `40_bibliography.j2` — fixed Chinese/English text
+- `30_appendix_1.j2` — fixed responsible persons rendering
+- `enhanced_generator.py` — added `document_date` to context
+- `pmla_quality_review_service.py` — added 6 data completeness checks (+175 lines)
+- `test_pmla_quality_review_service.py` — updated test context and check count
+- `test_stabilization_patch.py` — added reg_number and phone numbers to demo context
+
+### Tests
+474 passed, 41 warnings. Frontend build OK.
 
 ---
 
