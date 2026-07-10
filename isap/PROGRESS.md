@@ -1,7 +1,73 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-09T00:00
+**Дата обновления:** 2026-07-10T00:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA Quality Review v2 — Assembly-aware checks (2026-07-10)
+
+Goal: update quality review to understand PMLA Assembly Layer and validate document by block types, not only by string presence.
+
+Done:
+- Updated `CheckResult` dataclass with `block_id` and `block_type` fields
+- Added 6 new block-aware checks using Assembly Registry as source of truth
+- Updated `review()` to accept `rendered_sections` parameter for content validation
+- Updated `to_dict()` to include `block_id` and `block_type` in output
+- Fixed `_check_attachments_checklist` to handle both string and dict `{name, present}` formats
+- Added block-aware recommendations for failed checks
+
+New block-aware checks:
+
+| # | Check code | Block type | What it validates |
+|---|---|---|---|
+| 1 | `assembly_static_blocks` | `static_block` | All static sections defined in registry; no data required |
+| 2 | `assembly_variable_blocks` | `variable_block` | Key data sources (organization, facility, etc.) present in context |
+| 3 | `assembly_generated_blocks` | `generated_block` | Non-empty text, no raw HTML, minimum content length |
+| 4 | `assembly_toc_block` | `word_toc_block` | TOC section defined, heading present |
+| 5 | `assembly_appendix_references` | `appendix_reference` | Manifest has entries, attachments_checklist present |
+| 6 | `assembly_external_files` | `external_file` | Block type registered (placeholder for future PDF merge) |
+
+Output format (v2):
+```python
+{
+    "overall_status": "ok | warning | critical",
+    "score": int,
+    "checks": [
+        {
+            "code": str,
+            "title": str,
+            "status": "passed | warning | failed",
+            "message": str,
+            "block_id": str | None,
+            "block_type": str | None
+        }
+    ],
+    "recommendations": [str]
+}
+```
+
+Scoring (unchanged): 100 - (20 × critical) - (8 × warning), floor 0.
+
+Assembly Registry integration:
+- `ASSEMBLY_REGISTRY` from `pmla_assembly_blocks.py` is the single source of truth
+- `get_static_sections()`, `get_variable_sections()`, `get_generated_sections()` drive block checks
+- `get_appendix_manifest_entries()` powers appendix validation
+- `structure.json` block_type fields verified against registry (invariant tested)
+
+Demo PMLA result:
+- Status: `warning` (not critical)
+- Score: 92
+- 16 checks (10 data + 6 block-aware)
+- 0 critical, 1 warning (attachments_checklist name mismatch)
+- All block checks: `ok`
+
+Changed files:
+- `backend/src/application/services/pmla_quality_review_service.py` (+303 lines)
+- `backend/tests/test_pmla_quality_review_service.py` (1 test updated)
+- `backend/tests/test_pmla_quality_review_v2.py` (**new**: 24 tests)
+
+Tests: 468 passed, 41 warnings. Frontend build OK.
 
 ---
 
