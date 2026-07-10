@@ -1,7 +1,45 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T18:00
+**Дата обновления:** 2026-07-10T19:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Knowledge Graph Read Adapter for PMLA (2026-07-10)
+
+Goal: connect knowledge graph as read-only context source for PMLA quality review.
+
+### What was built
+
+- `pmla_knowledge_graph_adapter.py` — read-only adapter with in-memory fallback
+- `PmlaKnowledgeGraphContext` dataclass with structured fields
+- Quality review integration with 3 new warning-level checks
+- 13 unit tests + deep edge case testing
+
+### Knowledge base coverage
+
+4 facility types: сеть газопотребления, котельная, компрессорная станция, АЗС
+
+### Quality review graph checks
+
+| Check | Level | What it validates |
+|-------|-------|-------------------|
+| `graph_required_service_missing` | warning | Required emergency services present |
+| `graph_required_scenario_missing` | warning | Recommended accident scenarios present |
+| `graph_required_appendix_missing` | warning | Required appendices in checklist |
+
+### Bugs found and fixed during deep testing
+
+- Integer `facility_type` caused AttributeError in adapter — fixed with `str()` conversion
+
+### Files
+- `pmla_knowledge_graph_adapter.py` (new, 276 lines)
+- `pmla_quality_review_service.py` (+150 lines)
+- `test_pmla_knowledge_graph_adapter.py` (new, 13 tests)
+- `docs/KNOWLEDGE_GRAPH_PMLA_ADAPTER.md` (new)
+
+### Tests
+487 passed, 41 warnings. Frontend build OK.
 
 ---
 
