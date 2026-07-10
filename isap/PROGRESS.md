@@ -1,7 +1,46 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T19:00
+**Дата обновления:** 2026-07-10T20:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA RAG for Generated Sections (2026-07-10)
+
+Goal: connect RAG only to generated_block sections for enriched content.
+
+### What was built
+
+- `pmla_rag_adapter.py` — read-only RAG adapter with in-memory fallback
+- `PmlaRagContext` / `PmlaRagChunk` dataclasses
+- Integration with `enhanced_generator._enrich_context()` — RAG context pre-fetched for all generated sections
+- `DocumentContext.rag_contexts` field for engine access
+- 14 unit tests
+
+### RAG coverage
+
+| Facility type | Sections with RAG |
+|---------------|-------------------|
+| Сеть газопотребления | section_2, section_5, section_7, section_10, section_12, special_section |
+| Котельная | section_2, section_10 |
+
+### What RAG does NOT touch
+
+- static_block (templates only)
+- variable_block (data only)
+- word_toc_block (Word TOC)
+- appendix_reference (manifest)
+
+### Files
+- `pmla_rag_adapter.py` (new, 252 lines)
+- `enhanced_generator.py` (+15 lines — RAG enrichment)
+- `engine_integration.py` (+1 line — rag_contexts passthrough)
+- `base.py` (+2 lines — rag_contexts field)
+- `test_pmla_rag_adapter.py` (new, 14 tests)
+- `docs/PMLA_RAG_STRATEGY.md` (new)
+
+### Tests
+501 passed, 41 warnings. Frontend build OK.
 
 ---
 
