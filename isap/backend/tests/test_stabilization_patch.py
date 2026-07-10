@@ -155,7 +155,7 @@ def _demo_context():
     """Return a context matching the demo seed data structure."""
     return {
         "organization": {"name": "ООО Демо Промышленная Безопасность"},
-        "facility": {"name": "Сеть газопотребления демо-производственной площадки"},
+        "facility": {"name": "Сеть газопотребления демо-производственной площадки", "reg_number": "А00-DEMO-001"},
         "questionnaire": {
             "incident_history": {"has_incidents": False, "items": []},
             "financial_reserve": {"created": True, "order_number": "ДЕМО-РЕЗ-01", "amount": "500000 руб."},
@@ -166,11 +166,11 @@ def _demo_context():
         "custom_scenarios": [{"title": "Повреждение запорной арматуры"}],
         "pasf": {"name": "Демо ПАСФ", "certificate_number": "ПАСФ-ДЕМО-0001"},
         "emergency_services": [
-            {"service_type": "fire", "name": "Демо пожарно-спасательная часть"},
-            {"service_type": "medical", "name": "Демо станция скорой помощи"},
-            {"service_type": "police", "name": "Демо отдел полиции"},
-            {"service_type": "gas", "name": "Демо аварийная газовая служба"},
-            {"service_type": "edds", "name": "Демо ЕДДС"},
+            {"service_type": "fire", "name": "Демо пожарно-спасательная часть", "phone": "101"},
+            {"service_type": "medical", "name": "Демо станция скорой помощи", "phone": "103"},
+            {"service_type": "police", "name": "Демо отдел полиции", "phone": "102"},
+            {"service_type": "gas", "name": "Демо аварийная газовая служба", "phone": "104"},
+            {"service_type": "edds", "name": "Демо ЕДДС", "phone": "112"},
         ],
         "organization_resources": {"actual_items": [{"name": "Газоанализатор"}]},
         "notification_scheme": {

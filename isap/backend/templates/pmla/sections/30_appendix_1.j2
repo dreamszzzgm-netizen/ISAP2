@@ -32,10 +32,10 @@
 ### 3. Ответственные лица за организацию изучения ПМЛА
 
 {% for person in responsible_persons | default([]) %}
-- **{{ person.position | default('—') }}**: {{ person.name | default('—') }} — {{ person.responsibility | default('—') }}
+- **{{ person.position | default('—') }}**: {{ person.full_name | default(person.name | default('—', true), true) }} — {{ person.responsibility | default('общая ответственность', true) }}
 {% endfor %}
 {% if responsible_persons is not defined or responsible_persons | length == 0 %}
-- **Директор (руководитель организации)**: {{ director_name | default('—') }} — общая ответственность за внедрение и выполнение ПМЛА
-- **Главный инженер**: {{ chief_engineer | default('—') }} — организация изучения ПМЛА инженерно-техническим персоналом
-- **Начальник службы промышленной безопасности / охраны труда**: {{ safety_officer | default('—') }} — контроль за проведением инструктажей и обучением персонала
+- **Директор (руководитель организации)**: {{ approver.name | default('—', true) }} — общая ответственность за внедрение и выполнение ПМЛА
+- **Главный инженер**: — организация изучения ПМЛА инженерно-техническим персоналом
+- **Начальник службы промышленной безопасности / охраны труда**: — контроль за проведением инструктажей и обучением персонала
 {% endif %}

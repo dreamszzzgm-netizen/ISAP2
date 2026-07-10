@@ -229,6 +229,7 @@ class EnhancedDocumentGenerator:
         enriched = {
             **context,
             "year": datetime.now().year,
+            "document_date": context.get("document_date") or datetime.now().strftime("%d.%m.%Y"),
             "approver": approver,
             "personnel": personnel,
             "scenarios": scenarios,

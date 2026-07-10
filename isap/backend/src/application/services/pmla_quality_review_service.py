@@ -122,6 +122,14 @@ class PmlaQualityReviewService:
         checks.append(self._check_attachments_checklist(questionnaire_context))
         checks.append(self._check_docx_created(docx_path, content_docx))
 
+        # --- v2.1: data completeness checks ---
+        checks.append(self._check_emergency_service_phones(questionnaire_context))
+        checks.append(self._check_notification_responsible(questionnaire_context))
+        checks.append(self._check_financial_reserve_data(questionnaire_context))
+        checks.append(self._check_insurance_data(questionnaire_context))
+        checks.append(self._check_familiarization_date(questionnaire_context))
+        checks.append(self._check_appendix_signatures(questionnaire_context))
+
         # --- v2: block-aware checks via Assembly Registry ---
         checks.append(self._check_static_blocks())
         checks.append(self._check_variable_blocks(questionnaire_context))
@@ -507,6 +515,173 @@ class PmlaQualityReviewService:
             title="DOCX файл",
             status="critical",
             message="DOCX файл не найден по указанному пути",
+        )
+
+    # ------------------------------------------------------------------
+    # v2.1: Data completeness checks
+    # ------------------------------------------------------------------
+
+    def _check_emergency_service_phones(self, ctx: dict[str, Any]) -> CheckResult:
+        """Check that emergency services have phone numbers."""
+        services = ctx.get("emergency_services") or []
+        if not services:
+            return CheckResult(
+                code="emergency_service_phones",
+                title="Телефоны аварийных служб",
+                status="ok",
+                message="Аварийные службы не указаны — проверка телефонов не требуется",
+            )
+        missing = []
+        for s in services:
+            if isinstance(s, dict):
+                phone = (s.get("phone") or "").strip()
+                name = s.get("name", "—")
+                if not phone:
+                    missing.append(name)
+        if missing:
+            return CheckResult(
+                code="emergency_service_phones",
+                title="Телефоны аварийных служб",
+                status="warning",
+                message=f"Не указаны телефоны: {', '.join(missing)}",
+                details={"missing_phones": missing},
+            )
+        return CheckResult(
+            code="emergency_service_phones",
+            title="Телефоны аварийных служб",
+            status="ok",
+            message="Телефоны указаны у всех служб",
+        )
+
+    def _check_notification_responsible(self, ctx: dict[str, Any]) -> CheckResult:
+        """Check that notification scheme has responsible persons."""
+        scheme = ctx.get("notification_scheme") or {}
+        if not scheme:
+            return CheckResult(
+                code="notification_responsible",
+                title="Ответственные за оповещение",
+                status="ok",
+                message="Схема оповещения не заполнена — проверка не требуется",
+            )
+        contacts = scheme.get("contacts") or []
+        if not contacts:
+            # Check if key roles are filled
+            roles_filled = 0
+            for role in self.NOTIFICATION_KEY_ROLES:
+                aliases = self.NOTIFICATION_KEY_ALIASES.get(role, [role])
+                if any(scheme.get(a) for a in aliases):
+                    roles_filled += 1
+            if roles_filled < 2:
+                return CheckResult(
+                    code="notification_responsible",
+                    title="Ответственные за оповещение",
+                    status="warning",
+                    message="Не указаны контактные лица для оповещения",
+                )
+        return CheckResult(
+            code="notification_responsible",
+            title="Ответственные за оповещение",
+            status="ok",
+            message="Контактные лица определены",
+        )
+
+    def _check_financial_reserve_data(self, ctx: dict[str, Any]) -> CheckResult:
+        """Check financial reserve completeness."""
+        questionnaire = ctx.get("questionnaire") or {}
+        financial = questionnaire.get("financial_reserve") or {}
+        if not financial:
+            return CheckResult(
+                code="financial_reserve_data",
+                title="Данные финансового резерва",
+                status="ok",
+                message="Данные о финансовом резерве не переданы",
+            )
+        created = financial.get("created")
+        if created is False:
+            return CheckResult(
+                code="financial_reserve_data",
+                title="Данные финансового резерва",
+                status="warning",
+                message="Финансовый резерв не создан",
+            )
+        return CheckResult(
+            code="financial_reserve_data",
+            title="Данные финансового резерва",
+            status="ok",
+            message="Данные о финансовом резерве заполнены",
+        )
+
+    def _check_insurance_data(self, ctx: dict[str, Any]) -> CheckResult:
+        """Check insurance completeness."""
+        questionnaire = ctx.get("questionnaire") or {}
+        insurance = questionnaire.get("insurance") or {}
+        if not insurance:
+            return CheckResult(
+                code="insurance_data",
+                title="Данные страхования",
+                status="ok",
+                message="Данные о страховании не переданы",
+            )
+        has_contract = insurance.get("has_contract")
+        if has_contract is False:
+            return CheckResult(
+                code="insurance_data",
+                title="Данные страхования",
+                status="warning",
+                message="Договор страхования не заключён",
+            )
+        return CheckResult(
+            code="insurance_data",
+            title="Данные страхования",
+            status="ok",
+            message="Данные о страховании заполнены",
+        )
+
+    def _check_familiarization_date(self, ctx: dict[str, Any]) -> CheckResult:
+        """Check that familiarization sheet has a date."""
+        facility = ctx.get("facility") or {}
+        reg_number = (facility.get("reg_number") or "").strip()
+        if not reg_number:
+            return CheckResult(
+                code="familiarization_date",
+                title="Дата и номер в листе ознакомления",
+                status="warning",
+                message="Регистрационный номер ОПО не указан",
+            )
+        return CheckResult(
+            code="familiarization_date",
+            title="Дата и номер в листе ознакомления",
+            status="ok",
+            message="Регистрационный номер указан",
+        )
+
+    def _check_appendix_signatures(self, ctx: dict[str, Any]) -> CheckResult:
+        """Check that appendix responsible persons are defined."""
+        persons = ctx.get("responsible_persons") or []
+        if not persons:
+            return CheckResult(
+                code="appendix_signatures",
+                title="Подписи в приложениях",
+                status="warning",
+                message="Ответственные лица не указаны — подписи в приложениях будут пустыми",
+            )
+        has_position = any(
+            (p.get("position") or "").strip()
+            for p in persons
+            if isinstance(p, dict)
+        )
+        if not has_position:
+            return CheckResult(
+                code="appendix_signatures",
+                title="Подписи в приложениях",
+                status="warning",
+                message="У ответственных лиц не указаны должности",
+            )
+        return CheckResult(
+            code="appendix_signatures",
+            title="Подписи в приложениях",
+            status="ok",
+            message=f"Определены {len(persons)} ответственных лица",
         )
 
     # ------------------------------------------------------------------

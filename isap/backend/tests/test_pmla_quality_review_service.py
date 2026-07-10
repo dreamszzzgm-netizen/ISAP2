@@ -13,7 +13,7 @@ def _full_context():
     """Return a fully populated questionnaire context."""
     return {
         "organization": {"name": "ООО Газпром"},
-        "facility": {"name": "Котельная", "facility_type": "Котельная", "hazard_class": "III"},
+        "facility": {"name": "Котельная", "facility_type": "Котельная", "hazard_class": "III", "reg_number": "А00-00001"},
         "questionnaire": {
             "incident_history": {"has_incidents": False, "items": []},
             "financial_reserve": {"created": True, "order_number": "12-ПБ", "order_date": "2026-01-15", "amount": "500 000 руб."},
@@ -24,8 +24,8 @@ def _full_context():
         "custom_scenarios": [{"title": "Отказ арматуры"}],
         "pasf": {"name": "ПАСФ ООО ГазСпас", "certificate_number": "АСФ-001"},
         "emergency_services": [
-            {"service_type": "fire", "name": "ПСЧ-1"},
-            {"service_type": "medical", "name": "Больница №5"},
+            {"service_type": "fire", "name": "ПСЧ-1", "phone": "101"},
+            {"service_type": "medical", "name": "Больница №5", "phone": "103"},
         ],
         "organization_resources": {"actual_items": [{"name": "Газоанализатор"}]},
         "notification_scheme": {
@@ -40,6 +40,7 @@ def _full_context():
             "договор с ПАСФ",
             "страховой полис",
         ],
+        "responsible_persons": [{"full_name": "Иванов И.И.", "position": "Директор"}],
     }
 
 
@@ -51,8 +52,8 @@ def test_full_context_gives_ok():
         report = _service().review(_full_context(), docx_path=docx_path)
         assert report.overall_status == "ok"
         assert report.score == 100
-        # v2: 10 data checks + 6 block-aware checks = 16
-        assert len(report.checks) == 16
+        # v2.1: 10 data + 6 completeness + 6 block-aware = 22
+        assert len(report.checks) == 22
         assert all(c.status == "ok" for c in report.checks)
     finally:
         os.unlink(docx_path)
