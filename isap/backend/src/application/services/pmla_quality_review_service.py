@@ -130,6 +130,18 @@ class PmlaQualityReviewService:
         checks.append(self._check_familiarization_date(questionnaire_context))
         checks.append(self._check_appendix_signatures(questionnaire_context))
 
+        # --- v2.2: knowledge graph context checks ---
+        from src.application.services.pmla_knowledge_graph_adapter import (
+            PmlaKnowledgeGraphAdapter,
+        )
+        try:
+            kg_adapter = PmlaKnowledgeGraphAdapter()
+            kg_context = kg_adapter.get_context(questionnaire_context)
+            checks.extend(self._check_graph_context(questionnaire_context, kg_context))
+        except Exception as e:
+            logger.warning("Knowledge graph adapter failed: %s", e)
+            # Don't add graph checks if adapter fails
+
         # --- v2: block-aware checks via Assembly Registry ---
         checks.append(self._check_static_blocks())
         checks.append(self._check_variable_blocks(questionnaire_context))
@@ -683,6 +695,144 @@ class PmlaQualityReviewService:
             status="ok",
             message=f"Определены {len(persons)} ответственных лица",
         )
+
+    def _check_graph_context(
+        self,
+        ctx: dict[str, Any],
+        kg_context: Any,
+    ) -> list[CheckResult]:
+        """Check PMLA completeness against knowledge graph context.
+
+        All graph checks are WARNING level — they guide the engineer
+        without blocking document generation.
+        """
+        checks: list[CheckResult] = []
+
+        if kg_context.is_empty:
+            checks.append(CheckResult(
+                code="graph_context_empty",
+                title="Контекст графа знаний",
+                status="ok",
+                message="Контекст графа знаний пуст — проверки пропущены",
+            ))
+            return checks
+
+        # Check required emergency services
+        existing_services = set()
+        for s in (ctx.get("emergency_services") or []):
+            if isinstance(s, dict):
+                stype = (s.get("service_type") or "").lower()
+                existing_services.add(stype)
+        # Also check PASF
+        if ctx.get("pasf"):
+            existing_services.add("пасф")
+
+        # Keyword matching: graph service name → keywords that match service_type
+        _service_keywords = {
+            "пожарная охрана": ["fire", "пожар", "мчс"],
+            "скорая медицинская помощь": ["medical", "скорая", "больница"],
+            "аварийная газовая служба": ["gas", "газовая", "аварийн"],
+            "ПАСФ / АСФ": ["pasf", "асф", "пасф"],
+        }
+        existing_str = " ".join(existing_services)
+
+        missing_services = []
+        for svc in kg_context.required_services:
+            keywords = _service_keywords.get(svc, [svc.lower()])
+            found = any(kw in existing_str for kw in keywords)
+            if not found:
+                missing_services.append(svc)
+        if missing_services:
+            checks.append(CheckResult(
+                code="graph_required_service_missing",
+                title="Рекомендуемые аварийные службы (граф)",
+                status="warning",
+                message=f"Рекомендуются службы: {', '.join(missing_services)}",
+                details={"missing": missing_services},
+            ))
+        else:
+            checks.append(CheckResult(
+                code="graph_required_service_missing",
+                title="Рекомендуемые аварийные службы (граф)",
+                status="ok",
+                message="Все рекомендуемые службы определены",
+            ))
+
+        # Check recommended scenarios — use keyword overlap for fuzzy matching
+        existing_scenarios: list[str] = []
+        for s in (ctx.get("selected_scenarios") or []):
+            if isinstance(s, dict):
+                existing_scenarios.append((s.get("scenario_name") or "").lower())
+            elif isinstance(s, str):
+                existing_scenarios.append(s.lower())
+        for s in (ctx.get("custom_scenarios") or []):
+            if isinstance(s, dict):
+                existing_scenarios.append((s.get("title") or s.get("name") or "").lower())
+
+        def _scenarios_match(graph_sc: str, existing: list[str]) -> bool:
+            """Check if a graph scenario is covered by any existing scenario."""
+            graph_words = set(graph_sc.lower().split())
+            for es in existing:
+                es_words = set(es.split())
+                # Match if at least 50% of graph keywords appear in existing
+                if graph_words and len(graph_words & es_words) / len(graph_words) >= 0.5:
+                    return True
+                # Or if the graph scenario is a substring
+                if graph_sc.lower() in es:
+                    return True
+            return False
+
+        missing_scenarios = [
+            sc for sc in kg_context.recommended_scenarios
+            if not _scenarios_match(sc, existing_scenarios)
+        ]
+        if missing_scenarios:
+            checks.append(CheckResult(
+                code="graph_required_scenario_missing",
+                title="Рекомендуемые сценарии (граф)",
+                status="warning",
+                message=f"Рекомендуются сценарии: {', '.join(missing_scenarios[:3])}{'...' if len(missing_scenarios) > 3 else ''}",
+                details={"missing": missing_scenarios},
+            ))
+        else:
+            checks.append(CheckResult(
+                code="graph_required_scenario_missing",
+                title="Рекомендуемые сценарии (граф)",
+                status="ok",
+                message="Все рекомендуемые сценарии определены",
+            ))
+
+        # Check required appendices
+        existing_appendices = set()
+        for a in (ctx.get("attachments_checklist") or []):
+            if isinstance(a, dict):
+                name = (a.get("name") or "").lower()
+                if a.get("present", True):
+                    existing_appendices.add(name)
+            elif isinstance(a, str):
+                existing_appendices.add(a.lower())
+
+        missing_appendices = [
+            ap for ap in kg_context.required_appendices
+            if not any(ap.lower() in ea for ea in existing_appendices)
+        ]
+        if missing_appendices:
+            checks.append(CheckResult(
+                code="graph_required_appendix_missing",
+                title="Обязательные приложения (граф)",
+                status="warning",
+                message=f"Отсутствуют приложения: {', '.join(missing_appendices)}",
+                details={"missing": missing_appendices},
+            ))
+        else:
+            checks.append(CheckResult(
+                code="graph_required_appendix_missing",
+                title="Обязательные приложения (граф)",
+                status="ok",
+                message="Все обязательные приложения определены",
+            ))
+
+        return checks
 
     # ------------------------------------------------------------------
     # v2: Block-aware checks via Assembly Registry
