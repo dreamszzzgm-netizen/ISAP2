@@ -1,7 +1,34 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-11T01:00
+**Дата обновления:** 2026-07-11T02:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## AGZS Support — Guardrails + KG/RAG (2026-07-11)
+
+Goal: add AGZS (АГЗС) facility type support with cross-facility guardrails.
+
+### What was built
+- AGZS normalization: "станция газозаправочная автомобильная" → "агзс"
+- KG context for AGZS: equipment (СУГ), hazards, scenarios, services, appendices
+- RAG chunks for AGZS: section_2, section_5, section_10, section_12, special_section
+- Forbidden terms for AGZS: водогрейный котёл, котельная, теплосеть, ГРПШ, ШРП
+- 11 new tests
+
+### AGZS KG context
+- **Equipment:** резервуар СУГ, заправочная колонка, сливной пост, НКО, трубопроводы
+- **Hazards:** утечка СУГ, газовоздушное облако, пожар, взрыв, разрушение оборудования
+- **Scenarios:** разгерметизация резервуара/трубопровода, утечка при сливе, пожар на колонке
+
+### Files
+- `cross_facility_guardrails.py` (+40 lines — AGZS forbidden terms, normalization)
+- `pmla_knowledge_graph_adapter.py` (+60 lines — AGZS KG context)
+- `pmla_rag_adapter.py` (+60 lines — AGZS RAG chunks)
+- `test_cross_facility_guardrails.py` (+11 tests)
+
+### Tests
+537 passed, 41 warnings.
 
 ---
 
