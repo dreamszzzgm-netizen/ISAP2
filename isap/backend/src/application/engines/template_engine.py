@@ -8,7 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from src.application.engines.base import BaseEngine, DocumentContext, SectionContent
 from src.application.engines.blocks import ParagraphBlock
-from src.infrastructure.export.docx_helpers import strip_html
+from src.infrastructure.export.docx_helpers import strip_html, sanitize_cyrillic_text
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +77,9 @@ class TemplateEngine(BaseEngine):
             logger.error("Template render failed for '%s': %s", section_id, e)
             rendered = f"[Ошибка рендеринга шаблона {template_name}: {e}]"
 
-        # Strip HTML tags from template output to prevent raw <td>, <tr>, etc. in DOCX
+        # Strip HTML tags and sanitize non-Cyrillic characters from template output
         rendered = strip_html(rendered)
+        rendered = sanitize_cyrillic_text(rendered)
 
         blocks = [ParagraphBlock(text=line) for line in rendered.split("\n") if line.strip()]
 

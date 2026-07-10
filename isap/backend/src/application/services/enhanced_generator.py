@@ -42,6 +42,7 @@ from src.infrastructure.export.docx_helpers import (
     configure_heading_styles,
     create_title_page,
     safe_text,
+    sanitize_cyrillic_text,
     set_default_font,
     set_document_margins,
     strip_html,
@@ -935,9 +936,10 @@ class EnhancedDocumentGenerator:
         """
         Добавляет абзац содержимого, конвертируя markdown-разметку **жирный**
         в реальное жирное форматирование вместо буквальных звёздочек.
-        HTML-теги удаляются.
+        HTML-теги удаляются, не-кириллические символы фильтруются.
         """
         line = strip_html(line)
+        line = sanitize_cyrillic_text(line)
         paragraph = doc.add_paragraph()
         pos = 0
         for match in self._BOLD_RE.finditer(line):

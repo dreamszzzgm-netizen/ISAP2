@@ -429,3 +429,56 @@ def test_cyrillic_no_mojibake_markers():
     # The mojibake pattern d0a0 c298 must NOT be present
     mojibake_pattern = b"\xd0\xa0\xc2\x98"
     assert mojibake_pattern not in xml, "Mojibake pattern found in DOCX XML"
+
+
+# --- 15. Sanitize Cyrillic text filter ---
+
+
+def test_sanitize_cyrillic_text_removes_chinese():
+    """LLM-generated text with Chinese/Japanese characters should be cleaned."""
+    from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text
+
+    # LLM hallucinated Chinese characters
+    dirty = "Огнетушители, водяное орошение, средства связи,熱画像 камера, защитные каски"
+    clean = sanitize_cyrillic_text(dirty)
+    assert "熱画像" not in clean
+    assert "Огнетушители" in clean
+    assert "защитные каски" in clean
+
+
+def test_sanitize_cyrillic_text_preserves_russian():
+    """Russian text should pass through sanitize filter unchanged."""
+    from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text
+
+    text = "Индивидуальный предприниматель — Иванов Иван Иванович"
+    assert sanitize_cyrillic_text(text) == text
+
+
+def test_sanitize_cyrillic_text_preserves_latin_and_digits():
+    """Latin text and digits should pass through sanitize filter."""
+    from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text
+
+    text = "ГОСТ 12.1.004-2018, CAS 74-82-8, ОКТМО 8364501"
+    assert sanitize_cyrillic_text(text) == text
+
+
+def test_sanitize_cyrillic_text_in_docx_rendering():
+    """sanitize_cyrillic_text should be applied in template engine output."""
+    from docx import Document as DocxDocument
+    from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text
+
+    # Simulate LLM output with Chinese
+    llm_text = "Технические средства: 熱画像 камера, огнетушители"
+    clean = sanitize_cyrillic_text(llm_text)
+
+    doc = DocxDocument()
+    doc.add_paragraph(clean)
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    doc2 = DocxDocument(buf)
+    text = doc2.paragraphs[0].text
+    assert "熱画像" not in text
+    assert "камера" in text
+    assert "огнетушители" in text

@@ -20,11 +20,29 @@ FIRST_LINE_INDENT_CM = 1.25
 
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 HTML_TAG_RE = re.compile(r"<[^>]+>")
+# Characters allowed in Russian PMLA text: Cyrillic, Latin, digits, standard punctuation
+ALLOWED_CHAR_RE = re.compile(
+    r"[^\u0000-\u007F"   # ASCII (Latin, digits, punctuation)
+    r"\u0400-\u04FF"     # Cyrillic
+    r"\u0500-\u052F"     # Cyrillic Supplement
+    r"\u2000-\u206F"     # General punctuation (em dash, etc.)
+    r"\u2100-\u214F"     # Letterlike symbols (°, №, etc.)
+    r"]+"
+)
 
 
 def strip_html(text: str) -> str:
     """Remove HTML tags from text, leaving only the inner content."""
     return HTML_TAG_RE.sub("", text)
+
+
+def sanitize_cyrillic_text(text: str) -> str:
+    """Remove non-Cyrillic/non-Latin characters (Chinese, Japanese, etc.)
+
+    that may appear in LLM-generated text. Keeps Cyrillic, Latin, digits,
+    and standard punctuation. Useful as post-processing for LLM output.
+    """
+    return ALLOWED_CHAR_RE.sub("", text)
 
 
 def safe_text(value) -> str:
