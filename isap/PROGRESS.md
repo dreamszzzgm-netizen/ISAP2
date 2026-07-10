@@ -1,7 +1,61 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T00:00
+**Дата обновления:** 2026-07-10T16:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA Real OPO Validation #1 — DOCX defect fixes (2026-07-10)
+
+Goal: fix data defects found during first real OPO DOCX generation.
+
+### Mojibake (FIXED)
+
+**Source:** PowerShell `Get-Content` pipe corrupted UTF-8 Cyrillic when piping SQL files to `docker exec psql`. The SQL file had correct UTF-8, but PowerShell re-encoded it through the console codepage (CP1251 on Russian Windows).
+
+**Impact:** Responsible persons' names and positions appeared as mojibake (`РРЅРґРёРІ...` instead of `Индивидуальный`).
+
+**Fix:** Data was re-inserted into the Docker database via Python (bypassing PowerShell pipe). The `validate_real_opo.py` script already used Python for DB operations; the issue was the initial SQL file import via `Get-Content | docker exec psql`.
+
+**Prevention:** Always use Python SQLAlchemy for inserting Cyrillic data into PostgreSQL. Never pipe UTF-8 SQL through PowerShell to psql.
+
+### Empty phones (FIXED)
+
+**File:** `rules_engine.py:377`
+
+Before: `f"тел. {p.get('phone', '—')}"` → showed "тел. " when phone empty.
+After: phone part only shown if non-empty → "Иванов Иван Иванович — Индивидуальный предприниматель"
+
+### Appendix manifest (FIXED)
+
+**File:** `enhanced_generator.py:1147`, `docx_helpers.py:541`
+
+Before: all 5 appendices showed "не представлен" when `attachments_checklist` was empty.
+After: template-generated appendices (Jinja2) are always "сформировано" since they produce content directly in DOCX. Only file-based appendices check the checklist.
+
+### ГОСТ Р 22.10.03-2020
+
+Not added — the regulatory registry structure doesn't have a simple add mechanism. The warning is cosmetic and doesn't affect document quality. Defer to a dedicated regulatory registry update task.
+
+### Files changed
+
+- `backend/src/application/engines/rules_engine.py` — empty phone fix
+- `backend/src/application/services/enhanced_generator.py` — appendix manifest logic
+- `backend/src/infrastructure/export/docx_helpers.py` — "сформировано" status
+- `backend/tests/test_pmla_assembly.py` — updated 3 manifest tests
+- `backend/tests/test_pmla_quality_review_v2.py` — +2 Cyrillic regression tests
+
+### Tests
+
+470 passed, 41 warnings. Frontend build OK.
+
+### Real OPO DOCX
+
+Generated: `backend/data/real_opo_validation/real_opo_v2.docx` (67KB)
+- No mojibake
+- Correct Cyrillic
+- Appendix manifest shows "сформировано"
+- No bare "тел."
 
 ---
 
