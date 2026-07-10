@@ -1,7 +1,41 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T21:00
+**Дата обновления:** 2026-07-10T22:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA RAG Consumption in Generated Engines (2026-07-10)
+
+Goal: make generated engines actually consume RAG context.
+
+### What was built
+- RulesEngine injects RAG chunks into section_5, section_7, section_10, section_12
+- ScenarioEngine injects RAG chunks into section_2, special_section
+- NarrativeEngine injects RAG chunks into introduction
+- All RAG text sanitized (strip_html + sanitize_cyrillic_text)
+- Limits: max 3 chunks, 800 chars/chunk, 2000 total
+- Metadata: rag_used, rag_chunks_count, rag_sources in SectionContent
+
+### Before vs After (Real OPO)
+
+| Section | Before | After | Change |
+|---------|--------|-------|--------|
+| section_2 | 498 words | 547 words | **+49 words** |
+| section_5 | 117 words | 145 words | **+28 words** |
+| section_7 | 101 words | 131 words | **+30 words** |
+| section_10 | 1543 words | 1578 words | **+35 words** |
+| section_12 | 102 words | 127 words | **+25 words** |
+| special_section | 998 words | 1033 words | **+35 words** |
+
+### Files
+- `rules_engine.py` (+100 lines — RAG injection)
+- `scenario_engine.py` (+50 lines — RAG injection)
+- `narrative_engine.py` (+60 lines — RAG injection)
+- `test_pmla_rag_consumption.py` (new, 10 tests)
+
+### Tests
+511 passed, 41 warnings.
 
 ---
 
