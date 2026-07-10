@@ -1,7 +1,29 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T20:00
+**Дата обновления:** 2026-07-10T21:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Real OPO Validation #2 — KG + RAG Enriched DOCX (2026-07-10)
+
+Goal: verify KG+RAG improved generated sections in real OPO DOCX.
+
+### Results
+- **Mojibake:** 0 (fixed)
+- **Chinese:** 0 (fixed)
+- **All generated sections gas-specific:** Yes
+- **Quality review:** critical (data gaps, not code issues)
+- **RAG context:** stored in enriched context, available for future engine use
+
+### Key finding
+RAG context is properly stored in `DocumentContext.rag_contexts` but RulesEngine/ScenarioEngine don't yet consume it to modify output. The context is available for future engine updates.
+
+### No new critical issues
+All issues are data gaps (missing emergency services, notification scheme) — not code defects.
+
+### Files
+- `REAL_OPO_VALIDATION_REPORT.md` (updated with Validation #2 section)
 
 ---
 

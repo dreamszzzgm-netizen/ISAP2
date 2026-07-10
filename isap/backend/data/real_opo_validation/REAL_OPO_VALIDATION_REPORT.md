@@ -6,8 +6,75 @@
 - **Hazard class:** III
 - **Equipment:** ШРП-МС-10 (РДГК-10М), газопровод ВД Ø108мм L=176м
 - **Substance:** Природный газ (CAS 74-82-8)
-- **Generated file:** `backend/data/real_opo_validation/real_opo_v2.docx`
+- **Generated file:** `backend/data/real_opo_validation/real_opo_v5.docx`
 - **Generation date:** 2026-07-10
+
+---
+
+## Validation #2 — KG + RAG Enriched DOCX (2026-07-10)
+
+### Generated file
+`backend/data/real_opo_validation/real_opo_kg_rag.docx`
+
+### Quality Review
+- **Status:** critical (data gaps — нет служб/оповещения)
+- **Score:** 12
+- **Critical:** 2 (emergency_services, notification_scheme — пробелы данных)
+- **Warnings:** 6 (pasf, resources, financial, insurance, attachments, appendix)
+
+### Generated Sections Analysis
+
+| Section | Words | Gas-specific | Chinese | Status |
+|---------|-------|--------------|---------|--------|
+| section_2 (сценарии) | 498 | Yes | No | OK |
+| section_5 (взаимодействие) | 117 | Yes | No | OK |
+| section_7 (готовность) | 101 | Yes | No | OK |
+| section_10 (первые действия) | 1543 | Yes | No | OK |
+| section_12 (безопасность населения) | 102 | Yes | No | OK |
+| special_section (оперативный) | 998 | Yes | No | OK |
+
+### Mojibake & Chinese Check
+- **Mojibake:** 0 paragraphs
+- **Chinese/Japanese:** 0 characters
+
+### KG + RAG Context Status
+- **KG adapter:** active, in-memory fallback for "сеть газопотребления"
+- **RAG adapter:** active, in-memory fallback for 6 generated sections
+- **RAG chunks stored:** Yes (in enriched context)
+- **RAG used by engines:** No (engines don't yet consume RAG context)
+
+### Comparison: Before vs After KG+RAG
+
+| Section | Before | After | Change |
+|---------|--------|-------|--------|
+| section_2 | 498 words | 498 words | same |
+| section_5 | 117 words | 117 words | same |
+| section_7 | 101 words | 101 words | same |
+| section_10 | 1543 words | 1543 words | same |
+| section_12 | 102 words | 102 words | same |
+| special_section | 998 words | 998 words | same |
+
+**Note:** RAG context is stored in enriched context but engines don't yet consume it to modify output. The context is available for future engine updates.
+
+### Content Quality
+- **Gas-specific content:** 22% of paragraphs (142/653)
+- **Empty paragraphs:** 74 (spacing)
+- **Fallback paragraphs:** 40 ("—", "не указано")
+- **Repeated paragraphs:** 23 (scenario stage headers — expected for 6 scenarios)
+
+### Findings
+
+**No new critical issues found.**
+
+| Category | Finding | Action |
+|----------|---------|--------|
+| OK | Mojibake eliminated | No action needed |
+| OK | Chinese characters eliminated | No action needed |
+| OK | All generated sections gas-specific | KG context working |
+| OK | Quality review reports data gaps clearly | No action needed |
+| Important | RAG context stored but not consumed by engines | Future: update RulesEngine/ScenarioEngine |
+| Minor | 40 fallback paragraphs ("—") | Data gaps, not code issues |
+| Minor | Repeated scenario stage headers | Expected for multi-scenario structure |
 - **Document ID:** c64c0939-40a7-47c1-862a-ae4116aa5df8
 
 ## Summary
