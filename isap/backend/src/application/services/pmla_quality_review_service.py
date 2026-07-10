@@ -142,6 +142,32 @@ class PmlaQualityReviewService:
             logger.warning("Knowledge graph adapter failed: %s", e)
             # Don't add graph checks if adapter fails
 
+        # --- v2.3: cross-facility contamination check ---
+        from src.application.services.cross_facility_guardrails import check_cross_facility_contamination
+        facility_type = (questionnaire_context.get("facility") or {}).get("facility_type", "")
+        if facility_type and rendered_sections:
+            all_text = "\n".join(
+                str(content) for content in rendered_sections.values()
+                if isinstance(content, (str, list))
+            )
+            equipment = questionnaire_context.get("equipment") or []
+            contaminants = check_cross_facility_contamination(all_text, facility_type, equipment)
+            if contaminants:
+                checks.append(CheckResult(
+                    code="cross_facility_contamination",
+                    title="Загрязнение контента другим типом ОПО",
+                    status="warning",
+                    message=f"Обнаружены термины, не относящиеся к '{facility_type}': {', '.join(contaminants[:3])}",
+                    details={"contaminants": contaminants, "facility_type": facility_type},
+                ))
+            else:
+                checks.append(CheckResult(
+                    code="cross_facility_contamination",
+                    title="Загрязнение контента другим типом ОПО",
+                    status="ok",
+                    message="Нет контаминации контентом другого типа ОПО",
+                ))
+
         # --- v2: block-aware checks via Assembly Registry ---
         checks.append(self._check_static_blocks())
         checks.append(self._check_variable_blocks(questionnaire_context))

@@ -254,4 +254,18 @@ class PmlaRagAdapter:
             )
 
         chunks = [PmlaRagChunk(**c) for c in section_chunks]
-        return PmlaRagContext(chunks=chunks, warnings=warnings)
+
+        # Cross-facility filter: remove chunks with mismatched facility hints
+        from src.application.services.cross_facility_guardrails import check_cross_facility_contamination
+        filtered = []
+        for chunk in chunks:
+            contaminants = check_cross_facility_contamination(chunk.text, facility_type)
+            if not contaminants:
+                filtered.append(chunk)
+            else:
+                warnings.append(
+                    f"RAG chunk '{chunk.source_title}' содержит термины "
+                    f"другого типа ОПО: {', '.join(contaminants)} — отфильтрован"
+                )
+
+        return PmlaRagContext(chunks=filtered, warnings=warnings)
