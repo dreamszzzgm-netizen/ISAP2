@@ -37,24 +37,61 @@ class NarrativeEngine(BaseEngine):
             try:
                 content = await self._generate_via_llm(section_def, context)
                 blocks = [ParagraphBlock(text=line) for line in content.split("\n") if line.strip()]
+                # RAG injection for LLM-generated content
+                rag_used, rag_chunks_count, rag_sources = self._inject_rag(blocks, context, section_id)
                 return SectionContent(
                     section_id=section_id,
                     title=title,
                     engine_name=self.name,
                     blocks=blocks,
-                    metadata={"source": "llm"},
+                    metadata={"source": "llm", "rag_used": rag_used, "rag_chunks_count": rag_chunks_count, "rag_sources": rag_sources},
                 )
             except Exception as e:
                 logger.warning("LLM generation failed for '%s': %s", section_id, e)
 
         blocks = self._generate_fallback(section_id, context)
+        # RAG injection for fallback content
+        rag_used, rag_chunks_count, rag_sources = self._inject_rag(blocks, context, section_id)
         return SectionContent(
             section_id=section_id,
             title=title,
             engine_name=self.name,
             blocks=blocks,
-            metadata={"source": "fallback"},
+            metadata={"source": "fallback", "rag_used": rag_used, "rag_chunks_count": rag_chunks_count, "rag_sources": rag_sources},
         )
+
+    def _inject_rag(self, blocks: list[Block], context: DocumentContext, section_id: str) -> tuple[bool, int, list[str]]:
+        """Inject RAG context into blocks. Returns (rag_used, chunks_count, sources)."""
+        from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text, strip_html
+
+        rag_ctx = context.rag_contexts.get(section_id)
+        if not rag_ctx or not rag_ctx.get("chunks"):
+            return False, 0, []
+
+        chunks = rag_ctx["chunks"]
+        max_chunks = 3
+        max_chars_per_chunk = 800
+        max_total_chars = 2000
+        total_chars = 0
+        sources: list[str] = []
+
+        for chunk in chunks[:max_chunks]:
+            text = chunk.get("text", "")
+            if not text:
+                continue
+            text = strip_html(text)
+            text = sanitize_cyrillic_text(text)
+            text = text.strip()
+            if len(text) > max_chars_per_chunk:
+                text = text[:max_chars_per_chunk] + "..."
+            if total_chars + len(text) > max_total_chars:
+                break
+            if text:
+                blocks.append(ParagraphBlock(text=text))
+                total_chars += len(text)
+                sources.append(chunk.get("source_title", ""))
+
+        return bool(sources), len(sources), sources
 
     async def _generate_via_llm(self, section_def: dict, context: DocumentContext) -> str:
         from src.application.services.prompts import SYSTEM_PROMPT

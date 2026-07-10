@@ -260,13 +260,73 @@ class RulesEngine(BaseEngine):
 
         blocks = self._render_section(section_id, section_rules, context)
 
+        # RAG context injection for generated sections only
+        rag_used = False
+        rag_chunks_count = 0
+        rag_sources: list[str] = []
+        rag_ctx = context.rag_contexts.get(section_id)
+        if rag_ctx and rag_ctx.get("chunks"):
+            rag_blocks = self._inject_rag_context(rag_ctx, section_id)
+            if rag_blocks:
+                blocks.extend(rag_blocks)
+                rag_used = True
+                rag_chunks_count = len(rag_ctx["chunks"])
+                rag_sources = [c.get("source_title", "") for c in rag_ctx["chunks"]]
+
         return SectionContent(
             section_id=section_id,
             title=title,
             engine_name=self.name,
             blocks=blocks,
-            metadata={"facility_type": facility_type, "rules_source": "deterministic"},
+            metadata={
+                "facility_type": facility_type,
+                "rules_source": "deterministic",
+                "rag_used": rag_used,
+                "rag_chunks_count": rag_chunks_count,
+                "rag_sources": rag_sources,
+            },
         )
+
+    def _inject_rag_context(self, rag_ctx: dict, section_id: str) -> list[Block]:
+        """Inject RAG context as additional paragraphs at the end of a section.
+
+        Limits: max 3 chunks, 800 chars per chunk, 2000 total.
+        All text is sanitized before injection.
+        """
+        from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text, strip_html
+
+        blocks: list[Block] = []
+        chunks = rag_ctx.get("chunks", [])
+
+        # Limit chunks
+        max_chunks = 3
+        max_chars_per_chunk = 800
+        max_total_chars = 2000
+        total_chars = 0
+
+        for chunk in chunks[:max_chunks]:
+            text = chunk.get("text", "")
+            if not text:
+                continue
+
+            # Sanitize
+            text = strip_html(text)
+            text = sanitize_cyrillic_text(text)
+            text = text.strip()
+
+            # Trim to max chars
+            if len(text) > max_chars_per_chunk:
+                text = text[:max_chars_per_chunk] + "..."
+
+            # Check total limit
+            if total_chars + len(text) > max_total_chars:
+                break
+
+            if text:
+                blocks.append(ParagraphBlock(text=text))
+                total_chars += len(text)
+
+        return blocks
 
     def _render_section(self, section_id: str, rules: dict, context: DocumentContext) -> list[Block]:
         """Рендерит раздел с подстановкой данных из контекста и справочников."""

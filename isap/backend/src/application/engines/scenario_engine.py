@@ -173,6 +173,19 @@ class ScenarioEngine(BaseEngine):
         else:
             blocks = [ParagraphBlock(text=f"[Неизвестный section_id: {section_id}]")]
 
+        # RAG context injection for generated sections
+        rag_used = False
+        rag_chunks_count = 0
+        rag_sources: list[str] = []
+        rag_ctx = context.rag_contexts.get(section_id)
+        if rag_ctx and rag_ctx.get("chunks"):
+            rag_blocks = self._inject_rag_context(rag_ctx, section_id)
+            if rag_blocks:
+                blocks.extend(rag_blocks)
+                rag_used = True
+                rag_chunks_count = len(rag_ctx["chunks"])
+                rag_sources = [c.get("source_title", "") for c in rag_ctx["chunks"]]
+
         return SectionContent(
             section_id=section_id,
             title=title,
@@ -181,8 +194,39 @@ class ScenarioEngine(BaseEngine):
             metadata={
                 "scenario_count": len(scenarios),
                 "facility_type": facility_type,
+                "rag_used": rag_used,
+                "rag_chunks_count": rag_chunks_count,
+                "rag_sources": rag_sources,
             },
         )
+
+    def _inject_rag_context(self, rag_ctx: dict, section_id: str) -> list[Block]:
+        """Inject RAG context as additional paragraphs. Same logic as RulesEngine."""
+        from src.infrastructure.export.docx_helpers import sanitize_cyrillic_text, strip_html
+
+        blocks: list[Block] = []
+        chunks = rag_ctx.get("chunks", [])
+        max_chunks = 3
+        max_chars_per_chunk = 800
+        max_total_chars = 2000
+        total_chars = 0
+
+        for chunk in chunks[:max_chunks]:
+            text = chunk.get("text", "")
+            if not text:
+                continue
+            text = strip_html(text)
+            text = sanitize_cyrillic_text(text)
+            text = text.strip()
+            if len(text) > max_chars_per_chunk:
+                text = text[:max_chars_per_chunk] + "..."
+            if total_chars + len(text) > max_total_chars:
+                break
+            if text:
+                blocks.append(ParagraphBlock(text=text))
+                total_chars += len(text)
+
+        return blocks
 
     @staticmethod
     def _render_custom_scenario_narrative(scenario: dict, idx: int) -> list[Block]:
