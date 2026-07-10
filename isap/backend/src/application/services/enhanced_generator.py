@@ -1149,21 +1149,40 @@ def _synthesize_appendices_manifest(checklist: list) -> list[dict]:
 
     Возвращает записи вида::
         {"appendix_number": 1, "title": "Приложение 1. ...",
-         "filename": "—", "present": bool}
-    filename всегда "—" (загрузка файлов приложений не реализована).
+         "filename": "—", "present": bool, "source": "template"|"file"}
+    source="template" означает, что приложение сгенерировано шаблоном и
+    всегда присутствует в DOCX. source="file" — ожидается внешний файл.
     """
-    from src.application.services.pmla_assembly_blocks import get_appendix_manifest_entries
+    from src.application.services.pmla_assembly_blocks import (
+        get_appendix_manifest_entries,
+        get_block_def,
+    )
+    from src.application.services.pmla_assembly_blocks import BlockType
 
     entries = get_appendix_manifest_entries()
     manifest: list[dict] = []
     for entry in entries:
         sid = entry["section_id"]
-        keywords = _APPENDIX_MATCH_KEYWORDS.get(sid, [])
-        present = _checklist_matches(checklist, keywords)
+        block_def = get_block_def(sid)
+
+        # Template-generated appendices (Jinja2) are always "сформированы"
+        # because they produce content directly in the DOCX.
+        is_template = block_def and block_def.template is not None
+
+        if is_template:
+            present = True
+            source = "template"
+        else:
+            # File-based appendices: check attachments_checklist
+            keywords = _APPENDIX_MATCH_KEYWORDS.get(sid, [])
+            present = _checklist_matches(checklist, keywords)
+            source = "file"
+
         manifest.append({
             "appendix_number": entry["appendix_number"],
             "title": entry["title"],
             "filename": "—",
             "present": present,
+            "source": source,
         })
     return manifest

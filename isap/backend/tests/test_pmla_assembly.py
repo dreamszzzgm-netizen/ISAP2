@@ -513,12 +513,14 @@ class TestAppendicesManifestSynthesis:
         assert any("Схема оповещения" in t for t in titles)
 
     def test_manifest_default_all_not_present(self):
-        """Без checklist все приложения отмечены как не представленные."""
+        """Шаблонные приложения (с template) отмечены как present=True."""
         from src.application.services.enhanced_generator import _synthesize_appendices_manifest
         manifest = _synthesize_appendices_manifest([])
         for entry in manifest:
-            assert entry["present"] is False
+            # Template-generated appendices are always present
+            assert entry["present"] is True
             assert entry["filename"] == "—"
+            assert entry.get("source") == "template"
 
     def test_manifest_present_status_from_checklist(self):
         """Статус наличия берётся из attachments_checklist по совпадению имени."""
@@ -530,20 +532,19 @@ class TestAppendicesManifestSynthesis:
         ]
         manifest = _synthesize_appendices_manifest(checklist)
         by_num = {m["appendix_number"]: m for m in manifest}
-        # appendix_5 = Схема оповещения → present
+        # All template appendices are present regardless of checklist
         assert by_num[5]["present"] is True
-        # appendix_3 = Состав ПАСФ → present
         assert by_num[3]["present"] is True
-        # appendix_1 = Порядок изучения → не matched
-        assert by_num[1]["present"] is False
+        assert by_num[1]["present"] is True
 
     def test_manifest_present_false_when_checklist_item_not_present(self):
-        """Если checklist-элемент совпадает по имени, но present=False — не отмечен."""
+        """Шаблонные приложения всегда present, даже если checklist говорит False."""
         from src.application.services.enhanced_generator import _synthesize_appendices_manifest
         checklist = [{"name": "Схема оповещения", "present": False}]
         manifest = _synthesize_appendices_manifest(checklist)
         by_num = {m["appendix_number"]: m for m in manifest}
-        assert by_num[5]["present"] is False
+        # Template appendices override checklist — always present
+        assert by_num[5]["present"] is True
 
     def test_enrich_context_synthesizes_manifest(self):
         """_enrich_context добавляет appendices_manifest, если его нет в контексте."""

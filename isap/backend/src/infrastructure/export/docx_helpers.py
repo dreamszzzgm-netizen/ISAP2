@@ -538,7 +538,13 @@ def add_appendices_manifest(doc: DocxDocument, appendices: list[dict] | None = N
         title = str(entry.get("title", ""))
         filename = str(entry.get("filename", "")) or "—"
         present = entry.get("present", False)
-        status = "представлен" if present else "не представлен"
+        source = entry.get("source", "file")
+        if present and source == "template":
+            status = "сформировано"
+        elif present:
+            status = "представлен"
+        else:
+            status = "не представлен"
         rows.append([num, title, filename, status])
 
     add_data_table(doc, headers, rows)

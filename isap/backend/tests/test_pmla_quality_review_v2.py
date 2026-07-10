@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+from io import BytesIO
 
 import pytest
 
@@ -363,3 +364,68 @@ def test_recommendations_include_block_aware_items():
     # With empty notification scheme, should get a recommendation
     recs = report.recommendations
     assert any("оповещен" in r.lower() for r in recs), f"Expected notification recommendation in: {recs}"
+
+
+# --- 14. Cyrillic regression test ---
+
+
+def test_cyrillic_survives_docx_roundtrip():
+    """Cyrillic strings must survive python-docx roundtrip without mojibake.
+
+    Regression test: PowerShell Get-Content pipe corrupted UTF-8 Cyrillic
+    when piping SQL files to psql, causing mojibake in DOCX output.
+    """
+    from docx import Document as DocxDocument
+    from docx.shared import Pt
+
+    doc = DocxDocument()
+    test_strings = [
+        "Индивидуальный предприниматель",
+        "Иванов Иван Иванович",
+        "Сеть газопотребления ул. Красная",
+        "Сидоров Святослав Петрович",
+        "Собственник ОПО",
+        "Кабардино-Балкарская Республика",
+    ]
+    for s in test_strings:
+        p = doc.add_paragraph()
+        run = p.add_run(s)
+        run.font.name = "Times New Roman"
+
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    doc2 = DocxDocument(buf)
+    for i, p in enumerate(doc2.paragraphs):
+        text = p.text
+        # No C1 control character U+0098 (mojibake marker)
+        assert "\x98" not in text, f"Mojibake \\x98 found in paragraph {i}: {repr(text)}"
+        # No raw replacement characters
+        assert "\ufffd" not in text, f"Replacement char found in paragraph {i}: {repr(text)}"
+
+
+def test_cyrillic_no_mojibake_markers():
+    """DOCX text must not contain known mojibake byte patterns."""
+    from docx import Document as DocxDocument
+
+    doc = DocxDocument()
+    p = doc.add_paragraph()
+    p.add_run("Индивидуальный предприниматель")
+
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    # Check raw XML bytes
+    import zipfile
+    with zipfile.ZipFile(buf, "r") as z:
+        xml = z.read("word/document.xml")
+
+    # The correct UTF-8 for "Индивидуальный" starts with d098
+    correct = "Индивидуальный".encode("utf-8")
+    assert correct in xml, "Correct UTF-8 not found in DOCX XML"
+
+    # The mojibake pattern d0a0 c298 must NOT be present
+    mojibake_pattern = b"\xd0\xa0\xc2\x98"
+    assert mojibake_pattern not in xml, "Mojibake pattern found in DOCX XML"

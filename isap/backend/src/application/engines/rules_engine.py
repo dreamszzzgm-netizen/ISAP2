@@ -372,9 +372,10 @@ class RulesEngine(BaseEngine):
             if persons:
                 blocks.append(ParagraphBlock(text="Ответственные лица на объекте:", bold=True))
                 for p in persons:
+                    phone = (p.get("phone") or "").strip()
+                    phone_part = f", тел. {phone}" if phone else ""
                     blocks.append(ParagraphBlock(text=(
-                        f"- {p.get('full_name', '—')} — {p.get('position', '—')}, "
-                        f"тел. {p.get('phone', '—')}"
+                        f"- {p.get('full_name', '—')} — {p.get('position', '—')}{phone_part}"
                     )))
         else:
             fallback = DEFAULT_RULES.get("section_11", {})
