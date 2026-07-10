@@ -1,7 +1,45 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T16:00
+**Дата обновления:** 2026-07-10T17:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## PMLA Real OPO Validation #1 — Content Review (2026-07-10)
+
+Goal: content review of first real OPO DOCX, identify defects, fix critical issues.
+
+### Findings
+
+**Critical (2 fixed):**
+- C1: Custom scenario #6 mojibake in questionnaire data → re-inserted via Python
+- C2: LLM hallucinated Chinese characters "熱画像" → added `sanitize_cyrillic_text()` filter
+
+**Important (6 documented, deferred):**
+- I1: No real emergency services data (data gap)
+- I2: Empty notification scheme (data gap)
+- I3: No financial reserve/insurance (data gap)
+- I4: Appendix responsible persons show "— — —"
+- I5: Bibliography contains Chinese/English text
+- I6: Familiarization sheet missing date/reg number
+
+**Minor (4 documented):**
+- M1: Phone numbers still show "тел." in section 11
+- M2: Validation results as plain text
+- M3: OPO details form not integrated
+- M4: Generic fallback text in some sections
+
+### Files changed
+- `docx_helpers.py` — added `sanitize_cyrillic_text()` function
+- `template_engine.py` — apply sanitize filter on template output
+- `enhanced_generator.py` — apply sanitize filter on body paragraphs
+- `test_pmla_quality_review_v2.py` — +4 sanitize regression tests
+
+### Tests
+470 passed, 30 v2 tests. Frontend build OK.
+
+### Validation report
+`backend/data/real_opo_validation/REAL_OPO_VALIDATION_REPORT.md`
 
 ---
 
