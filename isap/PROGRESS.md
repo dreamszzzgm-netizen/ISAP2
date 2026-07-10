@@ -1,7 +1,34 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-10T22:00
+**Дата обновления:** 2026-07-10T23:00
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Real OPO Validation #3 — RAG Effectiveness Review (2026-07-10)
+
+Goal: verify RAG consumption improved generated sections quality.
+
+### Results
+- **Quality review:** warning (не critical), 0 critical, 10 warnings (data gaps)
+- **Mojibake:** 0, **Chinese:** 0
+- **All 7 generated sections gas-specific:** Yes
+- **6/7 sections grew with RAG:** Yes
+- **RAG chunks consumed:** Yes (injected by RulesEngine/ScenarioEngine/NarrativeEngine)
+
+### Before/After (with RAG consumption)
+
+| Section | Before | After | Δ |
+|---------|--------|-------|---|
+| section_2 | 498 | 547 | +49 |
+| section_5 | 117 | 145 | +28 |
+| section_7 | 101 | 131 | +30 |
+| section_10 | 1543 | 1578 | +35 |
+| section_12 | 102 | 127 | +25 |
+| special_section | 998 | 1033 | +35 |
+
+### No critical issues found
+All warnings are data completeness issues, not code defects.
 
 ---
 

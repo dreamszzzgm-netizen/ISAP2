@@ -6,8 +6,58 @@
 - **Hazard class:** III
 - **Equipment:** ШРП-МС-10 (РДГК-10М), газопровод ВД Ø108мм L=176м
 - **Substance:** Природный газ (CAS 74-82-8)
-- **Generated file:** `backend/data/real_opo_validation/real_opo_v5.docx`
+- **Generated file:** `backend/data/real_opo_validation/real_opo_rag_consumed.docx`
 - **Generation date:** 2026-07-10
+
+---
+
+## Validation #3 — RAG Effectiveness Review (2026-07-10)
+
+### Generated file
+`backend/data/real_opo_validation/real_opo_rag_consumed.docx`
+
+### Quality Review
+- **Status:** warning (не critical)
+- **Score:** 20
+- **Critical:** 0
+- **Warnings:** 10 (все — пробелы данных, не дефекты кода)
+
+### Generated Sections — Before/After RAG
+
+| Section | Before | After | Δ | Gas-specific | Issues |
+|---------|--------|-------|---|--------------|--------|
+| introduction | — | 194 | — | Yes | None |
+| section_2 (сценарии) | 498 | 547 | +49 | Yes | 3 repeated sentences (structural) |
+| section_5 (взаимодействие) | 117 | 145 | +28 | Yes | None |
+| section_7 (готовность) | 101 | 131 | +30 | Yes | None |
+| section_10 (первые действия) | 1543 | 1578 | +35 | Yes | 13 repeated sentences (structural) |
+| section_12 (безопасность) | 102 | 127 | +25 | Yes | None |
+| special_section (оперативный) | 998 | 1033 | +35 | Yes | None |
+
+### Quality Checks
+- **Mojibake:** 0 paragraphs
+- **Chinese/Japanese:** 0 characters
+- **Gas-relevant sections:** 7/7
+- **Sections with RAG growth:** 6/7
+
+### RAG Context Usage
+- **RAG adapter:** active, in-memory fallback
+- **RAG chunks consumed:** Yes (injected into generated sections)
+- **RAG limits respected:** Yes (max 3 chunks, 800 chars/chunk)
+
+### Findings
+
+| Category | Finding | Action |
+|----------|---------|--------|
+| OK | Mojibake eliminated | No action |
+| OK | Chinese eliminated | No action |
+| OK | All sections gas-specific | KG+RAG working |
+| OK | Quality review: warning, not critical | No action |
+| OK | RAG chunks consumed by engines | Working |
+| Minor | Repeated scenario stage headers | Structural, expected |
+| Later | RAG context could be more section-specific | Future improvement |
+
+### No critical issues found.
 
 ---
 
