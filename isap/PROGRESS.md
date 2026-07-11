@@ -1869,7 +1869,71 @@ Notes:
 - AI review/LLM provider connection can fail when the local provider is unavailable; generation falls back and still produces DOCX/debug artifacts.
 - Existing dev servers on ports 3000/8000 were left running; a restart may be needed for the browser to pick up latest local code changes.
 
-## Code Health Sweep: TypeScript, ESLint, and Calculation Bug Fixes (2026-07-09)
+## PMLA v2 Template Pipeline Integration for Pilot Use (2026-07-11)
+
+Goal: integrate the v2 DOCX template (docxtpl-based) as an alternative generation path and validate E2E on a real OPO.
+
+### What was built
+- **Context Mapper** (`pmla_v2_context_mapper.py`): transforms nested engine context into flat v2 schema format (50 fields, 8 arrays)
+- **V2 generation path** in `PmlaGenerationService._generate_v2()`: context → map → validate → render → save (bypasses engines/LLM)
+- **API integration**: `template_version: str = "v1"` parameter in `POST /api/v1/pmla/generate`
+- **5 hardcoded phones** replaced: `notification_chairman_phone`, `notification_pasf_phone`, `notification_edds_phone`, `notification_gas_phone`, `notification_rostechnadzor_phone` (via lxml manipulation of `pmla_v2_template.docx`)
+- **PDF converter fix**: `_find_soffice()` finds LibreOffice on Windows (C:\Program Files\LibreOffice\...)
+- **Dependencies**: removed unused `unstructured`, `plantuml`, `networkx` from `pyproject.toml`
+- **Schema update**: `equipment_defects` marked as deprecated/optional (reserved for future)
+
+### Files changed
+| File | Change |
+|------|--------|
+| `pmla_v2_context_mapper.py` | **New**: 29.7 KB — context mapping + validation |
+| `test_pmla_v2_integration.py` | **New**: 16.6 KB — 17 integration tests |
+| `pmla_generation_service.py` | +104 lines — `_generate_v2()` path |
+| `pmla.py` (router) | +14 lines — `template_version` in API |
+| `pdf/converter.py` | +37 lines — `_find_soffice()`, `os` import |
+| `pmla_v2_template.docx` | 5 hardcoded phones → Jinja variables |
+| `pmla_v2.schema.json` | `equipment_defects` deprecated annotation |
+| `pyproject.toml` | -3 unused deps |
+
+### Test results
+- **Full suite**: 612 passed, 3 skipped, 0 failed
+- **Schema alignment**: 27/27 PASS
+- **V2 integration**: 14/14 PASS (3 skipped: need DB+LLM)
+- **DOCX QA full/empty**: PASS
+- **Real OPO E2E**: DOCX 12.5 MB, PDF 4.6 MB, all 5 phones verified
+- **Jinja artifacts**: 0
+- **Tables**: 21
+
+### Skipped tests (3)
+1. `test_v2_generate_endpoint` — needs live DB + FastAPI client (cannot mock properly)
+2. `test_v1_generate_endpoint` — needs DB + LLM (v1 uses EnhancedDocumentGenerator)
+3. `test_v2_generate_with_provided_context` — needs DB (build_context() queries DB)
+
+### Status
+**`READY FOR PILOT USE`** — v2 generation works on real OPO data.
+Template_version=v1 remains default; v2 activated explicitly via API parameter.
+
+### Known limitations
+- 5 notification phones are parameterized; 2 secondary phone lines (EDDS `+7 (86630) 4-00-06`, electric `+7 (86630)4-27-70`) remain in template as static data
+- PDF requires LibreOffice installed (graceful fallback missing for non-LO systems)
+- `equipment_defects` not in template (reserved for future Table 8)
+- Address parsing for `settlement_district` requires manual input
+- 3 integration tests skipped (need full DB setup)
+
+### Pilot generation command
+```http
+POST /api/v1/pmla/generate
+Content-Type: application/json
+
+{
+  "facility_id": "<UUID>",
+  "template_version": "v2"
+}
+```
+
+### Engineer review checklist
+See `docs/PMLA_ENGINEER_REVIEW_CHECKLIST.md` — mandatory before document approval.
+
+---
 
 Goal: systematic static analysis and fix of all errors/bugs found across frontend (TypeScript + ESLint) and backend (Python), working autonomously with subagents.
 

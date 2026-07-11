@@ -51,6 +51,9 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "audit_only: tests that validate schema-template alignment (schema not finalized)",
+]
 
 [tool.ruff]
 line-length = 88

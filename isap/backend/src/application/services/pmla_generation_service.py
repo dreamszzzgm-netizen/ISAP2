@@ -17,6 +17,7 @@ from src.application.services.enhanced_generator import EnhancedDocumentGenerato
 from src.application.services.opo_service import OpoService
 from src.infrastructure.database.models import (
     DocumentModel,
+    DocumentVersionModel,
     EquipmentModel,
     HazardousFacilityModel,
     HazardousSubstanceModel,
@@ -58,15 +59,33 @@ class PmlaGenerationService:
         facility_id: UUID,
         context: dict | None = None,
         regenerate_sections: list[str] | None = None,
+        template_version: str = "v1",
     ) -> dict:
-        """Create a new PMLA document and run generation pipeline."""
+        """Create a new PMLA document and run generation pipeline.
+
+        Args:
+            facility_id: OPO facility UUID
+            context: Optional pre-built context dict (if None, auto-builds)
+            regenerate_sections: Optional list of section IDs to regenerate (v1 only)
+            template_version: "v1" (engine-based) or "v2" (DOCX template-based)
+
+        Returns:
+            dict with document_id, status, version
+
+        Raises:
+            ValueError: if facility not found or v2 context validation fails
+        """
         facility = await self._get_facility_or_none(facility_id)
         if facility is None:
             raise ValueError("Объект ОПО не найден")
 
         generation_context = context or await self.build_context(facility_id)
-        doc = await self._create_processing_document(facility)
 
+        if template_version == "v2":
+            return await self._generate_v2(facility, generation_context)
+
+        # v1 path: engine-based generation (existing behaviour)
+        doc = await self._create_processing_document(facility)
         generator = self._create_generator()
         result = await generator.generate(
             document_id=doc.id,
@@ -79,6 +98,87 @@ class PmlaGenerationService:
             "status": result.status,
             "version": result.version_number,
         }
+
+    async def _generate_v2(
+        self,
+        facility: Any,
+        source_context: dict,
+    ) -> dict:
+        """v2 template-based generation path using PmlaTemplateRenderer.
+
+        Steps:
+        1. Enrich context with runtime data (emergency services, protective eq)
+        2. Map to flat v2 schema format
+        3. Validate against schema
+        4. Create DocumentModel
+        5. Render DOCX via PmlaTemplateRenderer
+        6. Save to DB + create version snapshot
+        """
+        from src.infrastructure.export.pmla_template_renderer import PmlaTemplateRenderer
+        from src.application.services.pmla_v2_context_mapper import (
+            map_to_v2_context,
+            validate_v2_context,
+        )
+
+        # 1. Enrich context (same as v1 does before generator)
+        await self._enrich_context_with_runtime_data(source_context)
+
+        # 2. Map to v2 format
+        v2_context = map_to_v2_context(source_context)
+
+        # 3. Validate against schema
+        validation_errors = validate_v2_context(v2_context)
+        if validation_errors:
+            error_detail = "; ".join(validation_errors[:10])
+            raise ValueError(
+                f"Контекст v2 не прошёл валидацию ({len(validation_errors)} ошибок): "
+                f"{error_detail}"
+            )
+
+        # 4. Create document record
+        doc = await self._create_processing_document(facility)
+
+        try:
+            # 5. Render DOCX via v2 template
+            renderer = PmlaTemplateRenderer()
+            docx_bytes = renderer.render(v2_context)
+
+            # 6. Save to DB
+            doc.content_docx = docx_bytes
+            doc.status = "pending_review"
+            doc.generation_meta = {
+                "source": "pmla_v2_template",
+                "template_version": "v2",
+                "facility_id": str(facility.id),
+                "context_keys": list(v2_context.keys()),
+            }
+            await self.document_repo.session.commit()
+
+            # Create version snapshot
+            version = DocumentVersionModel(
+                document_id=doc.id,
+                version_number=doc.version or 1,
+                input_data=v2_context,
+                template_version="v2.0",
+                content_docx=docx_bytes,
+            )
+            await self.document_repo.add_version(version)
+
+            return {
+                "document_id": str(doc.id),
+                "status": doc.status,
+                "version": doc.version or 1,
+            }
+
+        except Exception as exc:
+            # Clean up on failure: mark document as failed
+            logger.exception("v2 template generation failed")
+            doc.status = "generation_failed"
+            existing_meta = dict(doc.generation_meta) if doc.generation_meta else {}
+            existing_meta["error"] = str(exc)
+            doc.generation_meta = existing_meta
+            await self.document_repo.session.commit()
+            raise ValueError(f"Ошибка генерации v2: {exc}") from exc
 
     async def regenerate_sections(self, document_id: UUID, sections: list[str]) -> dict:
         """Regenerate selected sections of an existing PMLA document."""

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -27,15 +28,49 @@ def docx_bytes_to_pdf(docx_bytes: bytes) -> bytes:
     return _convert_via_fpdf(docx_bytes)
 
 
+def _find_soffice() -> str:
+    """Find LibreOffice soffice binary on the system."""
+    # Common installation paths
+    candidates = [
+        "soffice",  # PATH (Linux/macOS)
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        "/usr/bin/libreoffice",
+        "/usr/bin/soffice",
+        "/usr/local/bin/soffice",
+    ]
+    for candidate in candidates:
+        try:
+            # Quick existence check first for full paths
+            if os.sep in candidate or "/" in candidate:
+                if Path(candidate).exists():
+                    return candidate
+                continue
+            result = subprocess.run(
+                [candidate, "--version"],
+                capture_output=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                return candidate
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    raise RuntimeError(
+        "LibreOffice not found. Install LibreOffice and ensure 'soffice' "
+        "is in PATH, or install via: winget install TheDocumentFoundation.LibreOffice"
+    )
+
+
 def _convert_via_libreoffice(docx_bytes: bytes) -> bytes:
     """Конвертация через LibreOffice headless — сохраняет полное форматирование."""
+    soffice_path = _find_soffice()
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = Path(tmpdir) / "input.docx"
         docx_path.write_bytes(docx_bytes)
 
         result = subprocess.run(
             [
-                "soffice",
+                soffice_path,
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", tmpdir,

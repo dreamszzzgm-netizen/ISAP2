@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from src.api.dependencies import (
     get_document_repo,
@@ -45,6 +45,15 @@ class GeneratePMLARequest(BaseModel):
     facility_id: UUID
     context: dict | None = None
     regenerate_sections: list[str] | None = None
+    template_version: str = "v1"
+
+    @field_validator("template_version")
+    @classmethod
+    def _validate_template_version(cls, v: str) -> str:
+        v_lower = v.lower().strip()
+        if v_lower not in ("v1", "v2"):
+            raise ValueError("template_version must be 'v1' or 'v2'")
+        return v_lower
 
 
 class ReviewRequest(BaseModel):
@@ -159,10 +168,11 @@ async def generate_pmla(
             facility_id=request.facility_id,
             context=request.context,
             regenerate_sections=request.regenerate_sections,
+            template_version=request.template_version,
         )
         return result
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception:
         logger.exception("PMLA generation failed")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при генерации ПМЛА")

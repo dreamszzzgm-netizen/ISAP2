@@ -1,0 +1,958 @@
+{
+  "variables": [
+    {
+      "name": "contractor_organization_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 24,
+      "contexts": [
+        "{{ contractor_organization_name }}",
+        "{{ contractor_organization_name }}",
+        "{{ contractor_organization_name }}"
+      ]
+    },
+    {
+      "name": "organization_short_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml",
+        "word\\header1.xml"
+      ],
+      "count": 64,
+      "contexts": [
+        "{{ organization_short_name }}",
+        "{{ organization_short_name }}",
+        "{{ organization_short_name }}"
+      ]
+    },
+    {
+      "name": "director_initials_surname",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ director_initials_surname }}"
+      ]
+    },
+    {
+      "name": "facility_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 36,
+      "contexts": [
+        "{{ facility_name }}",
+        "{{ facility_name }}",
+        "{{ facility_name }}"
+      ]
+    },
+    {
+      "name": "facility_reg_number",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml",
+        "word\\header1.xml"
+      ],
+      "count": 29,
+      "contexts": [
+        "{{ facility_reg_number }}",
+        "{{ facility_reg_number }}",
+        "{{ facility_reg_number }}"
+      ]
+    },
+    {
+      "name": "hazard_class",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 7,
+      "contexts": [
+        "{{ hazard_class }}",
+        "{{ hazard_class }}",
+        "{{ hazard_class }}"
+      ]
+    },
+    {
+      "name": "facility_location",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 2,
+      "contexts": [
+        "{{ facility_location }}",
+        "{{ facility_location }}"
+      ]
+    },
+    {
+      "name": "settlement_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 2,
+      "contexts": [
+        "{{ settlement_name }}",
+        "{{ settlement_name }}"
+      ]
+    },
+    {
+      "name": "organization_full_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 2,
+      "contexts": [
+        "{{ organization_full_name }}",
+        "{{ organization_full_name }}"
+      ]
+    },
+    {
+      "name": "contractor_organization_short_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ contractor_organization_short_name }}"
+      ]
+    },
+    {
+      "name": "legal_address",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ legal_address }}"
+      ]
+    },
+    {
+      "name": "inn",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ inn }}"
+      ]
+    },
+    {
+      "name": "ogrn",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ ogrn }}"
+      ]
+    },
+    {
+      "name": "phone",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ phone }}"
+      ]
+    },
+    {
+      "name": "email",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ email }}"
+      ]
+    },
+    {
+      "name": "director_position_fullname",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ director_position_fullname }}"
+      ]
+    },
+    {
+      "name": "main_activity_description",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ main_activity_description }}"
+      ]
+    },
+    {
+      "name": "hazardous_substances_info",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ hazardous_substances_info }}"
+      ]
+    },
+    {
+      "name": "hazard_characteristics_116fz",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ hazard_characteristics_116fz }}"
+      ]
+    },
+    {
+      "name": "loop.index",
+      "type": "loop_var",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 2,
+      "contexts": [
+        "{{ loop.index }}",
+        "{{ loop.index }}"
+      ]
+    },
+    {
+      "name": "eq.location",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ eq.location }}"
+      ]
+    },
+    {
+      "name": "eq.hazard_characteristic",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ eq.hazard_characteristic }}"
+      ]
+    },
+    {
+      "name": "eq.device_name",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ eq.device_name }}"
+      ]
+    },
+    {
+      "name": "eq.specifications",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ eq.specifications }}"
+      ]
+    },
+    {
+      "name": "eq.process_codes",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ eq.process_codes }}"
+      ]
+    },
+    {
+      "name": "total_hazardous_substance_quantity",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ total_hazardous_substance_quantity }}"
+      ]
+    },
+    {
+      "name": "param.parameter",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ param.parameter }}"
+      ]
+    },
+    {
+      "name": "param.value",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ param.value }}"
+      ]
+    },
+    {
+      "name": "link.equipment_name",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ link.equipment_name }}"
+      ]
+    },
+    {
+      "name": "link.scenario_codes",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ link.scenario_codes }}"
+      ]
+    },
+    {
+      "name": "link.description",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ link.description }}"
+      ]
+    },
+    {
+      "name": "link.damaging_factors",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ link.damaging_factors }}"
+      ]
+    },
+    {
+      "name": "scenario.code",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ scenario.code }}"
+      ]
+    },
+    {
+      "name": "scenario.name",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ scenario.name }}"
+      ]
+    },
+    {
+      "name": "scenario.source",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ scenario.source }}"
+      ]
+    },
+    {
+      "name": "scenario.preconditions",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ scenario.preconditions }}"
+      ]
+    },
+    {
+      "name": "scenario.signs",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ scenario.signs }}"
+      ]
+    },
+    {
+      "name": "scenario.damaging_factors",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ scenario.damaging_factors }}"
+      ]
+    },
+    {
+      "name": "injury.year",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.year }}"
+      ]
+    },
+    {
+      "name": "injury.incident_number",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.incident_number }}"
+      ]
+    },
+    {
+      "name": "injury.date",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.date }}"
+      ]
+    },
+    {
+      "name": "injury.character",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.character }}"
+      ]
+    },
+    {
+      "name": "injury.trauma",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.trauma }}"
+      ]
+    },
+    {
+      "name": "injury.consequences",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.consequences }}"
+      ]
+    },
+    {
+      "name": "injury.measures_percent",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ injury.measures_percent }}"
+      ]
+    },
+    {
+      "name": "accident.year",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.year }}"
+      ]
+    },
+    {
+      "name": "accident.incident_number",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.incident_number }}"
+      ]
+    },
+    {
+      "name": "accident.date",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.date }}"
+      ]
+    },
+    {
+      "name": "accident.character",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.character }}"
+      ]
+    },
+    {
+      "name": "accident.trauma",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.trauma }}"
+      ]
+    },
+    {
+      "name": "accident.consequences",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.consequences }}"
+      ]
+    },
+    {
+      "name": "accident.measures_percent",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ accident.measures_percent }}"
+      ]
+    },
+    {
+      "name": "gas_supplier_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 10,
+      "contexts": [
+        "{{ gas_supplier_name }}",
+        "{{ gas_supplier_name }}",
+        "{{ gas_supplier_name }}"
+      ]
+    },
+    {
+      "name": "gas_supplier_branch",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 12,
+      "contexts": [
+        "{{ gas_supplier_branch }}",
+        "{{ gas_supplier_branch }}",
+        "{{ gas_supplier_branch }}"
+      ]
+    },
+    {
+      "name": "settlement_district",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ settlement_district }}"
+      ]
+    },
+    {
+      "name": "loop.index if not item.is_group_header else ''",
+      "type": "loop_var",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ loop.index if not item.is_group_header else '' }}"
+      ]
+    },
+    {
+      "name": "item.group_name if item.is_group_header else item.name",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ item.group_name if item.is_group_header else item.name }}"
+      ]
+    },
+    {
+      "name": "'' if item.is_group_header else item.quantity",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ '' if item.is_group_header else item.quantity }}"
+      ]
+    },
+    {
+      "name": "'' if item.is_group_header else item.location",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ '' if item.is_group_header else item.location }}"
+      ]
+    },
+    {
+      "name": "dislocation_address",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 3,
+      "contexts": [
+        "{{ dislocation_address }}",
+        "{{ dislocation_address }}",
+        "{{ dislocation_address }}"
+      ]
+    },
+    {
+      "name": "contractor_agreement_date",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ contractor_agreement_date }}"
+      ]
+    },
+    {
+      "name": "director_initials_surname_full",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ director_initials_surname_full }}"
+      ]
+    },
+    {
+      "name": "deputy_chairman_fullname",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ deputy_chairman_fullname }}"
+      ]
+    },
+    {
+      "name": "notification_deputy_phone | default('', true)",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ notification_deputy_phone | default('', true) }}"
+      ]
+    },
+    {
+      "name": "edds_name",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ edds_name }}"
+      ]
+    },
+    {
+      "name": "notification_fire_phone | default('', true)",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ notification_fire_phone | default('', true) }}"
+      ]
+    },
+    {
+      "name": "notification_ambulance_phone | default('112/03/103', true)",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ notification_ambulance_phone | default('112/03/103', true) }}"
+      ]
+    },
+    {
+      "name": "electric_company",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ electric_company }}"
+      ]
+    },
+    {
+      "name": "notification_electric_phone | default('', true)",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ notification_electric_phone | default('', true) }}"
+      ]
+    },
+    {
+      "name": "notification_mchs_phone | default('', true)",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ notification_mchs_phone | default('', true) }}"
+      ]
+    },
+    {
+      "name": "local_admin",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ local_admin }}"
+      ]
+    },
+    {
+      "name": "notification_admin_phone | default('', true)",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ notification_admin_phone | default('', true) }}"
+      ]
+    },
+    {
+      "name": "edds_district",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 2,
+      "contexts": [
+        "{{ edds_district }}",
+        "{{ edds_district }}"
+      ]
+    },
+    {
+      "name": "cm.scenario_label",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ cm.scenario_label }}"
+      ]
+    },
+    {
+      "name": "cm.signs",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ cm.signs }}"
+      ]
+    },
+    {
+      "name": "cm.protection",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ cm.protection }}"
+      ]
+    },
+    {
+      "name": "cm.technical_means",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ cm.technical_means }}"
+      ]
+    },
+    {
+      "name": "cm.executors",
+      "type": "nested",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ cm.executors }}"
+      ]
+    }
+  ],
+  "loop_lists": [
+    {
+      "list_name": "equipment_list",
+      "loop_variable": "eq",
+      "file": "word\\document.xml",
+      "definition": "eq in equipment_list",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "substance_params",
+      "loop_variable": "param",
+      "file": "word\\document.xml",
+      "definition": "param in substance_params",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "equipment_scenario_links",
+      "loop_variable": "link",
+      "file": "word\\document.xml",
+      "definition": "link in equipment_scenario_links",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "accident_scenarios",
+      "loop_variable": "scenario",
+      "file": "word\\document.xml",
+      "definition": "scenario in accident_scenarios",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "injury_history",
+      "loop_variable": "injury",
+      "file": "word\\document.xml",
+      "definition": "injury in injury_history",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "accident_history",
+      "loop_variable": "accident",
+      "file": "word\\document.xml",
+      "definition": "accident in accident_history",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "material_reserve",
+      "loop_variable": "item",
+      "file": "word\\document.xml",
+      "definition": "item in material_reserve",
+      "syntax": "tr"
+    },
+    {
+      "list_name": "countermeasures",
+      "loop_variable": "cm",
+      "file": "word\\document.xml",
+      "definition": "cm in countermeasures",
+      "syntax": "tr"
+    }
+  ],
+  "conditionals": [],
+  "filters": [
+    "default"
+  ],
+  "summary": {
+    "total_variable_occurrences": 260,
+    "unique_variable_names": 78,
+    "scalar_variables": 37,
+    "nested_variables": 39,
+    "loop_variables": 2,
+    "total_loops": 8,
+    "total_conditionals": 0,
+    "total_filters": 6,
+    "files_scanned": 16
+  }
+}
