@@ -259,10 +259,13 @@ _DEFAULT_RAG: dict[str, list[dict]] = {
 
 
 def _match_facility_type(facility_type: str) -> str | None:
-    """Find matching RAG fallback key for a facility type string."""
+    """Find matching RAG fallback key for a facility type string.
+
+    Uses longest-match-first to avoid short substrings claiming inputs.
+    """
     lower = facility_type.lower().strip()
-    for key in _RAG_FALLBACK:
-        if key in lower or lower in key:
+    for key in sorted(_RAG_FALLBACK, key=len, reverse=True):
+        if key in lower:
             return key
     return None
 

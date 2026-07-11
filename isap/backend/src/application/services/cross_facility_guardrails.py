@@ -24,10 +24,18 @@ FACILITY_TYPE_ALIASES: dict[str, str] = {
 
 
 def normalize_facility_type(facility_type: str) -> str:
-    """Normalize facility type to canonical internal key."""
+    """Normalize facility type to canonical internal key.
+
+    Uses longest-match-first: checks aliases from longest to shortest so that
+    'автомобильная газозаправочная станция' matches before 'агзс'.
+    Only exact containment (alias in input) is checked — short substrings of
+    an alias never incorrectly claim the input.
+    """
     lower = facility_type.lower().strip()
-    for alias, canonical in FACILITY_TYPE_ALIASES.items():
-        if alias in lower or lower in alias:
+    for alias, canonical in sorted(
+        FACILITY_TYPE_ALIASES.items(), key=lambda x: -len(x[0])
+    ):
+        if alias in lower:
             return canonical
     return lower
 
@@ -98,11 +106,7 @@ def check_cross_facility_contamination(
         return []
 
     normalized = normalize_facility_type(facility_type)
-    forbidden = []
-    for ftype, terms in CROSS_FACILITY_FORBIDDEN.items():
-        if ftype in normalized or normalized in ftype:
-            forbidden = terms
-            break
+    forbidden = CROSS_FACILITY_FORBIDDEN.get(normalized, [])
 
     if not forbidden:
         return []
