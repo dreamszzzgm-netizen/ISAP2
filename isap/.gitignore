@@ -16,6 +16,7 @@ backend/server_err.log
 .mimocode/
 *.docx
 *.pdf
+!files/pmla_v2_template.docx
 backend/test_*.py
 backend/test_all_requests.py
 graphify-out/
