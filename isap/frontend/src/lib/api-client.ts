@@ -198,7 +198,11 @@ export const isapApi = {
   reviewPmlaDocument: (documentId: string, action: "approve" | "reject", comment?: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla/${documentId}/review`, {
       method: "POST",
-      body: JSON.stringify({ action, reviewer_id: "ui-user", comment: comment || "" }),
+      body: JSON.stringify({
+        decision: action === "approve" ? "approved" : "rejected",
+        reviewer_id: "ui-user",
+        comments: comment ? [{ text: comment }] : [],
+      }),
     }),
 
   // Review Workflow (ручная проверка)
