@@ -267,10 +267,13 @@ _DEFAULT_CONTEXT = {
 
 
 def _match_facility_type(facility_type: str) -> str | None:
-    """Find matching knowledge base key for a facility type string."""
+    """Find matching knowledge base key for a facility type string.
+
+    Uses longest-match-first to avoid short substrings claiming inputs.
+    """
     lower = facility_type.lower().strip()
-    for key in _KNOWLEDGE_BASE:
-        if key in lower or lower in key:
+    for key in sorted(_KNOWLEDGE_BASE, key=len, reverse=True):
+        if key in lower:
             return key
     return None
 
