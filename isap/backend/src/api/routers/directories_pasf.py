@@ -19,6 +19,9 @@ router = APIRouter()
 class PasfCreateRequest(BaseModel):
     name: str
     short_name: str | None = None
+    organization_type: str | None = None
+    director_name: str | None = None
+    director_position: str | None = None
     legal_address: str | None = None
     actual_address: str | None = None
     dispatch_phone: str | None = None
@@ -32,12 +35,17 @@ class PasfCreateRequest(BaseModel):
     staff_count: str | None = None
     readiness_mode: str | None = None
     service_area: str | None = None
+    region: str | None = None
+    is_active: bool | None = None
     notes: str | None = None
 
 
 class PasfUpdateRequest(BaseModel):
     name: str | None = None
     short_name: str | None = None
+    organization_type: str | None = None
+    director_name: str | None = None
+    director_position: str | None = None
     legal_address: str | None = None
     actual_address: str | None = None
     dispatch_phone: str | None = None
@@ -51,6 +59,8 @@ class PasfUpdateRequest(BaseModel):
     staff_count: str | None = None
     readiness_mode: str | None = None
     service_area: str | None = None
+    region: str | None = None
+    is_active: bool | None = None
     notes: str | None = None
 
 
@@ -59,6 +69,9 @@ def _to_dict(obj) -> dict:
         "id": str(obj.id),
         "name": obj.name,
         "short_name": obj.short_name,
+        "organization_type": obj.organization_type,
+        "director_name": obj.director_name,
+        "director_position": obj.director_position,
         "legal_address": obj.legal_address,
         "actual_address": obj.actual_address,
         "dispatch_phone": obj.dispatch_phone,
@@ -72,6 +85,8 @@ def _to_dict(obj) -> dict:
         "staff_count": obj.staff_count,
         "readiness_mode": obj.readiness_mode,
         "service_area": obj.service_area,
+        "region": obj.region,
+        "is_active": bool(obj.is_active) if obj.is_active is not None else True,
         "notes": obj.notes,
         "created_at": obj.created_at.isoformat() if obj.created_at else None,
         "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,

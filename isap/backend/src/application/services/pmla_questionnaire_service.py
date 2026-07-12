@@ -287,6 +287,9 @@ class PmlaQuestionnaireService:
             "id": str(item.id),
             "name": item.name,
             "short_name": item.short_name,
+            "organization_type": item.organization_type,
+            "director_name": item.director_name,
+            "director_position": item.director_position,
             "actual_address": item.actual_address,
             "dispatch_phone": item.dispatch_phone,
             "email": item.email,
@@ -299,6 +302,8 @@ class PmlaQuestionnaireService:
             "staff_count": item.staff_count,
             "readiness_mode": item.readiness_mode,
             "service_area": item.service_area,
+            "region": item.region,
+            "is_active": bool(item.is_active) if item.is_active is not None else True,
         }
 
     async def _get_emergency_services(self, service_ids: list[Any]) -> list[dict[str, Any]]:
@@ -314,11 +319,15 @@ class PmlaQuestionnaireService:
                 "address": item.address,
                 "phone": item.phone,
                 "dispatcher_phone": item.dispatcher_phone,
+                "additional_phone": item.additional_phone,
                 "municipality": item.municipality,
                 "settlement": item.settlement,
                 "latitude": item.latitude,
                 "longitude": item.longitude,
                 "service_area": item.service_area,
+                "region": item.region,
+                "is_active": bool(item.is_active) if item.is_active is not None else True,
+                "verified_at": item.verified_at,
             }
             for item in result.scalars().all()
         ]

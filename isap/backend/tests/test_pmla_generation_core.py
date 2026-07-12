@@ -342,11 +342,55 @@ class TestPreflightRules:
         codes = [e.code for e in report.errors]
         assert "PASF_MISSING" in codes
 
-    def test_warning_on_missing_emergency_services(self):
+    def test_blocker_on_missing_emergency_services(self):
+        """Missing emergency services creates a BLOCKER in final mode."""
         ctx = make_full_context()
         ctx.emergency_services = []
-        report = run_preflight(ctx)
+        report = run_preflight(ctx, generation_mode="final")
+        assert report.has_blockers
+        assert "SVC_EMPTY_LIST" in [e.code for e in report.errors]
+
+    def test_warning_on_missing_emergency_services_in_draft(self):
+        """Missing emergency services creates a WARNING in draft mode."""
+        ctx = make_full_context()
+        ctx.emergency_services = []
+        report = run_preflight(ctx, generation_mode="draft")
         assert "SVC_EMPTY_LIST" in [w.code for w in report.warnings]
+
+    def test_blocker_on_disabled_pasf(self):
+        """Disabled PASF creates a BLOCKER."""
+        ctx = make_full_context()
+        ctx.pasf["is_active"] = False
+        report = run_preflight(ctx)
+        assert "PASF_DISABLED" in [e.code for e in report.errors]
+
+    def test_blocker_on_missing_pasf_certificate(self):
+        """PASF without certificate creates a BLOCKER."""
+        ctx = make_full_context()
+        ctx.pasf["certificate_number"] = ""
+        report = run_preflight(ctx)
+        assert "PASF_MISSING_CERTIFICATE" in [e.code for e in report.errors]
+
+    def test_blocker_on_disabled_emergency_service(self):
+        """Disabled emergency service creates a BLOCKER."""
+        ctx = make_full_context()
+        ctx.emergency_services[0]["is_active"] = False
+        report = run_preflight(ctx)
+        assert "SVC_DISABLED" in [e.code for e in report.errors]
+
+    def test_pasf_cert_expired_blocker_in_final(self):
+        """Expired PASF certificate creates BLOCKER in final."""
+        ctx = make_full_context()
+        ctx.pasf["certificate_valid_until"] = "2023-01-01"
+        report = run_preflight(ctx, generation_mode="final")
+        assert "PASF_CERT_EXPIRED" in [e.code for e in report.errors]
+
+    def test_pasf_cert_expired_warning_in_draft(self):
+        """Expired PASF certificate creates WARNING in draft."""
+        ctx = make_full_context()
+        ctx.pasf["certificate_valid_until"] = "2023-01-01"
+        report = run_preflight(ctx, generation_mode="draft")
+        assert "PASF_CERT_EXPIRED" in [w.code for w in report.warnings]
 
     def test_warning_on_missing_resources(self):
         ctx = make_full_context()
@@ -459,10 +503,10 @@ class TestMissingFieldsPreflight:
         assert any(e.code == "PASF_MISSING" for e in report.errors)
 
     def test_missing_emergency_services_creates_warning(self):
-        """Missing emergency services creates a WARNING."""
+        """Missing emergency services creates a WARNING in draft."""
         ctx = make_full_context()
         ctx.emergency_services = []
-        report = run_preflight(ctx)
+        report = run_preflight(ctx, generation_mode="draft")
         assert any(w.code == "SVC_EMPTY_LIST" for w in report.warnings)
 
     def test_empty_forces_not_replaced_with_fake(self):

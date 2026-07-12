@@ -24,11 +24,15 @@ class EmergencyServiceCreateRequest(BaseModel):
     address: str | None = None
     phone: str | None = None
     dispatcher_phone: str | None = None
+    additional_phone: str | None = None
     municipality: str | None = None
     settlement: str | None = None
     latitude: str | None = None
     longitude: str | None = None
     service_area: str | None = None
+    region: str | None = None
+    is_active: bool | None = None
+    verified_at: str | None = None
     notes: str | None = None
 
 
@@ -38,11 +42,15 @@ class EmergencyServiceUpdateRequest(BaseModel):
     address: str | None = None
     phone: str | None = None
     dispatcher_phone: str | None = None
+    additional_phone: str | None = None
     municipality: str | None = None
     settlement: str | None = None
     latitude: str | None = None
     longitude: str | None = None
     service_area: str | None = None
+    region: str | None = None
+    is_active: bool | None = None
+    verified_at: str | None = None
     notes: str | None = None
 
 
@@ -54,11 +62,15 @@ def _to_dict(obj) -> dict:
         "address": obj.address,
         "phone": obj.phone,
         "dispatcher_phone": obj.dispatcher_phone,
+        "additional_phone": obj.additional_phone,
         "municipality": obj.municipality,
         "settlement": obj.settlement,
         "latitude": obj.latitude,
         "longitude": obj.longitude,
         "service_area": obj.service_area,
+        "region": obj.region,
+        "is_active": bool(obj.is_active) if obj.is_active is not None else True,
+        "verified_at": obj.verified_at,
         "notes": obj.notes,
         "created_at": obj.created_at.isoformat() if obj.created_at else None,
         "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,

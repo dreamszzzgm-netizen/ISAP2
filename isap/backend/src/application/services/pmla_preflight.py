@@ -295,6 +295,26 @@ def run_preflight(context: PmlaGenerationContext,
         )
         report.add_missing_field("pasf")
     else:
+        # PASF is_active check
+        pasf_active = pasf.get("is_active")
+        if pasf_active is False or (isinstance(pasf_active, int) and pasf_active == 0):
+            report.add_issue(
+                code="PASF_DISABLED",
+                field="pasf.is_active",
+                message=f"ПАСФ '{pasf.get('name', '')}' отключён — выберите активный ПАСФ",
+                severity="BLOCKER",
+                recommended_action="Выберите активный ПАСФ из справочника",
+            )
+        # PASF certificate must exist
+        cert_number = pasf.get("certificate_number")
+        if _is_empty(cert_number):
+            report.add_issue(
+                code="PASF_MISSING_CERTIFICATE",
+                field="pasf.certificate_number",
+                message=f"У ПАСФ '{pasf.get('name', '')}' отсутствует свидетельство",
+                severity="BLOCKER",
+                recommended_action="Заполните номер свидетельства ПАСФ",
+            )
         if _is_empty(pasf.get("dispatch_phone")):
             report.add_issue(
                 code="PASF_MISSING_PHONE",
@@ -306,23 +326,25 @@ def run_preflight(context: PmlaGenerationContext,
         # PASF certificate expiry
         cert_until = pasf.get("certificate_valid_until")
         if cert_until and _check_date_expired(str(cert_until)):
+            cert_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
             report.add_issue(
                 code="PASF_CERT_EXPIRED",
                 field="pasf.certificate_valid_until",
-                message=f"Срок действия документа ПАСФ истёк: {cert_until}",
-                severity="WARNING",
-                recommended_action="Обновите документы ПАСФ",
+                message=f"Срок действия свидетельства ПАСФ истёк: {cert_until}",
+                severity=cert_severity,
+                recommended_action="Обновите свидетельство ПАСФ",
             )
             report.add_expired_document("certificate", pasf.get("name", ""), str(cert_until))
 
     # ── Emergency services checks ────────────────────────────────────
     services = context.emergency_services or []
     if not services:
+        svc_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
         report.add_issue(
             code="SVC_EMPTY_LIST",
             field="emergency_services",
             message="Не выбраны аварийные службы",
-            severity="WARNING",
+            severity=svc_severity,
             recommended_action="Выберите аварийные службы в анкете",
         )
         report.add_missing_field("emergency_services")
@@ -330,6 +352,16 @@ def run_preflight(context: PmlaGenerationContext,
         for svc in services:
             svc_name = svc.get("name", "")
             svc_phone = svc.get("phone") or svc.get("dispatcher_phone") or ""
+            # Service is_active check
+            svc_active = svc.get("is_active")
+            if svc_active is False or (isinstance(svc_active, int) and svc_active == 0):
+                report.add_issue(
+                    code="SVC_DISABLED",
+                    field=f"emergency_services.{services.index(svc)}.is_active",
+                    message=f"Служба '{svc_name}' отключена",
+                    severity="BLOCKER",
+                    recommended_action="Выберите активную аварийную службу",
+                )
             if _is_empty(svc_name):
                 report.add_issue(
                     code="SVC_MISSING_NAME",
