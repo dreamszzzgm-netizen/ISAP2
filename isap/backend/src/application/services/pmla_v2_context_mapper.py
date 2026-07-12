@@ -397,7 +397,7 @@ def _map_material_reserve(
                     result.append({
                         "is_group_header": False,
                         "name": _safe_str(item.get("name") or item.get("title", "")),
-                        "quantity": _safe_str(item.get("quantity") or "1"),
+                        "quantity": _safe_str(item.get("quantity") or "—"),
                         "location": _safe_str(item.get("location") or item.get("storage_place", "—")),
                     })
         if recommended:
@@ -407,7 +407,7 @@ def _map_material_reserve(
                     result.append({
                         "is_group_header": False,
                         "name": _safe_str(item.get("name") or item.get("title", "")),
-                        "quantity": _safe_str(item.get("quantity") or "1"),
+                        "quantity": _safe_str(item.get("quantity") or "—"),
                         "location": _safe_str(item.get("location") or item.get("storage_place", "—")),
                     })
     elif isinstance(organization_resources, list):
@@ -419,7 +419,7 @@ def _map_material_reserve(
                     result.append({
                         "is_group_header": False,
                         "name": _safe_str(item.get("name") or item.get("title", "")),
-                        "quantity": _safe_str(item.get("quantity") or "1"),
+                        "quantity": _safe_str(item.get("quantity") or "—"),
                         "location": _safe_str(item.get("location") or "—"),
                     })
     

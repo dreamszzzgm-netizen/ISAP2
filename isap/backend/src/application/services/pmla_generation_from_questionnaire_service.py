@@ -66,19 +66,44 @@ class PmlaGenerationFromQuestionnaireService:
         template_version: str = "v1",
         regenerate_sections: list[str] | None = None,
         save_debug_artifacts: bool = True,
+        generation_mode: str = "final",
+        preflight_report=None,
+        generation_context=None,
     ) -> QuestionnaireGenerationResult:
-        """Generate a PMLA document using questionnaire-derived context."""
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info("Questionnaire generation requested: questionnaire_id=%s template_version=%s", questionnaire_id, template_version)
+        """Generate a PMLA document using questionnaire-derived context.
 
-        context = await self.questionnaires.build_generation_context(questionnaire_id)
+        Args:
+            questionnaire_id: UUID of the questionnaire
+            template_version: "v1" or "v2"
+            regenerate_sections: Optional list of section IDs to regenerate (v1 only)
+            save_debug_artifacts: Whether to save debug artifacts to disk
+            generation_mode: "draft" or "final" — controls preflight strictness
+            preflight_report: Optional pre-existing preflight report
+            generation_context: Optional pre-built PmlaGenerationContext
+
+        Returns:
+            QuestionnaireGenerationResult with document info and quality review
+        """
+        logger.info(
+            "Questionnaire generation requested: questionnaire_id=%s "
+            "template_version=%s generation_mode=%s",
+            questionnaire_id, template_version, generation_mode,
+        )
+
+        # Build generation context if not provided
+        if generation_context is not None:
+            context = generation_context.to_dict()
+        else:
+            context = await self.questionnaires.build_generation_context(questionnaire_id)
 
         if template_version == "v2":
             return await self._generate_v2(
                 questionnaire_id=questionnaire_id,
                 context=context,
                 save_debug_artifacts=save_debug_artifacts,
+                generation_mode=generation_mode,
+                preflight_report=preflight_report,
+                generation_context=generation_context,
             )
 
         # v1 path (existing behaviour, unchanged)
@@ -185,8 +210,14 @@ class PmlaGenerationFromQuestionnaireService:
         questionnaire_id: UUID,
         context: dict[str, Any],
         save_debug_artifacts: bool = True,
+        generation_mode: str = "final",
+        preflight_report=None,
+        generation_context=None,
     ) -> QuestionnaireGenerationResult:
-        """v2 template-based generation from questionnaire context."""
+        """v2 template-based generation from questionnaire context.
+
+        Supports draft/final generation modes and preflight validation.
+        """
         from src.application.services.pmla_v2_context_mapper import (
             map_to_v2_context,
             validate_v2_context,
@@ -201,6 +232,28 @@ class PmlaGenerationFromQuestionnaireService:
         facility_id = UUID(str(facility.get("id")))
         organization_id = UUID(str(organization.get("id")))
 
+        # Save preflight status in generation metadata
+        preflight_meta = {}
+        if preflight_report is not None:
+            preflight_meta["preflight_status"] = preflight_report.status
+            preflight_meta["preflight_blockers"] = len(preflight_report.errors)
+            preflight_meta["preflight_warnings"] = len(preflight_report.warnings)
+            preflight_meta["generation_mode"] = generation_mode
+            preflight_meta["preflight_report"] = preflight_report.to_dict()
+
+        # Save provenance in generation metadata
+        provenance_meta = {}
+        if generation_context is not None and generation_context.has_provenance:
+            provenance_meta = {
+                k: v.to_dict() for k, v in generation_context.provenance.items()
+            }
+
+        # In draft mode, mark document as PROJECT
+        is_draft = generation_mode == "draft"
+        document_suffix = ""
+        if is_draft:
+            document_suffix = " (ПРОЕКТ)"
+
         # Map questionnaire context to v2 schema format
         try:
             v2_context = map_to_v2_context(context)
@@ -210,7 +263,7 @@ class PmlaGenerationFromQuestionnaireService:
 
         # Validate against v2 schema
         validation_errors = validate_v2_context(v2_context)
-        if validation_errors:
+        if validation_errors and generation_mode == "final":
             error_detail = "; ".join(validation_errors[:10])
             raise ValueError(
                 "PMLA_V2_CONTEXT_VALIDATION_FAILED: "
@@ -223,7 +276,7 @@ class PmlaGenerationFromQuestionnaireService:
             hazardous_facility_id=facility_id,
             organization_id=organization_id,
             document_type="pmla",
-            title="План мероприятий по локализации и ликвидации последствий аварий",
+            title=f"План мероприятий по локализации и ликвидации последствий аварий{document_suffix}",
             status="processing",
             version=await self.document_repo.get_max_version_for_questionnaire(questionnaire_id) + 1,
             generation_meta={
@@ -233,7 +286,11 @@ class PmlaGenerationFromQuestionnaireService:
                 "template_file": "pmla_v2_template.docx",
                 "questionnaire_id": str(questionnaire_id),
                 "facility_id": str(facility_id),
+                "generation_mode": generation_mode,
+                "is_draft": is_draft,
                 "created_from_questionnaire_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                **preflight_meta,
+                "provenance": provenance_meta,
             },
             created_at=datetime.now(UTC).replace(tzinfo=None),
         )

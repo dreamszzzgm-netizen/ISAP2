@@ -35,6 +35,7 @@ class GenerateFromQuestionnaireRequest(BaseModel):
     template_version: str = "v1"
     regenerate_sections: list[str] | None = None
     save_debug_artifacts: bool = True
+    generation_mode: str = "final"
 
     @field_validator("template_version")
     @classmethod
@@ -42,6 +43,14 @@ class GenerateFromQuestionnaireRequest(BaseModel):
         v_lower = v.lower().strip()
         if v_lower not in ("v1", "v2"):
             raise ValueError("template_version must be 'v1' or 'v2'")
+        return v_lower
+
+    @field_validator("generation_mode")
+    @classmethod
+    def _validate_generation_mode(cls, v: str) -> str:
+        v_lower = v.lower().strip()
+        if v_lower not in ("draft", "final"):
+            raise ValueError("generation_mode must be 'draft' or 'final'")
         return v_lower
 
 
@@ -122,10 +131,38 @@ async def generate_from_questionnaire(
     regulatory_repo: RegulatoryRepository = Depends(get_regulatory_repo),
     scenario_matrix_repo: ScenarioMatrixRepository = Depends(get_scenario_matrix_repo),
     sample_repo=Depends(get_pmla_sample_repo),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Generate PMLA using questionnaire-derived context."""
+    """Generate PMLA using questionnaire-derived context.
+
+    Supports ``generation_mode`` ("draft" | "final").
+    To run preflight only, use ``POST /{questionnaire_id}/preflight``.
+    """
     request = request or GenerateFromQuestionnaireRequest()
     try:
+        # Build typed generation context
+        from src.application.services.pmla_context_builder import PmlaContextBuilder
+
+        q_service = PmlaQuestionnaireService(db)
+        builder = PmlaContextBuilder(db)
+        gen_ctx = await builder.from_questionnaire(q_service, questionnaire_id)
+        gen_ctx.generation_mode = request.generation_mode
+
+        # Always run preflight
+        from src.application.services.pmla_preflight import run_preflight
+
+        preflight_report = run_preflight(gen_ctx, generation_mode=gen_ctx.generation_mode)
+        gen_ctx.preflight_status = preflight_report.status
+
+        # Check if generation is blocked in final mode
+        if request.generation_mode == "final" and preflight_report.has_blockers:
+            return {
+                "status": "blocked",
+                "questionnaire_id": str(questionnaire_id),
+                "reason": "Preflight validation failed",
+                "preflight": preflight_report.to_dict(),
+            }
+
         service = PmlaGenerationFromQuestionnaireService(
             document_repo=document_repo,
             regulatory_repo=regulatory_repo,
@@ -137,6 +174,9 @@ async def generate_from_questionnaire(
             template_version=request.template_version,
             regenerate_sections=request.regenerate_sections,
             save_debug_artifacts=request.save_debug_artifacts,
+            generation_mode=request.generation_mode,
+            preflight_report=preflight_report,
+            generation_context=gen_ctx,
         )
         return {
             "document_id": str(result.document_id),
@@ -147,6 +187,10 @@ async def generate_from_questionnaire(
             "context_quality": result.context_quality,
             "quality_review": result.quality_review,
             "debug_artifacts": result.debug_artifacts,
+            "preflight": preflight_report.to_dict(),
+            "provenance": {
+                k: v.to_dict() for k, v in gen_ctx.provenance.items()
+            },
         }
     except ValueError as exc:
         detail = str(exc)
@@ -155,6 +199,42 @@ async def generate_from_questionnaire(
         raise HTTPException(status_code=404, detail=detail) from exc
     except Exception as exc:  # noqa: BLE001 - API boundary
         raise HTTPException(status_code=500, detail=f"Ошибка генерации ПМЛА из анкеты: {exc}") from exc
+
+
+@router.post("/{questionnaire_id}/preflight")
+async def preflight_questionnaire(
+    questionnaire_id: UUID,
+    generation_mode: str = "final",
+    db: AsyncSession = Depends(get_db),
+):
+    """Run preflight validation on questionnaire data without generating a document.
+
+    Returns detailed preflight report with BLOCKER, WARNING, and INFO issues.
+    """
+    from src.application.services.pmla_context_builder import PmlaContextBuilder
+
+    try:
+        q_service = PmlaQuestionnaireService(db)
+        builder = PmlaContextBuilder(db)
+        gen_ctx = await builder.from_questionnaire(q_service, questionnaire_id)
+        gen_ctx.generation_mode = generation_mode
+
+        from src.application.services.pmla_preflight import run_preflight
+
+        report = run_preflight(gen_ctx, generation_mode=gen_ctx.generation_mode)
+
+        return {
+            "questionnaire_id": str(questionnaire_id),
+            "facility_id": str(gen_ctx.facility.get("id", "")),
+            "preflight": report.to_dict(),
+            "generation_mode": generation_mode,
+            "generation_blocked": report.has_blockers and generation_mode == "final",
+            "provenance": {
+                k: v.to_dict() for k, v in gen_ctx.provenance.items()
+            },
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/{questionnaire_id}/documents")
