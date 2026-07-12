@@ -129,10 +129,31 @@ export type ImportPreviewResult = {
   header_mapping?: Record<string, string>
 }
 
+/** PMLA template version selector */
+export type PmlaTemplateVersion = "v1" | "v2";
+
 export const isapApi = {
   health: () => apiRequest<{ status: string }>("/health"),
   organizations: () => apiRequest<unknown[]>("/api/v1/organizations/"),
+
+  // ── Facilities / ОПО ──
   facilities: () => apiRequest<Record<string, unknown>[]>("/api/v1/facilities/"),
+  createFacility: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/facilities/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateFacility: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteFacility: (id: string) =>
+    apiRequest<unknown>(`/api/v1/facilities/${id}`, { method: "DELETE" }),
+  getFacility: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}`),
+  getFacilityFull: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}/full`),
   pmlaDocuments: () => apiRequest<unknown[]>("/api/v1/pmla/"),
   pmlaExpiring: (days = 30) => apiRequest<unknown[]>(`/api/v1/pmla/expiring?days=${days}`),
   aiConfig: () => apiRequest<Record<string, unknown>>("/api/v1/ai/config"),
@@ -162,11 +183,11 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/pmla-questionnaires/${questionnaireId}/context`),
   generatePmlaFromQuestionnaire: (
     questionnaireId: string,
-    options: { regenerate_sections?: string[] | null; save_debug_artifacts?: boolean } = {},
+    options: { template_version?: PmlaTemplateVersion; regenerate_sections?: string[] | null; save_debug_artifacts?: boolean } = {},
   ) =>
     apiRequest<PmlaGenerationResult>(`/api/v1/pmla-questionnaires/${questionnaireId}/generate`, {
       method: "POST",
-      body: JSON.stringify({ regenerate_sections: null, save_debug_artifacts: true, ...options }),
+      body: JSON.stringify({ template_version: "v1", regenerate_sections: null, save_debug_artifacts: true, ...options }),
     }),
   previewPmlaQuestionnaireImport: (file: File) =>
     apiUpload<ImportPreviewResult>("/api/v1/imports/pmla_questionnaire/preview", file),

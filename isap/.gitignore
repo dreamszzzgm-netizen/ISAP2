@@ -17,6 +17,10 @@ backend/server_err.log
 *.docx
 *.pdf
 !files/pmla_v2_template.docx
+!files/pmla_v2.schema.json
+*.bak
+*.bak*
+*.xmlbak
 backend/test_*.py
 backend/test_all_requests.py
 graphify-out/

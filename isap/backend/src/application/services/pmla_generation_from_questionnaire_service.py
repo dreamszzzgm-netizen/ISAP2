@@ -63,11 +63,25 @@ class PmlaGenerationFromQuestionnaireService:
         self,
         *,
         questionnaire_id: UUID,
+        template_version: str = "v1",
         regenerate_sections: list[str] | None = None,
         save_debug_artifacts: bool = True,
     ) -> QuestionnaireGenerationResult:
         """Generate a PMLA document using questionnaire-derived context."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Questionnaire generation requested: questionnaire_id=%s template_version=%s", questionnaire_id, template_version)
+
         context = await self.questionnaires.build_generation_context(questionnaire_id)
+
+        if template_version == "v2":
+            return await self._generate_v2(
+                questionnaire_id=questionnaire_id,
+                context=context,
+                save_debug_artifacts=save_debug_artifacts,
+            )
+
+        # v1 path (existing behaviour, unchanged)
         context = self.adapt_context_for_generator(context)
         quality = self.validate_questionnaire_context(context)
 
@@ -161,6 +175,159 @@ class PmlaGenerationFromQuestionnaireService:
             questionnaire_id=questionnaire_id,
             facility_id=facility_id,
             context_quality=quality,
+            quality_review=quality_review,
+            debug_artifacts=artifacts,
+        )
+
+    async def _generate_v2(
+        self,
+        *,
+        questionnaire_id: UUID,
+        context: dict[str, Any],
+        save_debug_artifacts: bool = True,
+    ) -> QuestionnaireGenerationResult:
+        """v2 template-based generation from questionnaire context."""
+        from src.application.services.pmla_v2_context_mapper import (
+            map_to_v2_context,
+            validate_v2_context,
+        )
+        from src.infrastructure.export.pmla_template_renderer import PmlaTemplateRenderer
+
+        logger.info("Starting v2 generation for questionnaire %s", questionnaire_id)
+
+        facility = context.get("facility") or {}
+        organization = context.get("organization") or {}
+        questionnaire = context.get("questionnaire") or {}
+        facility_id = UUID(str(facility.get("id")))
+        organization_id = UUID(str(organization.get("id")))
+
+        # Map questionnaire context to v2 schema format
+        try:
+            v2_context = map_to_v2_context(context)
+        except Exception as exc:
+            logger.error("v2 context mapping failed for questionnaire %s: %s", questionnaire_id, exc)
+            raise ValueError(f"Ошибка маппинга контекста для v2: {exc}") from exc
+
+        # Validate against v2 schema
+        validation_errors = validate_v2_context(v2_context)
+        if validation_errors:
+            error_detail = "; ".join(validation_errors[:10])
+            raise ValueError(
+                "PMLA_V2_CONTEXT_VALIDATION_FAILED: "
+                f"Контекст не прошёл валидацию ({len(validation_errors)} ошибок). "
+                f"Необходимо заполнить следующие поля в анкете: {error_detail}"
+            )
+
+        # Create document record
+        doc = DocumentModel(
+            hazardous_facility_id=facility_id,
+            organization_id=organization_id,
+            document_type="pmla",
+            title="План мероприятий по локализации и ликвидации последствий аварий",
+            status="processing",
+            version=await self.document_repo.get_max_version_for_questionnaire(questionnaire_id) + 1,
+            generation_meta={
+                "source": "pmla_v2_template",
+                "template_version": "v2",
+                "generation_pipeline": "pmla_template_renderer",
+                "template_file": "pmla_v2_template.docx",
+                "questionnaire_id": str(questionnaire_id),
+                "facility_id": str(facility_id),
+                "created_from_questionnaire_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+            },
+            created_at=datetime.now(UTC).replace(tzinfo=None),
+        )
+        self.document_repo.session.add(doc)
+        await self.document_repo.session.commit()
+        await self.document_repo.session.refresh(doc)
+
+        try:
+            # Render DOCX via v2 template
+            renderer = PmlaTemplateRenderer()
+            docx_bytes = renderer.render(v2_context)
+
+            # Save to DB
+            doc.content_docx = docx_bytes
+            doc.status = "pending_review"
+            doc.generation_meta["output_size"] = len(docx_bytes)
+            await self.document_repo.session.commit()
+            await self.document_repo.session.refresh(doc)
+
+            # Try to create PDF via LibreOffice
+            pdf_bytes = None
+            try:
+                import subprocess
+                import tempfile
+                from pathlib import Path
+
+                with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp_docx:
+                    tmp_docx.write(docx_bytes)
+                    tmp_docx_path = tmp_docx.name
+
+                tmp_pdf_path = Path(tmp_docx_path).with_suffix(".pdf")
+                subprocess.run(
+                    ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", str(tmp_pdf_path.parent), tmp_docx_path],
+                    capture_output=True, timeout=60,
+                )
+                if tmp_pdf_path.exists():
+                    pdf_bytes = tmp_pdf_path.read_bytes()
+                    doc.content_pdf = pdf_bytes
+                    await self.document_repo.session.commit()
+                    await self.document_repo.session.refresh(doc)
+                Path(tmp_docx_path).unlink(missing_ok=True)
+                tmp_pdf_path.unlink(missing_ok=True)
+            except Exception as pdf_exc:
+                logger.warning("PDF generation skipped for questionnaire %s: %s", questionnaire_id, pdf_exc)
+
+            # Make quality review
+            review_service = PmlaQualityReviewService()
+            quality_review = review_service.review(
+                questionnaire_context=context,
+                generation_meta=doc.generation_meta or {},
+                docx_path=None,
+                content_docx=docx_bytes,
+            ).to_dict()
+
+            # Quality check for mojibake
+            text_lower = ""
+            try:
+                import io
+                from docx import Document as DocxDocument
+                text_lower = " ".join(p.text for p in DocxDocument(io.BytesIO(docx_bytes)).paragraphs).lower()
+            except Exception:
+                pass
+            mojibake_markers = ["рџ", "рў", "с\u0453", "р°р"]
+            if any(marker in text_lower for marker in mojibake_markers):
+                logger.error("MOJIBAKE detected in v2 output for questionnaire %s", questionnaire_id)
+                quality_review["mojibake_detected"] = True
+                quality_review["warnings"] = quality_review.get("warnings", []) + ["Обнаружен mojibake в выходном документе"]
+
+        except Exception as exc:
+            logger.exception("v2 generation failed for questionnaire %s", questionnaire_id)
+            doc.status = "failed"
+            doc.generation_meta["error"] = str(exc)
+            await self.document_repo.session.commit()
+            raise ValueError(f"Ошибка генерации v2: {exc}") from exc
+
+        version = getattr(doc, "version", 1)
+        artifacts = None
+        if save_debug_artifacts:
+            artifacts = self._save_debug_artifacts(
+                questionnaire_id=questionnaire_id,
+                document_id=doc.id,
+                context=context,
+                quality={"passed": True, "errors": [], "warnings": []},
+                document=doc,
+                quality_review=quality_review,
+            )
+
+        return QuestionnaireGenerationResult(
+            document_id=doc.id,
+            status=doc.status,
+            version=version,
+            questionnaire_id=questionnaire_id,
+            facility_id=facility_id,
+            context_quality={"passed": True, "errors": [], "warnings": []},
             quality_review=quality_review,
             debug_artifacts=artifacts,
         )

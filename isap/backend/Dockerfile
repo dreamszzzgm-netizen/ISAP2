@@ -1,9 +1,17 @@
-FROM python:3.11-slim
+# Используем NVIDIA CUDA + Python образ для GPU-ускорения
+# При первом запуске потребуется авторизация в NGC registry:
+#   docker login nvcr.io
+# Username: $oauthtoken
+# Password: ваш NGC_API_KEY
+FROM nvcr.io/nvidia/cuda:12.4.0-runtime-ubuntu22.04
 
 WORKDIR /app
 
-# Системные зависимости: PyMuPDF, asyncpg, шрифты, LibreOffice (конвертация PDF)
+# Устанавливаем Python 3.11 и системные зависимости
 RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-distutils \
+    python3-pip \
     gcc \
     libpq-dev \
     fonts-dejavu-core \
@@ -12,6 +20,10 @@ RUN apt-get update && apt-get install -y \
     libreoffice-core \
     libreoffice-writer \
     && rm -rf /var/lib/apt/lists/*
+
+# Настраиваем python3.11 как python по умолчанию
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 # Копируем зависимости
 COPY pyproject.toml .

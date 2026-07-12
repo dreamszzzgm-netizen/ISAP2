@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Path to the v2 schema file
 _SCHEMA_PATH = Path(__file__).resolve().parents[4] / "files" / "pmla_v2.schema.json"
+# Fallback for container: /files/pmla_v2.schema.json (mounted from host ./files/)
+_CONTAINER_SCHEMA_PATH = Path("/files/pmla_v2.schema.json")
 
 
 # ---------------------------------------------------------------------------
@@ -646,6 +648,8 @@ def validate_v2_context(context: dict) -> list[str]:
     
     schema_path = _SCHEMA_PATH
     if not schema_path.exists():
+        schema_path = _CONTAINER_SCHEMA_PATH
+    if not schema_path.exists():
         alt = Path(__file__).resolve().parents[4] / "files" / "pmla_v2.schema.json"
         if alt.exists():
             schema_path = alt
@@ -663,20 +667,27 @@ def validate_v2_context(context: dict) -> list[str]:
     required_fields = set(schema.get("required", []))
     properties = schema.get("properties", {})
     
-    # Pass 1: check that all required fields exist and are non-null
+    # Pass 1: check that all required fields exist and are non-null, non-empty
     for req_field in required_fields:
         if req_field not in context or context[req_field] is None:
             errors.append(f"Отсутствует обязательное поле: {req_field}")
             continue
+        val = context[req_field]
         prop = properties.get(req_field, {})
         prop_type = prop.get("type", "")
         if prop_type == "array":
-            if not isinstance(context[req_field], list):
+            if not isinstance(val, list):
                 errors.append(f"Поле {req_field} должно быть массивом")
+            elif len(val) == 0:
+                errors.append(f"Поле {req_field} не должно быть пустым")
         elif prop_type == "string":
-            val = context[req_field]
             if not isinstance(val, str):
                 errors.append(f"Поле {req_field} должно быть строкой")
+            elif not val.strip() or val.strip() in ("", "—"):
+                errors.append(f"Поле {req_field} обязательно для заполнения")
+        elif prop_type == "number":
+            if val == "" or val is None:
+                errors.append(f"Поле {req_field} обязательно для заполнения")
     
     # Pass 2: jsonschema validation — collect pattern mismatches as warnings
     # for phone/date fields (template handles these with Jinja defaults),

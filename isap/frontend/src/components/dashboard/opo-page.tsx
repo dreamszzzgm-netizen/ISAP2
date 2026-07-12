@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Plus, Search, ChevronDown, ChevronUp, FileText, Upload, Trash2, File, FilePlus2 } from "lucide-react"
+import { useEffect, useState, useRef } from "react"
+import { Plus, Search, ChevronDown, ChevronUp, FileText, Upload, Trash2, File, FilePlus2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useNavStore } from "@/lib/nav-store"
+import { isapApi } from "@/lib/api-client"
 import { SmartImport } from "@/components/dashboard/smart-import"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,6 +52,29 @@ interface OpoObject {
   address: string
 }
 
+function hazardClassToLabel(cls: string | number | null | undefined): string {
+  if (!cls && cls !== 0) return ""
+  const num = typeof cls === "string" ? parseInt(cls, 10) : cls
+  switch (num) {
+    case 1: return "I"
+    case 2: return "II"
+    case 3: return "III"
+    case 4: return "IV"
+    default: return String(cls || "")
+  }
+}
+
+function mapFromApi(item: Record<string, unknown>): OpoObject {
+  return {
+    id: String(item.id || ""),
+    name: String(item.name || ""),
+    orgName: String((item as any).organization_name || item.organization_id || ""),
+    regNumber: String(item.reg_number || ""),
+    dangerClass: hazardClassToLabel(item.hazard_class),
+    address: String(item.address || ""),
+  }
+}
+
 interface OpoData {
   objectName: string
   objectAddress: string
@@ -94,14 +118,6 @@ const PREPARE_DOCS = [
   { key: "orders_instructions", label: "Приказов Инструкций" },
   { key: "production_control_report", label: "Отчет о Производственном контроле" },
   { key: "letter", label: "Письмо" },
-]
-
-/* ─── Моковые данные ─── */
-
-const mockOpo: OpoObject[] = [
-  { id: "ОПО-001", name: "Резервуарный парк РВС-5000", orgName: "ООО «Нефтегазпром»", regNumber: "ОПО-77-00123", dangerClass: "I", address: "г. Москва, ул. Нефтяная, д. 5" },
-  { id: "ОПО-002", name: "ГАЗ-005", orgName: "АО «Химический завод»", regNumber: "ОПО-16-00456", dangerClass: "II", address: "г. Казань, промзона «Северная», уч. 12" },
-  { id: "ОПО-003", name: "Опасный производственный объект склад аммиака", orgName: "ИП Сидоров К.А.", regNumber: "ОПО-78-00789", dangerClass: "III", address: "г. Санкт-Петербург, ш. Революции, д. 88" },
 ]
 
 /* ─── Компонент: Секция с кнопкой ─── */
@@ -349,6 +365,24 @@ function OpoCardForm({ initialData, onSave, onCancel }: {
   })
   const [docs, setDocs] = useState<DocItem[]>([])
 
+  /** Заполнить поля формы данными из импорта */
+  const handleImport = (data: Record<string, unknown>) => {
+    // Маппинг полей из WordImportService → поля формы
+    // WordImportService возвращает: f1_1 (название), f1_4 (адрес),
+    // danger_class, reg_number, f1_7_1 (собственник)
+    const name = String(data.f1_1 || data.name || data.full_name || "")
+    const address = String(data.f1_4 || data.address || data.legal_address || "")
+    const dangerClass = String(data.danger_class || "")
+    const regNumber = String(data.reg_number || data.f1_3 || "")
+
+    if (name) setOpoData((prev) => ({ ...prev, objectName: name }))
+    if (address) setOpoData((prev) => ({ ...prev, objectAddress: address }))
+    if (regNumber) setOpoData((prev) => ({ ...prev, regNumber }))
+    if (dangerClass) setOpoData((prev) => ({ ...prev, dangerClass }))
+
+    toast.success("Поля ОПО заполнены из импорта")
+  }
+
   return (
     <div className="space-y-4">
       {/* Данные об ОПО — всегда открыты */}
@@ -362,7 +396,11 @@ function OpoCardForm({ initialData, onSave, onCancel }: {
       {/* Умный импорт */}
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Импорт данных</h3>
-        <SmartImport hint="Импорт данных ОПО из файла (паспорт ОПО, декларация ПБ, сведения, характеризующие ОПО)" />
+        <SmartImport
+          hint="Импорт данных ОПО из файла (паспорт ОПО, декларация ПБ, сведения, характеризующие ОПО)"
+          apiEndpoint="/api/v1/facilities/import-word"
+          onImported={handleImport}
+        />
       </div>
 
       <Separator />
@@ -420,11 +458,48 @@ function OpoCardForm({ initialData, onSave, onCancel }: {
 /* ─── Основная страница ─── */
 
 export function OpoPage() {
-  const { openFacilityDetail } = useNavStore()
-  const [opos, setOpos] = useState<OpoObject[]>(mockOpo)
+  const { openFacilityDetail, opoPreSelectedOrgId, setActivePage } = useNavStore()
+  const [opos, setOpos] = useState<OpoObject[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [open, setOpen] = useState(false)
   const [editingOpo, setEditingOpo] = useState<OpoObject | undefined>(undefined)
+  const [saving, setSaving] = useState(false)
+
+  const loadOpos = async () => {
+    try {
+      setLoading(true)
+      const data = await isapApi.facilities()
+      setOpos((data || []).map(mapFromApi))
+    } catch (err) {
+      toast.error("Ошибка загрузки ОПО", {
+        description: err instanceof Error ? err.message : "Неизвестная ошибка",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Загружаем с сервера при монтировании
+  const loadedRef = useRef(false)
+  useEffect(() => {
+    if (!loadedRef.current) {
+      loadedRef.current = true
+      loadOpos()
+    }
+  }, [])
+
+  // Если пришли из карточки организации — открыть диалог создания
+  useEffect(() => {
+    if (opoPreSelectedOrgId && !loadedRef.current) {
+      // Ждём загрузку, потом откроем
+      return
+    }
+    if (opoPreSelectedOrgId && loadedRef.current && !open) {
+      setEditingOpo(undefined)
+      setOpen(true)
+    }
+  }, [opoPreSelectedOrgId, open])
 
   const openCard = (opo: OpoObject) => {
     setEditingOpo(opo)
@@ -438,22 +513,61 @@ export function OpoPage() {
     o.address.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleSave = (data: Partial<OpoObject>) => {
-    if (editingOpo) {
-      setOpos((prev) => prev.map((o) => o.id === editingOpo.id ? { ...o, ...data } : o))
-    } else {
-      const newOpo: OpoObject = {
-        id: `ОПО-${String(opos.length + 1).padStart(3, "0")}`,
-        name: data.name || "",
-        orgName: "",
-        regNumber: data.regNumber || "",
-        dangerClass: data.dangerClass || "",
-        address: data.address || "",
+  const handleSave = async (data: Partial<OpoObject>) => {
+    try {
+      setSaving(true)
+      if (editingOpo) {
+        // Обновление существующего
+        const hazardClass = data.dangerClass
+          ? "IVII".indexOf(data.dangerClass) + 1 || undefined
+          : undefined
+        await isapApi.updateFacility(editingOpo.id, {
+          name: data.name,
+          address: data.address,
+          reg_number: data.regNumber,
+          hazard_class: hazardClass,
+        })
+        toast.success("Объект ОПО обновлён")
+      } else {
+        // Создание нового
+        const hazardClass = data.dangerClass
+          ? "IVII".indexOf(data.dangerClass) + 1 || undefined
+          : undefined
+        const orgId = opoPreSelectedOrgId || undefined
+        await isapApi.createFacility({
+          organization_id: orgId || "00000000-0000-0000-0000-000000000001",
+          name: data.name || "Новый объект",
+          reg_number: data.regNumber,
+          hazard_class: hazardClass,
+          address: data.address,
+        })
+        toast.success("Новый объект ОПО создан")
       }
-      setOpos((prev) => [...prev, newOpo])
+      setOpen(false)
+      setEditingOpo(undefined)
+      // Сбросить pre-selected org
+      setActivePage("opo")
+      // Перезагрузить список
+      await loadOpos()
+    } catch (err) {
+      toast.error("Ошибка сохранения", {
+        description: err instanceof Error ? err.message : "Неизвестная ошибка",
+      })
+    } finally {
+      setSaving(false)
     }
-    setOpen(false)
-    setEditingOpo(undefined)
+  }
+
+  const handleDelete = async (opo: OpoObject) => {
+    try {
+      await isapApi.deleteFacility(opo.id)
+      setOpos((prev) => prev.filter((o) => o.id !== opo.id))
+      toast.success("Объект ОПО удалён", { description: opo.name })
+    } catch (err) {
+      toast.error("Ошибка удаления", {
+        description: err instanceof Error ? err.message : "Неизвестная ошибка",
+      })
+    }
   }
 
   const dangerClassBadge = (cls: string) => {
@@ -475,20 +589,26 @@ export function OpoPage() {
             Реестр опасных производственных объектов с данными и документами
           </p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingOpo(undefined) }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Добавить ОПО
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingOpo ? "Карточка объекта ОПО" : "Новый объект ОПО"}</DialogTitle>
-            </DialogHeader>
-            <OpoCardForm initialData={editingOpo} onSave={handleSave} onCancel={() => { setOpen(false); setEditingOpo(undefined) }} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={loadOpos} disabled={loading}>
+            <Loader2 className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Обновить
+          </Button>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingOpo(undefined) }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Добавить ОПО
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingOpo ? "Карточка объекта ОПО" : "Новый объект ОПО"}</DialogTitle>
+              </DialogHeader>
+              <OpoCardForm initialData={editingOpo} onSave={handleSave} onCancel={() => { setOpen(false); setEditingOpo(undefined) }} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -505,57 +625,63 @@ export function OpoPage() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">ID</TableHead>
-                <TableHead>Наименование объекта</TableHead>
-                <TableHead className="hidden sm:table-cell">Организация</TableHead>
-                <TableHead className="hidden md:table-cell">Рег. №</TableHead>
-                <TableHead className="hidden lg:table-cell min-w-[220px]">Адрес объекта</TableHead>
-                <TableHead className="w-[160px]">Класс опасности</TableHead>
-                <TableHead className="w-[100px]">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((opo) => (
-                <TableRow key={opo.id} onClick={() => openFacilityDetail(opo.id)} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell className="font-mono text-xs">{opo.id}</TableCell>
-                  <TableCell className="font-medium">{opo.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">{opo.orgName}</TableCell>
-                  <TableCell className="hidden md:table-cell font-mono text-sm">{opo.regNumber}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{opo.address}</TableCell>
-                  <TableCell>
-                    {dangerClassBadge(opo.dangerClass)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openCard(opo) }}>Открыть</Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpos((prev) => prev.filter((o) => o.id !== opo.id))
-                          toast.success("Объект ОПО удалён", { description: opo.name })
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
+          {loading && opos.length === 0 ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Загрузка...
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Объекты ОПО не найдены
-                  </TableCell>
+                  <TableHead className="w-[100px]">ID</TableHead>
+                  <TableHead>Наименование объекта</TableHead>
+                  <TableHead className="hidden sm:table-cell">Организация</TableHead>
+                  <TableHead className="hidden md:table-cell">Рег. №</TableHead>
+                  <TableHead className="hidden lg:table-cell min-w-[220px]">Адрес объекта</TableHead>
+                  <TableHead className="w-[160px]">Класс опасности</TableHead>
+                  <TableHead className="w-[100px]">Действия</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((opo) => (
+                  <TableRow key={opo.id} onClick={() => openFacilityDetail(opo.id)} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell className="font-mono text-xs">{opo.id.slice(0, 8)}…</TableCell>
+                    <TableCell className="font-medium">{opo.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground">{opo.orgName}</TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-sm">{opo.regNumber}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{opo.address}</TableCell>
+                    <TableCell>
+                      {dangerClassBadge(opo.dangerClass)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openCard(opo) }}>Открыть</Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(opo)
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      Объекты ОПО не найдены
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -31,6 +31,7 @@ import {
 import { SmartImport } from "@/components/dashboard/smart-import"
 import { toast } from "sonner"
 import { apiRequest } from "@/lib/api-client"
+import { useNavStore } from "@/lib/nav-store"
 
 type CounterpartyType = "legal" | "ip"
 
@@ -45,10 +46,11 @@ interface Client {
   email: string
 }
 
-function ClientForm({ initialData, onSave, onCancel }: {
+function ClientForm({ initialData, onSave, onCancel, onCreateOpo }: {
   initialData?: Client
   onSave: (data: Partial<Client>) => void
   onCancel: () => void
+  onCreateOpo?: () => void
 }) {
   const [type, setType] = useState<CounterpartyType>(initialData?.type || "legal")
 
@@ -70,6 +72,16 @@ function ClientForm({ initialData, onSave, onCancel }: {
   })
 
   const update = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }))
+
+  /** Заполнить поля формы из данных импорта */
+  const handleImport = (data: Record<string, unknown>) => {
+    if (data.name) update("fullName", String(data.name))
+    if (data.inn) update("inn", String(data.inn))
+    if (data.ogrn) update("ogrn", String(data.ogrn))
+    if (data.address) update("legalAddress", String(data.address))
+    if (data.phone) update("phone", String(data.phone))
+    toast.success("Поля формы заполнены из импорта")
+  }
 
   return (
     <div className="space-y-6">
@@ -159,10 +171,31 @@ function ClientForm({ initialData, onSave, onCancel }: {
 
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Импорт данных</h3>
-        <SmartImport hint="Импорт реквизитов контрагента из файла" />
+        <SmartImport
+          hint="Импорт реквизитов контрагента из файла"
+          apiEndpoint="/api/v1/organizations/import-word"
+          onImported={handleImport}
+        />
       </div>
 
       <Separator />
+
+      {/* Кнопка создания ОПО */}
+      {initialData && onCreateOpo && (
+        <>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Объекты ОПО</h3>
+            <p className="text-xs text-muted-foreground">
+              Создать опасный производственный объект для этой организации
+            </p>
+            <Button variant="outline" size="sm" className="gap-2" onClick={onCreateOpo}>
+              <Building2 className="h-4 w-4" />
+              Создать ОПО
+            </Button>
+          </div>
+          <Separator />
+        </>
+      )}
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={onCancel}>Отмена</Button>
@@ -180,6 +213,7 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const { openOpoForOrganization } = useNavStore()
 
   const fetchClients = useCallback(async () => {
     try {
@@ -266,7 +300,16 @@ export function ClientsPage() {
             <DialogHeader>
               <DialogTitle>{editingClient ? "Редактировать" : "Новая организация"}</DialogTitle>
             </DialogHeader>
-            <ClientForm initialData={editingClient} onSave={handleSave} onCancel={() => { setOpen(false); setEditingClient(undefined) }} />
+            <ClientForm
+              initialData={editingClient}
+              onSave={handleSave}
+              onCancel={() => { setOpen(false); setEditingClient(undefined) }}
+              onCreateOpo={editingClient ? () => {
+                setOpen(false);
+                setEditingClient(undefined);
+                openOpoForOrganization(editingClient.id);
+              } : undefined}
+            />
           </DialogContent>
         </Dialog>
       </div>

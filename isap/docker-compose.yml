@@ -32,7 +32,7 @@ services:
       CHROMA_SERVER_AUTHN_CREDENTIALS: ""
       ANONYMIZED_TELEMETRY: "false"
 
-  # FastAPI backend
+  # FastAPI backend (с GPU-ускорением)
   backend:
     build:
       context: ./backend
@@ -50,9 +50,21 @@ services:
       OPENAI_PROJECT_ID: ${OPENAI_PROJECT_ID:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:14b}
+      # NVIDIA NGC credentials (подтягивается из .env)
+      NGC_API_KEY: ${NGC_API_KEY:-}
+      CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES:-0}
+    # Подключаем GPU
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     volumes:
       - ./backend:/app
       - ./backend/templates:/app/templates
+      - ./files:/files
     ports:
       - "8000:8000"
     depends_on:

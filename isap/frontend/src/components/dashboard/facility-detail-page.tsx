@@ -9,6 +9,7 @@ import {
   Loader2,
   Plus,
   RefreshCcw,
+  Sparkles,
   WandSparkles,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -85,12 +86,12 @@ export function FacilityDetailPage() {
     }
   }
 
-  const generatePmla = async () => {
+  const generatePmla = async (template_version: "v1" | "v2") => {
     if (!questionnaire) return
     setGenerating(true)
     setError("")
     try {
-      await isapApi.generatePmlaFromQuestionnaire(questionnaire.id, { save_debug_artifacts: true })
+      await isapApi.generatePmlaFromQuestionnaire(questionnaire.id, { template_version, save_debug_artifacts: true })
       setMessage("ПМЛА сгенерирован. Откройте анкету для просмотра результата.")
       await loadQuestionnaire()
     } catch (err) {
@@ -241,9 +242,13 @@ export function FacilityDetailPage() {
                 <Button variant="outline" onClick={() => openPmlaQuestionnaire(facilityId)} className="gap-2">
                   <ClipboardCheck className="h-4 w-4" />Открыть анкету ПМЛА
                 </Button>
-                <Button onClick={generatePmla} disabled={generating} className="gap-2">
+                <Button onClick={() => generatePmla("v1")} disabled={generating} className="gap-2">
                   {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
                   Сгенерировать ПМЛА
+                </Button>
+                <Button onClick={() => generatePmla("v2")} disabled={generating} variant="secondary" className="gap-2">
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  PMLA v2 — пилот
                 </Button>
               </div>
             </div>

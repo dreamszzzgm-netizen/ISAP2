@@ -23,10 +23,12 @@ interface NavStore {
   facilityDetailId: string | null
   documentDetailId: string | null
   pmlaQuestionnaireFacilityId: string | null
+  opoPreSelectedOrgId: string | null   // для создания ОПО из карточки организации
   setActivePage: (page: PageKey) => void
   openFacilityDetail: (facilityId: string) => void
   openDocumentDetail: (documentId: string) => void
   openPmlaQuestionnaire: (facilityId?: string) => void
+  openOpoForOrganization: (orgId: string) => void  // создать ОПО для организации
   goBack: () => void
 }
 
@@ -35,10 +37,12 @@ export const useNavStore = create<NavStore>((set) => ({
   facilityDetailId: null,
   documentDetailId: null,
   pmlaQuestionnaireFacilityId: null,
-  setActivePage: (page) => set({ activePage: page, facilityDetailId: null, documentDetailId: null, pmlaQuestionnaireFacilityId: null }),
+  opoPreSelectedOrgId: null,
+  setActivePage: (page) => set({ activePage: page, facilityDetailId: null, documentDetailId: null, pmlaQuestionnaireFacilityId: null, opoPreSelectedOrgId: null }),
   openFacilityDetail: (facilityId) => set({ activePage: "facilityDetail", facilityDetailId: facilityId, documentDetailId: null }),
   openDocumentDetail: (documentId) => set({ activePage: "documentDetail", documentDetailId: documentId }),
   openPmlaQuestionnaire: (facilityId) => set({ activePage: "pmlaQuestionnaire", pmlaQuestionnaireFacilityId: facilityId || null }),
+  openOpoForOrganization: (orgId) => set({ activePage: "opo", opoPreSelectedOrgId: orgId, facilityDetailId: null, documentDetailId: null }),
   goBack: () => set((state) => {
     if (state.activePage === "documentDetail") return { activePage: "pmla" as PageKey, documentDetailId: null }
     if (state.activePage === "pmlaQuestionnaire" && state.pmlaQuestionnaireFacilityId) return { activePage: "facilityDetail" as PageKey, facilityDetailId: state.pmlaQuestionnaireFacilityId, pmlaQuestionnaireFacilityId: null }

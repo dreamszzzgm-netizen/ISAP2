@@ -1,10 +1,11 @@
 """PMLA Questionnaire Builder API."""
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db, get_document_repo, get_regulatory_repo, get_scenario_matrix_repo, get_pmla_sample_repo
@@ -31,8 +32,17 @@ class CustomScenarioRequest(BaseModel):
 
 
 class GenerateFromQuestionnaireRequest(BaseModel):
+    template_version: str = "v1"
     regenerate_sections: list[str] | None = None
     save_debug_artifacts: bool = True
+
+    @field_validator("template_version")
+    @classmethod
+    def _validate_template_version(cls, v: str) -> str:
+        v_lower = v.lower().strip()
+        if v_lower not in ("v1", "v2"):
+            raise ValueError("template_version must be 'v1' or 'v2'")
+        return v_lower
 
 
 @router.post("/facility/{facility_id}")
@@ -124,6 +134,7 @@ async def generate_from_questionnaire(
         )
         result = await service.generate(
             questionnaire_id=questionnaire_id,
+            template_version=request.template_version,
             regenerate_sections=request.regenerate_sections,
             save_debug_artifacts=request.save_debug_artifacts,
         )
@@ -138,7 +149,10 @@ async def generate_from_questionnaire(
             "debug_artifacts": result.debug_artifacts,
         }
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        detail = str(exc)
+        if "PMLA_V2_CONTEXT_VALIDATION_FAILED" in detail:
+            raise HTTPException(status_code=400, detail=detail) from exc
+        raise HTTPException(status_code=404, detail=detail) from exc
     except Exception as exc:  # noqa: BLE001 - API boundary
         raise HTTPException(status_code=500, detail=f"Ошибка генерации ПМЛА из анкеты: {exc}") from exc
 

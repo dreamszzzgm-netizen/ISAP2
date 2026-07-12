@@ -30,10 +30,20 @@ import pytest
 # ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]  # backend/tests/infrastructure/export → isap/isap
 _FILES_DIR = _PROJECT_ROOT / "files"
+# Fallback for Docker container: /files/ is mounted from host ./files/
+_CONTAINER_FILES_DIR = Path("/files")
 _SCHEMA_PATH = _FILES_DIR / "pmla_v2.schema.json"
-_TEMPLATE_KEYS_PATH = _PROJECT_ROOT / "docs" / "audit" / "pmla_v2_template_keys.json"
-_CONTEXT_KEYS_PATH = _PROJECT_ROOT / "docs" / "audit" / "pmla_v2_context_keys.json"
+if not _SCHEMA_PATH.exists():
+    _SCHEMA_PATH = _CONTAINER_FILES_DIR / "pmla_v2.schema.json"
+_TEMPLATE_KEYS_PATH = _FILES_DIR / "pmla_v2_template_keys.json"
+if not _TEMPLATE_KEYS_PATH.exists():
+    _TEMPLATE_KEYS_PATH = _CONTAINER_FILES_DIR / "pmla_v2_template_keys.json"
+_CONTEXT_KEYS_PATH = _FILES_DIR / "pmla_v2_context_keys.json"
+if not _CONTEXT_KEYS_PATH.exists():
+    _CONTEXT_KEYS_PATH = _CONTAINER_FILES_DIR / "pmla_v2_context_keys.json"
 _TEMPLATE_PATH = _FILES_DIR / "pmla_v2_template.docx"
+if not _TEMPLATE_PATH.exists():
+    _TEMPLATE_PATH = _CONTAINER_FILES_DIR / "pmla_v2_template.docx"
 
 # ---------------------------------------------------------------------------
 # Load audit artefacts (shared across all tests)

@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # Геокодирование (Яндекс)
     yandex_geocoder_api_key: str = ""
 
+    # NVIDIA NGC / GPU
+    ngc_api_key: str = ""
+
     # AI-ревью
     ai_review_enabled: bool = True
     ai_review_temperature: float = 0.3

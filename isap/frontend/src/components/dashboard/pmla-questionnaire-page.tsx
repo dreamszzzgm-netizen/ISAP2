@@ -17,6 +17,7 @@ import {
   Loader2,
   Plus,
   RefreshCcw,
+  Sparkles,
   Trash2,
   WandSparkles,
 } from "lucide-react"
@@ -298,12 +299,12 @@ export function PmlaQuestionnairePage() {
     }
   }
 
-  const generate = async () => {
+  const generate = async (template_version: "v1" | "v2") => {
     if (!qid) return
     setGenerating(true)
     setError("")
     try {
-      setGeneration(await isapApi.generatePmlaFromQuestionnaire(qid, { save_debug_artifacts: true }))
+      setGeneration(await isapApi.generatePmlaFromQuestionnaire(qid, { template_version, save_debug_artifacts: true }))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось запустить генерацию")
     } finally {
@@ -736,15 +737,19 @@ export function PmlaQuestionnairePage() {
                     <FileJson className="h-4 w-4" />
                     Собрать context
                   </Button>
-                  <Button onClick={generate} disabled={disabled || generating} className="gap-2">
+                  <Button onClick={() => generate("v1")} disabled={disabled || generating} className="gap-2">
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-                    Сгенерировать ПМЛА
+                    Сформировать ПМЛА v1
+                  </Button>
+                  <Button onClick={() => generate("v2")} disabled={disabled || generating} variant="secondary" className="gap-2">
+                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Сформировать PMLA v2 — пилот
                   </Button>
                 </div>
                 {generation && (
                   <GenerationResultBlock
                     generation={generation}
-                    onRegenerate={generate}
+                    onRegenerate={() => generate("v1")}
                     onRebuildContext={buildContext}
                     onOpenDocument={openDocumentDetail}
                     regenerationDisabled={disabled || generating}
