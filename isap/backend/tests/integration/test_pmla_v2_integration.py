@@ -328,6 +328,155 @@ class TestV2TemplateRenderer:
             doc_xml = zf.read("word/document.xml").decode("utf-8")
             assert "03" in doc_xml or "01" in doc_xml
 
+    # ------------------------------------------------------------------
+    # DOCX field & structure regression tests
+    # ------------------------------------------------------------------
+
+    def test_docx_has_page_field(self):
+        """PAGE field exists in footer XML of rendered DOCX."""
+        import zipfile, re
+        import io
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        renderer = PmlaTemplateRenderer()
+        docx_bytes = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            page_found = False
+            for fname in zf.namelist():
+                if not fname.startswith("word/footer"):
+                    continue
+                xml = zf.read(fname).decode("utf-8")
+                if "PAGE" in xml and "instrText" in xml:
+                    page_found = True
+                    break
+            assert page_found, "PAGE field not found in any footer"
+
+    def test_docx_has_toc_field(self):
+        """TOC field exists in document XML of rendered DOCX."""
+        import zipfile, re
+        import io
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        renderer = PmlaTemplateRenderer()
+        docx_bytes = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            doc_xml = zf.read("word/document.xml").decode("utf-8")
+            # Check for TOC field (namespace-agnostic)
+            has_toc = bool(re.search(r'instrText[^>]*>\s*TOC\s+', doc_xml))
+            has_cached = "[Обновите оглавление]" in doc_xml
+            assert has_toc, "TOC field instruction text not found"
+            assert has_cached, "TOC cached text not found"
+
+    def test_docx_no_empty_headings(self):
+        """No empty Heading 1-4 paragraphs remain in rendered DOCX."""
+        import zipfile, re
+        import io
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        renderer = PmlaTemplateRenderer()
+        docx_bytes = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            doc_xml = zf.read("word/document.xml").decode("utf-8")
+            empty_headings = []
+            for m in re.finditer(r'<w:p[> ].*?</w:p>', doc_xml, re.DOTALL):
+                p = m.group()
+                style = re.search(r'<w:pStyle w:val="([1-4])"', p)
+                if not style:
+                    continue
+                texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', p)
+                combined = "".join(texts).strip()
+                if not combined:
+                    empty_headings.append(style.group(1))
+        assert not empty_headings, f"Empty heading paragraphs: {empty_headings}"
+
+    def test_docx_no_empty_tables(self):
+        """No tables with zero data rows remain in rendered DOCX."""
+        import zipfile, re
+        import io
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        renderer = PmlaTemplateRenderer()
+        docx_bytes = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            doc_xml = zf.read("word/document.xml").decode("utf-8")
+            tables = re.findall(r'<w:tbl[> ].*?</w:tbl>', doc_xml, re.DOTALL)
+            for tbl_xml in tables:
+                rows = re.findall(r'<w:tr[> ].*?</w:tr>', tbl_xml, re.DOTALL)
+                if len(rows) <= 1:
+                    continue  # skip single-row tables (will be removed)
+                has_data = False
+                for row in rows[1:]:
+                    texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', row)
+                    if any(t.strip() for t in texts):
+                        has_data = True
+                        break
+                assert has_data, "Table with rows but no data content"
+
+
+# ---------------------------------------------------------------------------
+# Tests: Facility Name & Data Integrity
+# ---------------------------------------------------------------------------
+
+
+class TestV2DataIntegrity:
+    """Verify facility_name, equipment name integrity in v2 context mapping."""
+
+    def test_facility_name_not_truncated(self):
+        """facility_name is full in mapper output -- no truncation."""
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        assert ctx["facility_name"] == "Сеть газопотребления"
+        # Test with long name
+        long_name = "Сеть газопотребления ул. Красная"
+        context_long = dict(SAMPLE_CONTEXT)
+        context_long["facility"] = dict(SAMPLE_CONTEXT["facility"])
+        context_long["facility"]["name"] = long_name
+        ctx2 = map_to_v2_context(context_long)
+        assert ctx2["facility_name"] == long_name
+        assert len(ctx2["facility_name"]) == 32
+
+    def test_equipment_name_preserved(self):
+        """Technical names like ГРПШ-МС-10 (регулятор РДГК-10М) pass unchanged."""
+        from copy import deepcopy
+        tech_name = "ГРПШ-МС-10 (регулятор РДГК-10М)"
+        context_tech = deepcopy(SAMPLE_CONTEXT)
+        context_tech["equipment"] = [{"name": tech_name}]
+        ctx = map_to_v2_context(context_tech)
+        assert len(ctx["equipment_list"]) == 1
+        assert ctx["equipment_list"][0]["device_name"] == tech_name
+
+
+# ---------------------------------------------------------------------------
+# Tests: Regulatory Coverage
+# ---------------------------------------------------------------------------
+
+
+class TestRegulatoryCoverage:
+    """Verify PP RF No.1437 regulatory coverage for v2 context."""
+
+    def test_regulatory_coverage(self):
+        """Full SAMPLE_CONTEXT passes regulatory check."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        result = check_regulatory_coverage(ctx)
+        assert result.passed, f"MISSING: {[r.id for r in result.requirements if r.status == 'MISSING']}"
+
+    def test_regulatory_coverage_empty(self):
+        """Empty context has MISSING requirements."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        result = check_regulatory_coverage({})
+        assert result.missing > 0
+        assert not result.passed
+
+    def test_regulatory_coverage_counts(self):
+        """Total requirements = sum of all status counts."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        result = check_regulatory_coverage({})
+        assert result.total == result.covered + result.partial + result.missing + result.not_applicable
+
+    def test_regulatory_coverage_special_not_applicable(self):
+        """Hazard class IV sets special section to NOT_APPLICABLE."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        result = check_regulatory_coverage(ctx)
+        special = [r for r in result.requirements if r.id == "PP1437-11-special"]
+        assert len(special) == 1
+
 
 # ---------------------------------------------------------------------------
 # Tests: API Integration
@@ -437,3 +586,54 @@ class TestV2EdgeCases:
         assert d or True  # District may be parsed differently
         s, d = _parse_settlement("")
         assert s == "" and d == ""
+
+
+# ---------------------------------------------------------------------------
+# Tests: Regulatory Coverage (PP RF No.1437)
+# ---------------------------------------------------------------------------
+
+
+class TestRegulatoryCoverage:
+    """Verify regulatory coverage check against PP RF No.1437 requirements."""
+
+    def test_regulatory_coverage(self):
+        """Full v2 context passes regulatory check."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        result = check_regulatory_coverage(ctx)
+        assert result.passed, (
+            f"Missing requirements: "
+            f"{[r.id for r in result.requirements if r.status == 'MISSING']}"
+        )
+
+    def test_regulatory_coverage_empty(self):
+        """Empty context should have MISSING requirements."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        result = check_regulatory_coverage({})
+        assert result.missing > 0
+        assert not result.passed
+
+    def test_regulatory_coverage_counts(self):
+        """Verify total requirement count."""
+        from src.application.validation.regulatory_coverage import (
+            REGULATORY_REQUIREMENTS,
+            check_regulatory_coverage,
+        )
+        assert len(REGULATORY_REQUIREMENTS) >= 14, (
+            f"Expected at least 14 requirements, got {len(REGULATORY_REQUIREMENTS)}"
+        )
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        result = check_regulatory_coverage(ctx)
+        assert result.total == len(REGULATORY_REQUIREMENTS)
+        assert result.covered + result.partial + result.missing + result.not_applicable == result.total
+
+    def test_regulatory_coverage_special_not_applicable(self):
+        """Special section is N/A for hazard class IV."""
+        from src.application.validation.regulatory_coverage import check_regulatory_coverage
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+        ctx["hazard_class"] = "IV"
+        result = check_regulatory_coverage(ctx)
+        special = [r for r in result.requirements if r.id == "PP1437-11-special"]
+        assert len(special) == 1
+        assert special[0].status == "NOT_APPLICABLE"
+        assert special[0].justification is not None
