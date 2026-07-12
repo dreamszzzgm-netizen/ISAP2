@@ -266,6 +266,35 @@ class EmergencyRescueUnitModel(Base):
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
 
+class PasfDocumentModel(Base):
+    """Документ ПАСФ: свидетельство, паспорт АСФ, договор, лицензия."""
+    __tablename__ = "pasf_documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    pasf_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("emergency_rescue_units.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_type = Column(String(50), nullable=False, default="certificate")
+    document_number = Column(String(200))
+    title = Column(String(500))
+    issued_at = Column(Date)
+    valid_until = Column(Date, index=True)
+    file_path = Column(String(1000))
+    file_name = Column(String(500))
+    file_size = Column(Integer)
+    mime_type = Column(String(100))
+    checksum_sha256 = Column(String(64))
+    status = Column(String(20), default="active")
+    verified_at = Column(DateTime)
+    verified_by = Column(String(200))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
 class EmergencyServiceModel(Base):
     """Справочник внешних аварийных служб: пожарные, скорая, полиция, газовая, ЕДДС."""
     __tablename__ = "emergency_services"

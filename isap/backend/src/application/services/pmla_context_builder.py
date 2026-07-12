@@ -241,6 +241,19 @@ class PmlaContextBuilder:
         if pasf.get("id"):
             ctx.add_provenance("pasf", "pasf", str(pasf["id"]), "name")
 
+        # PASF documents
+        pasf_docs = raw.get("pasf_documents") or []
+        ctx.attachments = list(pasf_docs)
+        for i, doc in enumerate(pasf_docs):
+            doc_id = doc.get("id", "")
+            if doc_id:
+                ctx.add_provenance(
+                    f"pasf_documents.{i}",
+                    "directory",
+                    str(doc_id),
+                    "pasf_document",
+                )
+
         # Emergency services
         services = raw.get("emergency_services") or []
         if isinstance(services, list):

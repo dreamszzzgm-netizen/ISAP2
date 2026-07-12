@@ -11,8 +11,9 @@ Severity levels:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from src.application.services.pmla_generation_context import PmlaGenerationContext
@@ -335,6 +336,91 @@ def run_preflight(context: PmlaGenerationContext,
                 recommended_action="Обновите свидетельство ПАСФ",
             )
             report.add_expired_document("certificate", pasf.get("name", ""), str(cert_until))
+
+    # ── PASF document checks ───────────────────────────────────────
+    pasf_documents = context.attachments or []
+    pasf_id = context.pasf.get("id") if context.pasf else None
+    for doc in pasf_documents:
+        doc_id = doc.get("id", "")
+        doc_type = doc.get("document_type", "unknown")
+        doc_status = doc.get("status", "active")
+        doc_title = doc.get("title") or doc.get("file_name") or doc_id
+        doc_pasf_id = doc.get("pasf_id")
+
+        # Document must belong to the selected PASF
+        if pasf_id and doc_pasf_id and doc_pasf_id != pasf_id:
+            report.add_issue(
+                code="PASF_DOCUMENT_WRONG_OWNER",
+                field=f"pasf_documents.{doc_id}",
+                message=f"Документ '{doc_title}' принадлежит другому ПАСФ",
+                severity="BLOCKER",
+                recommended_action="Выберите документы текущего ПАСФ",
+            )
+
+        # Revoked/archived document check
+        if doc_status in ("revoked", "archived"):
+            report.add_issue(
+                code="PASF_DOCUMENT_REVOKED",
+                field=f"pasf_documents.{doc_id}",
+                message=f"Документ '{doc_title}' имеет статус '{doc_status}'",
+                severity="BLOCKER",
+                recommended_action="Выберите действующий документ",
+            )
+
+        # File existence check
+        doc_file_path = doc.get("file_path")
+        if doc_file_path:
+            if not os.path.exists(doc_file_path):
+                report.add_issue(
+                    code="PASF_FILE_NOT_FOUND",
+                    field=f"pasf_documents.{doc_id}",
+                    message=f"Файл документа '{doc_title}' не найден на диске",
+                    severity="BLOCKER",
+                    recommended_action="Перезагрузите файл документа",
+                )
+
+        # Expired document check
+        valid_until = doc.get("valid_until")
+        if valid_until:
+            try:
+                if isinstance(valid_until, str):
+                    expiry = date.fromisoformat(valid_until)
+                else:
+                    expiry = valid_until
+                if expiry < date.today():
+                    doc_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
+                    report.add_issue(
+                        code="PASF_DOCUMENT_EXPIRED",
+                        field=f"pasf_documents.{doc_id}",
+                        message=f"Срок действия документа '{doc_title}' истёк: {valid_until}",
+                        severity=doc_severity,
+                        recommended_action="Обновите документ",
+                    )
+                    report.add_expired_document(doc_type, doc_title, str(valid_until))
+            except (ValueError, TypeError):
+                pass
+
+        # Unknown MIME type warning
+        mime = doc.get("mime_type", "")
+        if mime and mime not in ("application/pdf", "image/jpeg", "image/png"):
+            report.add_issue(
+                code="PASF_DOCUMENT_UNKNOWN_MIME",
+                field=f"pasf_documents.{doc_id}",
+                message=f"Документ '{doc_title}' имеет неподдерживаемый MIME тип: {mime}",
+                severity="WARNING",
+            )
+
+    # Required document types (certificate must exist for selected PASF)
+    if pasf_id and pasf_documents:
+        selected_types = {d.get("document_type") for d in pasf_documents}
+        if "certificate" not in selected_types:
+            report.add_issue(
+                code="PASF_DOCUMENT_REQUIRED_MISSING",
+                field="pasf_documents",
+                message="Не выбрано свидетельство ПАСФ (certificate)",
+                severity="WARNING",
+                recommended_action="Выберите свидетельство ПАСФ для включения в приложения",
+            )
 
     # ── Emergency services checks ────────────────────────────────────
     services = context.emergency_services or []

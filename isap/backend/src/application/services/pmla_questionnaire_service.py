@@ -15,6 +15,7 @@ from src.infrastructure.database.models import (
     HazardousFacilityModel,
     HazardousSubstanceModel,
     OrganizationModel,
+    PasfDocumentModel,
     PmlaQuestionnaireModel,
     ResponsiblePersonModel,
 )
@@ -35,6 +36,7 @@ DEFAULT_QUESTIONNAIRE: dict[str, Any] = {
     "selected_scenarios": [],
     "custom_scenarios": [],
     "selected_pasf_id": None,
+    "selected_pasf_document_ids": [],
     "selected_emergency_service_ids": [],
     "organization_resources": {
         "actual_items": [],
@@ -168,6 +170,13 @@ class PmlaQuestionnaireService:
                 "source": "questionnaire_manual",
             }
 
+        # Load PASF documents
+        pasf_documents = []
+        if qdata.get("selected_pasf_document_ids"):
+            pasf_documents = await self._get_pasf_documents(
+                qdata["selected_pasf_document_ids"]
+            )
+
         emergency_services = await self._get_emergency_services(qdata.get("selected_emergency_service_ids") or [])
         manual_services = qdata.get("selected_emergency_services") or []
         if isinstance(manual_services, list):
@@ -204,6 +213,7 @@ class PmlaQuestionnaireService:
             "selected_scenarios": qdata.get("selected_scenarios") or [],
             "custom_scenarios": qdata.get("custom_scenarios") or [],
             "pasf": pasf,
+            "pasf_documents": pasf_documents,
             "nearest_services": self._group_services(emergency_services),
             "emergency_services": emergency_services,
             "organization_resources": qdata.get("organization_resources"),
@@ -328,6 +338,34 @@ class PmlaQuestionnaireService:
                 "region": item.region,
                 "is_active": bool(item.is_active) if item.is_active is not None else True,
                 "verified_at": item.verified_at,
+            }
+            for item in result.scalars().all()
+        ]
+
+    async def _get_pasf_documents(self, document_ids: list[Any]) -> list[dict[str, Any]]:
+        if not document_ids:
+            return []
+        ids = [UUID(str(item)) for item in document_ids]
+        result = await self.session.execute(
+            select(PasfDocumentModel).where(PasfDocumentModel.id.in_(ids))
+        )
+        return [
+            {
+                "id": str(item.id),
+                "pasf_id": str(item.pasf_id),
+                "document_type": item.document_type,
+                "document_number": item.document_number,
+                "title": item.title,
+                "issued_at": item.issued_at.isoformat() if item.issued_at else None,
+                "valid_until": item.valid_until.isoformat() if item.valid_until else None,
+                "file_path": item.file_path,
+                "file_name": item.file_name,
+                "file_size": item.file_size,
+                "mime_type": item.mime_type,
+                "checksum_sha256": item.checksum_sha256,
+                "status": item.status or "active",
+                "verified_at": item.verified_at.isoformat() if item.verified_at else None,
+                "verified_by": item.verified_by,
             }
             for item in result.scalars().all()
         ]
