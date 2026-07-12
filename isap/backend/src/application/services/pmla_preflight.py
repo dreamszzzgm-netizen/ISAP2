@@ -10,6 +10,7 @@ Severity levels:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from dataclasses import dataclass, field
@@ -378,6 +379,31 @@ def run_preflight(context: PmlaGenerationContext,
                     severity="BLOCKER",
                     recommended_action="Перезагрузите файл документа",
                 )
+            else:
+                # File unreadable check
+                try:
+                    with open(doc_file_path, "rb") as f:
+                        content = f.read()
+                    # Checksum verification
+                    saved_checksum = doc.get("checksum_sha256")
+                    if saved_checksum:
+                        actual_checksum = hashlib.sha256(content).hexdigest()
+                        if actual_checksum != saved_checksum:
+                            report.add_issue(
+                                code="PASF_FILE_CHECKSUM_MISMATCH",
+                                field=f"pasf_documents.{doc_id}",
+                                message=f"Контрольная сумма документа '{doc_title}' не совпадает — файл был изменён",
+                                severity="BLOCKER",
+                                recommended_action="Перезагрузите файл документа",
+                            )
+                except (OSError, IOError):
+                    report.add_issue(
+                        code="PASF_FILE_UNREADABLE",
+                        field=f"pasf_documents.{doc_id}",
+                        message=f"Файл документа '{doc_title}' не может быть прочитан",
+                        severity="BLOCKER",
+                        recommended_action="Проверьте целостность файла",
+                    )
 
         # Expired document check
         valid_until = doc.get("valid_until")
@@ -414,11 +440,12 @@ def run_preflight(context: PmlaGenerationContext,
     if pasf_id and pasf_documents:
         selected_types = {d.get("document_type") for d in pasf_documents}
         if "certificate" not in selected_types:
+            cert_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
             report.add_issue(
                 code="PASF_DOCUMENT_REQUIRED_MISSING",
                 field="pasf_documents",
                 message="Не выбрано свидетельство ПАСФ (certificate)",
-                severity="WARNING",
+                severity=cert_severity,
                 recommended_action="Выберите свидетельство ПАСФ для включения в приложения",
             )
 

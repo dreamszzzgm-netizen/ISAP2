@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     ai_review_enabled: bool = True
     ai_review_temperature: float = 0.3
 
+    # Файловое хранилище
+    upload_root: str = "uploads"
+    max_upload_file_size_mb: int = 20
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

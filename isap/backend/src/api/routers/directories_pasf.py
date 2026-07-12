@@ -184,8 +184,10 @@ async def export_pasf_csv(
 
 # ── PASF Documents (certificates, passports, contracts, licenses) ─────
 
+from src.core.settings import settings
+
 PASF_DOCUMENTS_UPLOAD_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "..", "uploads", "pasf_documents"
+    os.path.dirname(__file__), "..", "..", settings.upload_root, "pasf_documents"
 )
 os.makedirs(PASF_DOCUMENTS_UPLOAD_DIR, exist_ok=True)
 
@@ -197,7 +199,7 @@ ALLOWED_PASF_MIME_TYPES = {
 
 ALLOWED_PASF_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
-MAX_PASF_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+MAX_PASF_FILE_SIZE = settings.max_upload_file_size_mb * 1024 * 1024
 
 PASF_DOCUMENT_TYPES = ["certificate", "asf_passport", "contract", "license", "other"]
 
@@ -366,19 +368,27 @@ async def upload_pasf_document(
     # SHA-256
     checksum = hashlib.sha256(content).hexdigest()
 
-    # Safe filename
+    # Safe filename — store relative path (storage_key) in DB
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = f"{ts}_{pasf_id.hex[:8]}_{file.filename}"
-    file_path = os.path.join(PASF_DOCUMENTS_UPLOAD_DIR, safe_name)
+    relative_path = os.path.join("pasf_documents", safe_name)
+    absolute_path = os.path.normpath(os.path.join(PASF_DOCUMENTS_UPLOAD_DIR, safe_name))
+
+    # Security: ensure resolved path stays within upload root
+    upload_root_abs = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "..", settings.upload_root)
+    )
+    if not absolute_path.startswith(upload_root_abs):
+        raise HTTPException(status_code=400, detail="Некорректный путь файла")
 
     # Write to disk
     try:
-        with open(file_path, "wb") as buf:
+        with open(absolute_path, "wb") as buf:
             buf.write(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка сохранения файла: {e}")
 
-    file_size = os.path.getsize(file_path)
+    file_size = os.path.getsize(absolute_path)
     mime_type = file.content_type or "application/octet-stream"
     ext = os.path.splitext(file.filename or "")[1].lstrip(".")
 
