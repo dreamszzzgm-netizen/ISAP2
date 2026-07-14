@@ -369,6 +369,281 @@ function DocumentsForm({ docs, onChange }: {
   )
 }
 
+/* ─── Компонент: Оборудование ОПО ─── */
+
+interface EquipmentItem {
+  id: string
+  name: string
+  equipment_type: string
+  serial_number: string
+  manufacturer: string
+  manufacture_year: string
+}
+
+function EquipmentForm({ facilityId }: { facilityId: string }) {
+  const [items, setItems] = useState<EquipmentItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const nextIdRef = useRef(0)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const data = await isapApi.equipment(facilityId)
+      setItems((Array.isArray(data) ? data : []).map((d) => ({
+        id: String(d.id || ""),
+        name: String(d.name || ""),
+        equipment_type: String(d.equipment_type || ""),
+        serial_number: String(d.serial_number || ""),
+        manufacturer: String(d.manufacturer || ""),
+        manufacture_year: String(d.manufacture_year || ""),
+      })))
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (facilityId) load()
+  }, [facilityId])
+
+  const addRow = () => {
+    setItems((prev) => [...prev, {
+      id: `new-${++nextIdRef.current}`,
+      name: "", equipment_type: "", serial_number: "", manufacturer: "", manufacture_year: "",
+    }])
+  }
+
+  const updateRow = (id: string, field: keyof EquipmentItem, value: string) => {
+    setItems((prev) => prev.map((it) => it.id === id ? { ...it, [field]: value } : it))
+  }
+
+  const saveRow = async (item: EquipmentItem) => {
+    setSavingId(item.id)
+    try {
+      const payload: Record<string, unknown> = {
+        hazardous_facility_id: facilityId,
+        name: item.name,
+        equipment_type: item.equipment_type || null,
+        serial_number: item.serial_number || null,
+        manufacturer: item.manufacturer || null,
+        manufacture_year: item.manufacture_year ? Number(item.manufacture_year) : null,
+      }
+      if (item.id.startsWith("new-")) {
+        const created = await isapApi.createEquipment(payload)
+        setItems((prev) => prev.map((it) => it.id === item.id ? { ...item, id: String((created as Record<string, unknown>).id) } : it))
+      } else {
+        await isapApi.updateEquipment(item.id, payload)
+      }
+      toast.success("Оборудование сохранено")
+    } catch (err) {
+      toast.error("Ошибка сохранения оборудования", { description: err instanceof Error ? err.message : "" })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const removeRow = async (item: EquipmentItem) => {
+    if (item.id.startsWith("new-")) {
+      setItems((prev) => prev.filter((it) => it.id !== item.id))
+      return
+    }
+    try {
+      await isapApi.deleteEquipment(item.id)
+      setItems((prev) => prev.filter((it) => it.id !== item.id))
+      toast.success("Оборудование удалено")
+    } catch (err) {
+      toast.error("Ошибка удаления", { description: err instanceof Error ? err.message : "" })
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center gap-2 text-sm text-muted-foreground py-2"><Loader2 className="h-4 w-4 animate-spin" />Загрузка оборудования...</div>
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.length === 0 && (
+        <p className="text-xs text-muted-foreground">Оборудование не добавлено. Нажмите «Добавить», чтобы создать первую запись.</p>
+      )}
+      {items.map((item) => (
+        <div key={item.id} className="border rounded-md p-3 bg-muted/30 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Наименование</Label>
+              <Input placeholder="Резервуар РВС-5000" className="h-8 text-sm" value={item.name} onChange={(e) => updateRow(item.id, "name", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Тип оборудования</Label>
+              <Input placeholder="Резервуар вертикальный" className="h-8 text-sm" value={item.equipment_type} onChange={(e) => updateRow(item.id, "equipment_type", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Заводской номер</Label>
+              <Input placeholder="№ 12345" className="h-8 text-sm" value={item.serial_number} onChange={(e) => updateRow(item.id, "serial_number", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Изготовитель</Label>
+              <Input placeholder="ОАО «Завод»" className="h-8 text-sm" value={item.manufacturer} onChange={(e) => updateRow(item.id, "manufacturer", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Год выпуска</Label>
+              <Input type="number" placeholder="2018" className="h-8 text-sm" value={item.manufacture_year} onChange={(e) => updateRow(item.id, "manufacture_year", e.target.value)} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={savingId === item.id || !item.name} onClick={() => saveRow(item)}>
+              {savingId === item.id && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Сохранить
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeRow(item)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addRow}>
+        <Plus className="h-3.5 w-3.5" />Добавить оборудование
+      </Button>
+    </div>
+  )
+}
+
+/* ─── Компонент: Опасные вещества ОПО ─── */
+
+interface SubstanceItem {
+  id: string
+  name: string
+  cas_number: string
+  quantity_kg: string
+  threshold_quantity_kg: string
+}
+
+function SubstanceForm({ facilityId }: { facilityId: string }) {
+  const [items, setItems] = useState<SubstanceItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const nextIdRef = useRef(0)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const data = await isapApi.substances(facilityId)
+      setItems((Array.isArray(data) ? data : []).map((d) => ({
+        id: String(d.id || ""),
+        name: String(d.name || ""),
+        cas_number: String(d.cas_number || ""),
+        quantity_kg: String(d.quantity_kg ?? ""),
+        threshold_quantity_kg: String(d.threshold_quantity_kg ?? ""),
+      })))
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (facilityId) load()
+  }, [facilityId])
+
+  const addRow = () => {
+    setItems((prev) => [...prev, {
+      id: `new-${++nextIdRef.current}`,
+      name: "", cas_number: "", quantity_kg: "", threshold_quantity_kg: "",
+    }])
+  }
+
+  const updateRow = (id: string, field: keyof SubstanceItem, value: string) => {
+    setItems((prev) => prev.map((it) => it.id === id ? { ...it, [field]: value } : it))
+  }
+
+  const saveRow = async (item: SubstanceItem) => {
+    setSavingId(item.id)
+    try {
+      const payload: Record<string, unknown> = {
+        hazardous_facility_id: facilityId,
+        name: item.name,
+        cas_number: item.cas_number || null,
+        quantity_kg: item.quantity_kg ? Number(item.quantity_kg) : null,
+        threshold_quantity_kg: item.threshold_quantity_kg ? Number(item.threshold_quantity_kg) : null,
+      }
+      if (item.id.startsWith("new-")) {
+        const created = await isapApi.createSubstance(payload)
+        setItems((prev) => prev.map((it) => it.id === item.id ? { ...item, id: String((created as Record<string, unknown>).id) } : it))
+      } else {
+        await isapApi.updateSubstance(item.id, payload)
+      }
+      toast.success("Вещество сохранено")
+    } catch (err) {
+      toast.error("Ошибка сохранения вещества", { description: err instanceof Error ? err.message : "" })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const removeRow = async (item: SubstanceItem) => {
+    if (item.id.startsWith("new-")) {
+      setItems((prev) => prev.filter((it) => it.id !== item.id))
+      return
+    }
+    try {
+      await isapApi.deleteSubstance(item.id)
+      setItems((prev) => prev.filter((it) => it.id !== item.id))
+      toast.success("Вещество удалено")
+    } catch (err) {
+      toast.error("Ошибка удаления", { description: err instanceof Error ? err.message : "" })
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center gap-2 text-sm text-muted-foreground py-2"><Loader2 className="h-4 w-4 animate-spin" />Загрузка веществ...</div>
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.length === 0 && (
+        <p className="text-xs text-muted-foreground">Вещества не добавлены. Нажмите «Добавить», чтобы создать первую запись.</p>
+      )}
+      {items.map((item) => (
+        <div key={item.id} className="border rounded-md p-3 bg-muted/30 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Наименование вещества</Label>
+              <Input placeholder="Пропан" className="h-8 text-sm" value={item.name} onChange={(e) => updateRow(item.id, "name", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">CAS-номер</Label>
+              <Input placeholder="74-98-6" className="h-8 text-sm" value={item.cas_number} onChange={(e) => updateRow(item.id, "cas_number", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Количество, кг</Label>
+              <Input type="number" placeholder="5000" className="h-8 text-sm" value={item.quantity_kg} onChange={(e) => updateRow(item.id, "quantity_kg", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Пороговое количество, кг</Label>
+              <Input type="number" placeholder="5000" className="h-8 text-sm" value={item.threshold_quantity_kg} onChange={(e) => updateRow(item.id, "threshold_quantity_kg", e.target.value)} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={savingId === item.id || !item.name} onClick={() => saveRow(item)}>
+              {savingId === item.id && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Сохранить
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeRow(item)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addRow}>
+        <Plus className="h-3.5 w-3.5" />Добавить вещество
+      </Button>
+    </div>
+  )
+}
+
 /* ─── Компонент: Полная карточка ОПО ─── */
 
 function OpoCardForm({ initialData, onSave, onCancel }: {
@@ -428,6 +703,34 @@ function OpoCardForm({ initialData, onSave, onCancel }: {
       <CollapsibleSection title="Прикрепление документов" defaultOpen={false}>
         <DocumentsForm docs={docs} onChange={setDocs} />
       </CollapsibleSection>
+
+      <Separator />
+
+      {/* Оборудование ОПО — доступно только для сохранённого объекта */}
+      {initialData?.id ? (
+        <CollapsibleSection title="Оборудование" defaultOpen={false}>
+          <EquipmentForm facilityId={initialData.id} />
+        </CollapsibleSection>
+      ) : (
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Оборудование</h3>
+          <p className="text-xs text-muted-foreground">Сохраните объект ОПО, затем добавьте оборудование и опасные вещества.</p>
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Опасные вещества — доступны только для сохранённого объекта */}
+      {initialData?.id ? (
+        <CollapsibleSection title="Опасные вещества" defaultOpen={false}>
+          <SubstanceForm facilityId={initialData.id} />
+        </CollapsibleSection>
+      ) : (
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Опасные вещества</h3>
+          <p className="text-xs text-muted-foreground">Доступно после сохранения объекта ОПО.</p>
+        </div>
+      )}
 
       <Separator />
 

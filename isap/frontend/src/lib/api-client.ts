@@ -165,6 +165,38 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}`),
   getFacilityFull: (id: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}/full`),
+
+  // ── Equipment / Оборудование ОПО ──
+  equipment: (facilityId: string) =>
+    apiRequest<Record<string, unknown>[]>(`/api/v1/equipment/?hazardous_facility_id=${facilityId}`),
+  createEquipment: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/equipment/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateEquipment: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/equipment/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteEquipment: (id: string) =>
+    apiRequest<unknown>(`/api/v1/equipment/${id}`, { method: "DELETE" }),
+
+  // ── Substances / Опасные вещества ОПО ──
+  substances: (facilityId: string) =>
+    apiRequest<Record<string, unknown>[]>(`/api/v1/substances/?hazardous_facility_id=${facilityId}`),
+  createSubstance: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/substances/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateSubstance: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/substances/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteSubstance: (id: string) =>
+    apiRequest<unknown>(`/api/v1/substances/${id}`, { method: "DELETE" }),
   pmlaDocuments: () => apiRequest<unknown[]>("/api/v1/pmla/"),
   pmlaExpiring: (days = 30) => apiRequest<unknown[]>(`/api/v1/pmla/expiring?days=${days}`),
   aiConfig: () => apiRequest<Record<string, unknown>>("/api/v1/ai/config"),
