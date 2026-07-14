@@ -1,7 +1,148 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-11T02:00
+**Дата обновления:** 2026-07-14T15:40
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Patch C закоммичен (2026-07-14)
+
+Накопленные фиксы нескольких сессий (аудиты 2026-07-13 + runtime-фиксы 2026-07-13 вечер) выделены в отдельную ветку и закоммичены одним коммитом.
+
+**Коммит:** `f544c44 fix(pmla): Patch C - PASF storage, preflight, v2 context, frontend hardening`
+**Ветка:** `patch-c/pmla-pasf-frontend-hardening` (от `main` @ `0981cea`)
+**Объём:** 28 файлов, +1464 / −258
+
+### Что вошло в Patch C (28 файлов)
+
+| Категория | Файлы |
+|-----------|-------|
+| Backend PASF/PMLA | `directories_pasf.py`, `pmla_preflight.py`, `pmla_questionnaire_service.py`, `pmla_v2_context_mapper.py`, `enhanced_generator.py`, `models.py`, `pmla_template_renderer.py` |
+| Backend тесты | `test_directories.py`, `test_pmla_api_smoke_flow.py`, `test_pmla_generation_core.py`, `test_pmla_v2_integration.py`, `test_pmla_pasf_documents_e2e.py` (новый) |
+| Миграция | `a5c8a2dd1a14_add_agreement_date_to_emergency_rescue_.py` (новая) |
+| Schema/шаблон | `pmla_v2.schema.json`, `pmla_v2_context_keys.json`, `pmla_v2_template_keys.json`, `pmla_v2_template.docx` |
+| Frontend | `opo-page.tsx`, `pmla-questionnaire-page.tsx`, `api-client.ts`, `next.config.ts`, `Dockerfile`, `.dockerignore`, `.env.example` |
+| Docker/config | `docker-compose.yml`, `.gitignore` (корень + isap), `docs/FRONTEND_MIGRATION.md` |
+
+### Ключевые фиксы в коммите
+- **PASF storage policy:** загрузка санитизирует имя файла в basename, хранит под `PASF_DOCUMENTS_UPLOAD_DIR`, проверяет commonpath против upload root (path-escape защита)
+- **PASF preflight:** относительные и абсолютные пути документов ПАСФ confinement'ятся к upload root — `PASF_FILE_NOT_FOUND` на загруженных файлах исправлен
+- **v2 emergency-service mapping:** канонические + алиас ключи (PASF/medical/fire/questionnaire), включая корректный `скорая`
+- **v2 contract:** даты `DD.MM.YYYY`, `contractor_agreement_number` проведён через schema/template/context keys
+- **v2 appendices_manifest:** доходит до `PmlaTemplateRenderer` и дописывается в DOCX
+- **Frontend hazard-class:** `opo-page.tsx` маппит I/II/III/IV через явный хелпер (был баг `"IVII".indexOf(...)`)
+- **Frontend API:** same-origin по умолчанию, `INTERNAL_API_BASE_URL` для Docker build-time rewrites, `skipTrailingSlashRedirect` (не было утечки `backend:8000` в редиректах)
+- **Frontend Docker:** standalone output, `.env*.local` вне build context
+- **Runtime 422 fix:** `pmla-questionnaire-page.tsx` обрабатывает `blocked` статус, disabled-кнопки без `document_id`, опциональные поля в `PmlaGenerationResult`
+- **enhanced_generator:** module-level logger, ошибки валидации логируются (не silent pass)
+
+### Verification (гейт перед коммитом, 2026-07-14)
+| Проверка | Результат |
+|----------|-----------|
+| Backend `pytest tests -q` | **704 passed, 3 skipped, 41 warnings** |
+| Frontend `tsc --noEmit --incremental false` | passed (exit 0) |
+| Frontend `npm run build` | ✓ Compiled successfully |
+| `git diff --cached --check` | passed (только PDF-xref trailing whitespace в фикстуре — валидный PDF) |
+
+### Осознанно НЕ вошло в коммит
+Локальные артефакты (51 untracked), оставшиеся в working tree:
+- `AI_DEVELOPER_PROMPT.md`
+- `backend/scripts/*` (template surgery / render audit скрипты, машинно-специфичные пути)
+- `docs/audit/*`, `docs/PMLA_V2_*.md`, `docs/EPB_REGISTRY_MVP.md`
+- `files/pmla_v1.schema.json`
+- Сгенерированные `.next/`, `__pycache__/`, `nul`, QA render outputs
+
+Решение по каждому — отдельно (stage / gitignore / удалить с диска).
+
+### Deploy note
+При накате на новое окружение обязательно:
+```bash
+docker exec isap_backend alembic upgrade head   # применит a5c8a2dd1a14
+```
+
+---
+
+## Runtime-фиксы: 500 на emergency-services + 422 на pmla/undefined/download (2026-07-13 вечер)
+
+Цель: разобрать три ошибки из консоли браузера при работе с PMLA-генерацией.
+
+### Ошибка #1: `GET /api/v1/directories/emergency-services/ → 500`
+
+**Причина:** Модель SQLAlchemy ожидает колонки `additional_phone`, `region`, `verified_at`, `is_active` (добавлены в миграции `018_add_directory_fields.py`), но БД была на ревизии `017`. Миграции 018, 019, a5c8a2dd1a14 не были применены после пересоздания Docker-стека.
+
+**Ошибка БД:**
+```
+UndefinedColumnError: column emergency_services.additional_phone does not exist
+```
+
+**Фикс:** `docker exec isap_backend alembic upgrade head` — БД поднята с `017 → a5c8a2dd1a14` (head).
+- 018: directory fields для pasf/emergency services
+- 019: таблица pasf_documents
+- a5c8a2dd1a14: agreement_date для emergency_rescue_units
+
+**Результат:** 500 → **200 OK**.
+
+### Ошибка #2: `GET /api/v1/pmla/undefined/download → 422`
+
+**Причина (цепочка):**
+1. Дефолтный `generation_mode = "final"` в `GenerateFromQuestionnaireRequest`
+2. Preflight в final-режиме находит блокеры (нет оборудования/ПАСФ/служб) → возвращает `{"status": "blocked", ...}` **без `document_id`**
+3. Фронт сохранял ответ в `generation` и показывал активную кнопку «Скачать DOCX»
+4. Клик → `downloadPmlaDocumentBlob(undefined)` → `/pmla/undefined/download` → **422**
+
+**Фикс** (`frontend/src/lib/api-client.ts`, `frontend/src/components/dashboard/pmla-questionnaire-page.tsx`):
+- В типе `PmlaGenerationResult` поля `document_id`, `questionnaire_id`, `facility_id` сделаны опциональными
+- Добавлены поля `reason`, `preflight`, `provenance` (для статуса `blocked`)
+- `handleDownload` выходит, если нет `generation.document_id`
+- Кнопки «Скачать DOCX», «Открыть карточку», «Скопировать document_id» — `disabled={!hasDocument}`
+- Добавлен отдельный алерт для статуса `blocked` с показом `reason` и preflight-отчёта
+- Исправлена логика `isSuccess`: `pending_review` (реальный статус успеха) + `completed` — раньше фронт всегда считал статус ошибкой, потому что сравнивал только с `"completed"`
+- Заголовок карточки: иконка `AlertTriangle` вместо `CheckCircle2` при `isBlocked`
+
+### Ошибка #3: `Unable to add filesystem: <illegal path>` (api-client.ts:206)
+
+**Причина:** Побочный симптом бага #2 — blob-fetch на `/pmla/undefined/download` возвращал 422, и Chromium DevTools ругался на обработку ответа. После фикса `document_id` исчезает сама собой.
+
+### Дополнительно: опыт работы со сборкой
+
+- После редактирования фронтенда нужно **очищать `.next`-кэш** в контейнере и делать `docker compose restart frontend`, иначе dev-сервер отдаёт закешированный бандл
+- Команда: `docker exec isap_frontend sh -c 'rm -rf /app/.next'` + `docker compose restart frontend`
+- Пользователю нужно жёстко обновить страницу в браузере (Ctrl+Shift+R), чтобы сбросить клиентский кэш бандла
+
+### Проверки
+
+| Проверка | Результат |
+|----------|-----------|
+| Backend `emergency-services/` | **200 OK** (было 500) |
+| Backend `pasf/`, `pmla/` | 200 OK |
+| `alembic current` | `a5c8a2dd1a14` (head) |
+| Backend `test_directories.py` | 9 passed |
+| Frontend `tsc --noEmit` | passed |
+| Frontend `eslint` (изменённые файлы) | только pre-existing warnings |
+| Frontend `npm run build` | passed |
+
+### Реальные блокеры preflight (нормальное поведение)
+
+При попытке генерации в `final`-режиме preflight корректно блокирует генерацию с понятным отчётом:
+- **EQ_EMPTY_LIST** — список оборудования пуст → добавить в карточку ОПО
+- **PASF_MISSING** — не выбран ПАСФ/АСФ → выбрать в анкете
+- (warnings) FIN_NOT_FILLED, RES_MISSING_ACTUAL_ITEMS — не блокируют
+
+Это не баг — preflight защищает от генерации неполного документа.
+
+### Изменённые файлы
+
+| Файл | Изменение |
+|------|-----------|
+| `frontend/src/lib/api-client.ts` | `PmlaGenerationResult`: опциональные поля + blocked-поля |
+| `frontend/src/components/dashboard/pmla-questionnaire-page.tsx` | обработка `blocked` статуса, disabled-кнопки, preflight-алерт |
+
+### Незакоммичено
+
+Patch C + эти фиксы остаются в working tree. При деплое на новое окружение обязательно:
+```bash
+docker exec isap_backend alembic upgrade head
+```
 
 ---
 
@@ -1988,3 +2129,431 @@ Engineer review remains mandatory: the system does not auto-approve. Status `app
 Notes:
 - This stage is documentation-only; no code, migrations, or seed data were added. Findings from real OPO runs will be triaged into a follow-up backlog separately.
 - Real/anonymized input templates, findings, and downloaded DOCX must not be committed without review (the input template/findings go in `docs/inbox/`, DOCX is already gitignored).
+
+---
+
+## PMLA OPO Audit After Patch A/B — Code Bug Sweep (2026-07-13)
+
+Goal: repeat the post-Patch-A/Patch-B technical audit without adding a new feature, find real defects in the current PMLA/PASF/DOCX/frontend flow, and preserve the current state before deciding the next patch.
+
+Scope:
+- Reviewed current worktree in the new local project path `D:\Project ISAP\isap`.
+- Used parallel subagent review for backend/API, PMLA/DOCX mapping, frontend/build, and git hygiene.
+- Treated existing uncommitted and untracked files as user/project state; nothing was reverted or cleaned automatically.
+
+Fixed during the audit:
+- PASF document downloads: relative stored document paths are now resolved under the PASF upload root, with path-escape protection. This prevents 404s when `file_path` is stored as a relative key.
+- PASF agreement date propagation: `_get_pasf()` now includes `agreement_date`, so the v2 mapper can use it in the DOCX context.
+- PMLA v2 emergency service mapping: dictionary-style emergency service blocks now support canonical and alias keys, including PASF/medical/fire mappings used by questionnaire data.
+- PMLA v2 contract dates: contract document dates are formatted as `DD.MM.YYYY` for the v2 schema/template instead of raw ISO dates.
+- PMLA v2 equipment/scenario links: matrix-selected scenarios without `equipment_ids` no longer collapse to empty links in the generated table.
+- Frontend TypeScript: fixed `opo-page.tsx` hazard class narrowing so `npx tsc --noEmit --incremental false` passes.
+- Generated frontend type file: restored `frontend/next-env.d.ts` to the normal `.next/types/routes.d.ts` import after a dev-build generated change.
+- Added focused regression tests for PASF document path resolution, v2 emergency-service alias mapping, contract date formatting, and equipment/scenario fallback links.
+
+Verified:
+- Backend focused tests: `38 passed, 3 skipped, 3 warnings`.
+- Backend full suite: `696 passed, 3 skipped, 41 warnings`.
+- Frontend type check: `npx tsc --noEmit --incremental false` passed.
+- Frontend production build: `npm run build` passed.
+- Static diff check: `git diff --check` passed; only line-ending conversion warnings were reported by Git.
+
+Current git state:
+- Changes are intentionally uncommitted.
+- Modified tracked files include PASF router, PMLA questionnaire service, PMLA v2 context mapper, v2/directories tests, smoke-flow test, OPO page, and pre-existing modified files such as `enhanced_generator.py` and database model changes.
+- Important untracked items remain and must be handled deliberately before any commit: `.agents/`, `.claude/`, `.mimocode/`, `graphify-out/`, `.zcode/`, real OPO validation JSON/data folders, `nul` files, audit scripts/docs, the `agreement_date` migration, and the PASF documents E2E test.
+
+Risks / decisions left open:
+- Local/generated/audit folders should be staged or ignored deliberately; no blanket `git add .`.
+- The untracked migration and PASF E2E test look legitimate but should be reviewed and staged intentionally.
+
+Recommended next step:
+- Review visible source-like untracked files, then stage a narrow Patch C commit with only the audit bug fixes, tests, config fixes, and intended hygiene rules.
+
+### Follow-up: frontend build policy and repository hygiene
+
+Additional subagent review found and closed two production/build risks:
+- Next.js production builds no longer ignore TypeScript errors: removed `typescript.ignoreBuildErrors` from `frontend/next.config.ts`. `npm run build` now runs the built-in TypeScript step and passed.
+- Frontend Dockerfile now matches `output: "standalone"`: the runner stage copies `.next/standalone`, `.next/static`, and `public`, then starts with `node server.js` using `HOSTNAME=0.0.0.0` and `PORT=3000`.
+
+Repository hygiene changes:
+- Root `.gitignore` now ignores local agent/tooling outputs: `.agents/`, `.claude/`, `.mimocode/`, `graphify-out/`.
+- Root `.gitignore` now ignores Windows reserved `nul` artifacts so they stop polluting status and breaking search tools.
+- App `.gitignore` now ignores local `.zcode/` and real/anonymized OPO validation outputs (`backend/data/data/`, `real_opo_insert.sql`, validation JSONs, QA trace/text files).
+- Legitimate-looking source artifacts remain visible for review: the `agreement_date` migration, PASF E2E test, v1 schema, docs/audit files, and backend scripts were not blanket-ignored.
+
+Additional verification:
+- Frontend strict type check: `npx tsc --noEmit --incremental false` passed.
+- Frontend production build: `npm run build` passed and produced `.next/standalone/server.js`.
+- Backend focused regression: `38 passed, 3 skipped, 3 warnings`.
+- `git diff --check` passed; only LF/CRLF warnings remain.
+
+Remaining manual decisions:
+- Decide whether to delete the ignored `nul` files from disk; they are still present locally but no longer appear in normal `git status`.
+- Review and intentionally stage or discard visible untracked source-like files; avoid blanket `git add .`.
+
+### Follow-up: frontend API origin and untracked source review
+
+Additional production bug fixed:
+- Frontend API client no longer defaults browser requests to `http://localhost:8000`; when `NEXT_PUBLIC_API_BASE_URL` is not explicitly set, requests use same-origin paths such as `/api/v1/...` and `/health`.
+- `next.config.ts` now rewrites `/api/:path*` and `/health` to the backend using `INTERNAL_API_BASE_URL` (default for Docker: `http://backend:8000`).
+- `docker-compose.yml` sets `INTERNAL_API_BASE_URL=http://backend:8000` for the dev frontend container.
+- Frontend Dockerfile provides `INTERNAL_API_BASE_URL` at build time and runtime, so standalone rewrites are built with the container backend URL.
+- `frontend/.dockerignore` now excludes `.env*.local`, preventing local `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` from being baked into production Docker images.
+
+Verification:
+- Clean Docker-like frontend build was run with local `.env.local` temporarily removed and restored afterward.
+- `npm run build` passed with `INTERNAL_API_BASE_URL=http://backend:8000`.
+- `npx tsc --noEmit --incremental false` passed.
+- Production output check found no `localhost:8000` in `.next/static`, `.next/server`, or `.next/standalone`.
+- Standalone output contains backend rewrites to `http://backend:8000/api/:path*` and `http://backend:8000/health`.
+
+Untracked source-like review:
+- Stage candidate: `backend/alembic/versions/a5c8a2dd1a14_add_agreement_date_to_emergency_rescue_.py`; current model/API/service use `agreement_date`, so deployed DBs need this migration.
+- Stage candidate: `backend/tests/integration/test_pmla_pasf_documents_e2e.py`; it covers PASF document upload and mapper behavior without relying on an existing DB row.
+- Leave untracked unless intentionally shipping docs: PMLA v2 docs and audit reports under `docs/` and `docs/audit/`.
+- Likely local tooling: many `backend/scripts/*` template surgery / render audit scripts and `docs/audit/analyze_docx*.py`; several contain machine-specific absolute paths and should not be blanket-staged.
+
+Remaining manual decisions:
+- Whether to stage selected durable docs or keep them local.
+- Whether to delete ignored `nul` files from disk.
+
+### Follow-up: PASF E2E stabilization
+
+PASF E2E staging blocker fixed:
+- `backend/tests/integration/test_pmla_pasf_documents_e2e.py` no longer relies on a hard-coded existing PASF UUID.
+- The upload test now overrides FastAPI dependencies with an in-memory fake PASF repository and fake DB session while still exercising the real upload endpoint handler.
+- The test no longer silently skips when the endpoint/database is unavailable; upload success is asserted directly.
+- Uploaded test files are cleaned from the PASF upload directory after the test.
+- The contradictory certificate-date fallback comment was removed; the assertion now matches the mapper behavior (`agreement_date` only, otherwise `—`).
+
+Verification:
+- PASF E2E file: `11 passed, 3 warnings`.
+- Expanded backend focused regression: `49 passed, 3 skipped, 3 warnings`.
+- Search confirmed no old hard-coded PASF UUID and no `pytest.skip` remain in the PASF E2E file.
+
+Updated staging recommendation:
+- The `agreement_date` Alembic migration and PASF E2E test are now both reasonable Patch C staging candidates, subject to the final staged-file review.
+
+### Savepoint: audit progress saved (2026-07-13 19:01:13 +03:00)
+
+Current state saved after the Patch A follow-up audit and additional bug sweep.
+
+Completed in this working tree:
+- `docs/inbox/` and other local validation/tooling outputs remain local and are ignored rather than staged blindly.
+- Backend PASF/PMLA fixes are present in the working tree: PASF upload/download path resolution, `agreement_date` propagation, emergency-service alias handling, PASF contract date mapping, scenario/equipment fallback mapping, and dispatcher phone priority.
+- Frontend production/API fixes are present in the working tree: no ignored TypeScript build errors, standalone Docker runtime, same-origin browser API calls by default, backend rewrites through `INTERNAL_API_BASE_URL`, and `.env*.local` excluded from frontend Docker context.
+- PASF E2E test was stabilized: it no longer depends on a hard-coded PASF UUID and no longer skips silently.
+
+Verification already passed:
+- Full backend suite earlier in this audit: `696 passed, 3 skipped`.
+- PASF E2E focused file: `11 passed`.
+- Expanded backend focused regression: `49 passed, 3 skipped`.
+- Frontend strict type check: `npx tsc --noEmit --incremental false` passed.
+- Frontend production build: `npm run build` passed.
+- Production frontend output check found no baked `localhost:8000`.
+- `git diff --check` passed, with only Git line-ending warnings.
+
+Current git state summary:
+- Changes are intentionally uncommitted.
+- Modified tracked files include root/app `.gitignore`, `PROGRESS.md`, PASF/PMLA backend services/router/tests, frontend API/config/Docker files, `docker-compose.yml`, and pre-existing modified files such as `enhanced_generator.py` and database model updates.
+- Important untracked Patch C candidates: `backend/alembic/versions/a5c8a2dd1a14_add_agreement_date_to_emergency_rescue_.py` and `backend/tests/integration/test_pmla_pasf_documents_e2e.py`.
+- Other untracked docs/scripts/audit artifacts remain visible for deliberate review and should not be swept into a commit automatically.
+
+Remaining before final commit decision:
+- Review latest subagent findings if they return with additional issues.
+- Fix the minor Russian ambulance alias typo in `_SERVICE_TYPE_ALIASES` (`скорая`; keep tolerant legacy alias if useful).
+- Optionally remove the duplicate local `admin` lookup in the PMLA v2 context mapper.
+- Rerun focused backend tests and `git diff --check` after any final edits.
+- Stage only the intended Patch C files; avoid blanket `git add .`.
+### Subagent frontend/config findings (2026-07-13 19:01:53 +03:00)
+
+Latest read-only frontend/config review returned unresolved findings; no code was changed for them in this savepoint.
+
+Findings to fix next:
+- P1: OPO save can corrupt hazard class values in `frontend/src/components/dashboard/opo-page.tsx`; current mapping uses string index logic that can map `II`, `III`, and `IV` incorrectly.
+- P2: Same-origin API behavior can be bypassed in local dev because `NEXT_PUBLIC_API_BASE_URL` is still documented in `frontend/.env.example` and preferred by `frontend/src/lib/api-client.ts` when set.
+- P2: Docker runtime `INTERNAL_API_BASE_URL` is potentially misleading because Next rewrites are produced at build/config load time; runtime overrides in the standalone image may not change already-built rewrite destinations.
+
+Verification noted by reviewer:
+- Frontend no-emit TypeScript check passed.
+- No concrete accidental over-ignore was found in the changed `.gitignore` rules against currently tracked files.
+
+Updated next-step queue:
+- Fix hazard-class persistence before any user-facing OPO retest.
+- Decide final API-origin policy: either fully same-origin by default and remove public local-backend guidance, or explicitly document when direct backend access is expected.
+- Clarify Docker build-time versus runtime backend URL behavior in config/Dockerfile/docs before staging Patch C.
+
+### Subagent backend/PASF findings (2026-07-13 19:02:15 +03:00)
+
+Latest read-only backend/PASF review returned unresolved findings; no code was changed for them in this savepoint.
+
+Findings to fix next:
+- P1: Final questionnaire generation can be blocked for newly uploaded PASF documents. Upload/download now use relative storage keys such as `pasf_documents/...`, but PMLA preflight still checks `os.path.exists(doc_file_path)` directly, so it can report `PASF_FILE_NOT_FOUND` even when the file exists under the PASF upload root.
+- P2: PASF document appendices may be wired into the legacy/enhanced generator path, not the v2 questionnaire generation path. The v2 questionnaire flow maps to `v2_context` and renders via `PmlaTemplateRenderer`, while current v2 template keys do not clearly consume `appendices_manifest` or `pasf_documents`.
+- P2: The untracked PASF E2E test is stabilized but still does not cover its full advertised flow. It does not run preflight against a relative uploaded `file_path`, does not call questionnaire generation, and does not verify the downloaded/generated manifest path end-to-end.
+- P3: `contractor_agreement_number` is mapped and tested, but the v2 schema/template contract appears to define/use only `contractor_agreement_date`, so the number may be silently unused in DOCX output.
+
+Reviewer notes:
+- The `agreement_date` Alembic migration looks structurally aligned with the model: nullable `String(50)` column and `down_revision = "019"`.
+- The reviewer did not edit files or run the test suite.
+
+Updated next-step queue:
+- Fix PASF preflight path resolution before considering final generation reliable.
+- Decide whether PASF appendices belong in the v2 questionnaire renderer/template contract, then add a real flow test if they do.
+- Rename or expand the PASF E2E test so its coverage matches its header.
+- Decide whether `contractor_agreement_number` should be added to the v2 schema/template output or removed from the mapper/test expectations.
+### Follow-up: P1 audit fixes applied (2026-07-13 19:11:39 +03:00)
+
+Closed findings from the latest subagent reviews:
+- P1 frontend hazard-class corruption fixed in `frontend/src/components/dashboard/opo-page.tsx`: OPO save now maps `I`, `II`, `III`, `IV` through an explicit helper instead of the broken `"IVII".indexOf(...)` expression.
+- P1 PASF preflight blocker fixed in `backend/src/application/services/pmla_preflight.py`: relative uploaded PASF storage keys such as `pasf_documents/...` are now resolved under the PASF upload root before existence and checksum checks.
+- Minor mapper cleanup applied in `backend/src/application/services/pmla_v2_context_mapper.py`: added the correct Russian alias `скорая` for ambulance/medical services while keeping the previous typo alias for tolerance, and removed a duplicate `admin` service lookup.
+
+Regression coverage added/updated:
+- `backend/tests/test_pmla_generation_core.py` now verifies that a relative PASF document path under the upload root does not produce `PASF_FILE_NOT_FOUND` or checksum mismatch in final preflight.
+- `backend/tests/integration/test_pmla_pasf_documents_e2e.py` now verifies `_normalize_service_type("скорая") == "ambulance"`.
+
+Verification after these fixes:
+- `python -m pytest isap\backend\tests\test_pmla_generation_core.py -q`: `59 passed`.
+- `python -m pytest isap\backend\tests\test_pmla_generation_core.py isap\backend\tests\integration\test_pmla_pasf_documents_e2e.py -q`: `70 passed`.
+- `npx tsc --noEmit --incremental false`: passed.
+- `git diff --check`: passed, with only Git LF/CRLF warnings.
+
+Still open from subagent review:
+- P2: finalize same-origin API policy for `NEXT_PUBLIC_API_BASE_URL` versus Next rewrites.
+- P2: clarify that Docker `INTERNAL_API_BASE_URL` affects build/config-time rewrites, not arbitrary runtime rewiring of an already-built standalone image.
+- P2: decide whether PASF appendices must be wired into the v2 questionnaire renderer/template contract and add a true generation-flow test if yes.
+- P3: decide whether `contractor_agreement_number` belongs in the v2 schema/template output or should be removed from mapper/test expectations.
+### Follow-up: P2/P3 audit fixes applied (2026-07-13 19:37:19 +03:00)
+
+Closed remaining findings from the latest frontend/backend subagent reviews:
+- P2 frontend API-origin policy fixed: browser API calls now always use same-origin `/api/...` paths; `NEXT_PUBLIC_API_BASE_URL` no longer controls frontend requests or appears in frontend examples/docs.
+- P2 Docker rewrite behavior clarified: `INTERNAL_API_BASE_URL` is treated as the Next build/dev-server backend target for rewrites. The frontend Docker runner no longer exposes a misleading runtime override for already-built standalone rewrites.
+- P2 PASF appendices fixed for the v2 questionnaire generation path: `map_to_v2_context()` now carries `appendices_manifest`, and `PmlaTemplateRenderer` appends the manifest table to the rendered v2 DOCX output.
+- P3 `contractor_agreement_number` fixed in the v2 template contract: the hard-coded agreement number in `pmla_v2_template.docx` was replaced with `{{ contractor_agreement_number }}`, and the field is now present in `pmla_v2.schema.json`, `pmla_v2_template_keys.json`, and `pmla_v2_context_keys.json`.
+
+Verification after these fixes:
+- Clean Docker-like frontend build without local `.env.local`, with `INTERNAL_API_BASE_URL=http://backend:8000`: passed; standalone output contains backend rewrites to `http://backend:8000` and no `NEXT_PUBLIC_API_BASE_URL` / `localhost:8000` references.
+- `npx tsc --noEmit --incremental false`: passed.
+- `python -m pytest isap\backend\tests\integration\test_pmla_v2_integration.py -q`: `28 passed, 3 skipped`.
+- `python -m pytest isap\backend\tests\infrastructure\export\test_pmla_v2_schema_alignment.py -q`: `27 passed`.
+- Combined focused backend suite (`test_pmla_generation_core.py`, PASF E2E, v2 integration, schema alignment): `125 passed, 3 skipped`.
+- `git diff --check`: passed, with only Git LF/CRLF warnings.
+
+Current audit status:
+- Previously open P1/P2/P3 findings from the two subagent reviews are now addressed in code/tests.
+- Changes remain intentionally uncommitted and should still be staged narrowly; avoid blanket `git add .` because local docs/scripts/audit artifacts are still visible.
+### Patch C readiness review (2026-07-13 19:47:01 +03:00)
+
+Independent subagent review and local readiness checks completed for the current Patch C working tree.
+
+Subagent review result:
+- No P0/P1 readiness blockers found.
+- P2 found and fixed: PASF preflight previously accepted absolute `file_path` values outside the PASF upload root while download policy rejects them.
+- P3 test-scope issue addressed: the PASF documents regression test header now describes its actual focused coverage rather than claiming a full upload → preflight → generation → manifest → download E2E path.
+
+Additional fix applied:
+- `backend/src/application/services/pmla_preflight.py` now confines both relative and absolute PASF document paths to `PASF_UPLOAD_ROOT`; paths outside the upload root resolve to missing/rejected files.
+- `backend/tests/test_pmla_generation_core.py` now covers both allowed relative PASF storage keys and rejected absolute paths outside upload root.
+
+Readiness verification:
+- JSON contract files parse successfully: `pmla_v2.schema.json`, `pmla_v2_context_keys.json`, `pmla_v2_template_keys.json`.
+- `pmla_v2_template.docx` contains `{{ contractor_agreement_number }}` and no longer contains the old hard-coded `265/26` agreement number.
+- Alembic chain check: untracked migration `a5c8a2dd1a14_add_agreement_date_to_emergency_rescue_.py` is a linear successor of revision `019` and matches the model's `agreement_date` field.
+- Focused PASF/preflight tests: `71 passed`.
+- Combined focused backend suite: `126 passed, 3 skipped`.
+- Frontend type check: `npx tsc --noEmit --incremental false` passed.
+- `git diff --check` passed, with only Git LF/CRLF warnings.
+
+Patch C staging guidance:
+- Stage intentionally: tracked Patch C source/config/template/schema/test files, plus the untracked Alembic migration and untracked PASF documents regression test.
+- Do not blanket-stage visible local artifacts: `AI_DEVELOPER_PROMPT.md`, `backend/scripts/*`, `docs/audit/*`, generated QA/render scripts, local schema experiments, and other untracked docs unless deliberately chosen.
+- `backend/qa_content_paragraphs.txt` still contains an old rendered sample with the previous hard-coded agreement number, but it is not tracked and should remain out of Patch C.
+### Patch C staging dry-run (2026-07-13 19:49:41 +03:00)
+
+A safe `git add --dry-run` was executed with an explicit Patch C file list. It did not change the index (`git diff --cached --name-only` returned empty).
+
+Dry-run staging list:
+- `.gitignore`
+- `isap/.gitignore`
+- `isap/PROGRESS.md`
+- `isap/backend/src/api/routers/directories_pasf.py`
+- `isap/backend/src/application/services/enhanced_generator.py`
+- `isap/backend/src/application/services/pmla_preflight.py`
+- `isap/backend/src/application/services/pmla_questionnaire_service.py`
+- `isap/backend/src/application/services/pmla_v2_context_mapper.py`
+- `isap/backend/src/infrastructure/database/models.py`
+- `isap/backend/src/infrastructure/export/pmla_template_renderer.py`
+- `isap/backend/alembic/versions/a5c8a2dd1a14_add_agreement_date_to_emergency_rescue_.py`
+- `isap/backend/tests/integration/test_pmla_v2_integration.py`
+- `isap/backend/tests/integration/test_pmla_pasf_documents_e2e.py`
+- `isap/backend/tests/test_directories.py`
+- `isap/backend/tests/test_pmla_api_smoke_flow.py`
+- `isap/backend/tests/test_pmla_generation_core.py`
+- `isap/docker-compose.yml`
+- `isap/docs/FRONTEND_MIGRATION.md`
+- `isap/files/pmla_v2.schema.json`
+- `isap/files/pmla_v2_context_keys.json`
+- `isap/files/pmla_v2_template.docx`
+- `isap/files/pmla_v2_template_keys.json`
+- `isap/frontend/.dockerignore`
+- `isap/frontend/.env.example`
+- `isap/frontend/Dockerfile`
+- `isap/frontend/next.config.ts`
+- `isap/frontend/src/components/dashboard/opo-page.tsx`
+- `isap/frontend/src/lib/api-client.ts`
+
+Explicitly excluded from Patch C staging:
+- `isap/AI_DEVELOPER_PROMPT.md`
+- `isap/backend/scripts/**`
+- `isap/docs/EPB_REGISTRY_MVP.md`
+- `isap/docs/PMLA_V2_*.md`
+- `isap/docs/audit/**`
+- `isap/files/pmla_v1.schema.json`
+- ignored/generated local artifacts such as `.next/`, `backend/src/uploads/`, `__pycache__/`, `nul`, and local QA render outputs.
+
+Recommended next command, only when ready to actually stage:
+`git add -- <the exact dry-run file list above>`
+
+### Full regression/build gate (2026-07-13 19:54:50 +03:00)
+
+Broader verification was run after the Patch C readiness and staging dry-run pass.
+
+Verification results:
+- Full backend test suite: `python -m pytest isap\backend\tests -q` → `699 passed, 3 skipped, 41 warnings`.
+- Frontend strict type check: `npx tsc --noEmit --incremental false` → passed.
+- Frontend production build: `npm run build` → passed.
+- `git diff --check` → passed, with only Git LF/CRLF warnings.
+- `git diff --cached --name-only` → empty; no files are staged.
+- Frontend build artifacts remain ignored: `isap/frontend/.next/` appears only as ignored output.
+
+Current state:
+- Patch C remains uncommitted and unstaged by design.
+- The explicit staging dry-run list above remains the recommended staging scope.
+
+### Static quality gate follow-up (2026-07-13 20:04:55 +03:00)
+
+Additional project quality gates were inspected after the full regression/build pass.
+
+Findings and fixes:
+- Backend full `ruff check .` is not currently a green repository-wide gate: it reports a large amount of pre-existing formatting/import/line-length debt across Alembic, tests, and older modules.
+- A real Patch C-relevant static bug was found and fixed: `enhanced_generator.py` used `logger` before any module-level logger existed. Added a module-level `logging.getLogger(__name__)`.
+- Patch C frontend lint warnings in `opo-page.tsx` were cleaned up: removed the `any` cast in `mapFromApi`, replaced render-time `Date.now()` / `Math.random()` document IDs with a ref counter, and removed unused `saving` state.
+
+Verification after the fixes:
+- Targeted backend static check: `python -m ruff check src/application/services/enhanced_generator.py --select F821` → passed.
+- Targeted frontend lint: `npx eslint src/lib/api-client.ts src/components/dashboard/opo-page.tsx next.config.ts` → passed with no warnings/errors.
+- Backend focused tests around enhanced generator/preflight: `89 passed`.
+- Full backend test suite rerun: `699 passed, 3 skipped, 41 warnings`.
+- Frontend strict type check: passed.
+- Frontend production build: passed.
+- `git diff --check`: passed, with only Git LF/CRLF warnings.
+- `git diff --cached --name-only`: empty; no files are staged.
+
+Notes:
+- The saved Patch C dry-run staging list is still valid; the latest edits only touched files already included in that list (`enhanced_generator.py` and `opo-page.tsx`).
+- Repo-wide ruff cleanup should be treated as a separate formatting/lint-debt task, not folded into Patch C.
+
+### Patch C static/manual audit continuation (2026-07-13 20:14:24 +03:00)
+
+A follow-up manual/static audit was run against the current Patch C worktree after the prior progress save.
+
+Findings and fixes:
+- Removed a duplicate module-level `logger = logging.getLogger(__name__)` declaration in `enhanced_generator.py`.
+- Fixed a real static test issue in `test_pmla_v2_integration.py`: two test classes were both named `TestRegulatoryCoverage`, so one class name shadowed the other at module scope. They are now named `TestRegulatoryCoverageBasic` and `TestRegulatoryCoveragePp1437`.
+- Added the missing blank line between adjacent v2 integration test methods while preserving test behavior.
+
+Verification after the fixes:
+- Targeted ruff: `python -m ruff check src/application/services/enhanced_generator.py tests/integration/test_pmla_v2_integration.py --select F821,F811` -> passed.
+- v2 integration tests: `python -m pytest tests/integration/test_pmla_v2_integration.py -q` -> `32 passed, 3 skipped, 3 warnings`.
+- `git diff --check` -> passed, with only Git LF/CRLF warnings.
+- `git diff --cached --name-only` -> empty; no files are staged.
+
+Current state:
+- Patch C remains uncommitted and unstaged by design.
+- Latest additional edits only touched files already in the saved Patch C staging dry-run list: `enhanced_generator.py` and `test_pmla_v2_integration.py`.
+
+### Patch C independent review follow-up (2026-07-13 20:27:33 +03:00)
+
+An independent subagent review of the current Patch C diff was completed and its actionable finding was addressed.
+
+Finding fixed:
+- P2 PASF upload storage policy: uploaded filenames were sanitized only by the final upload-root `commonpath` check. A crafted filename with path separators could stay inside `uploads/` while bypassing the intended `uploads/pasf_documents/` directory. The upload path builder now strips path separators to a basename, stores the sanitized filename, and verifies the resolved path is inside `PASF_DOCUMENTS_UPLOAD_DIR`.
+
+Additional cleanup:
+- Fixed the `contractor_agreement_number` description in `pmla_v2.schema.json` from a mojibake/question-mark placeholder to `Номер договора с ПАСФ`.
+
+Verification after the fixes:
+- PASF-focused backend tests: `python -m pytest tests/test_directories.py tests/test_pmla_generation_core.py tests/integration/test_pmla_pasf_documents_e2e.py -q` -> `80 passed, 3 warnings`.
+- Targeted ruff: `python -m ruff check src/api/routers/directories_pasf.py tests/test_directories.py --select F821,F811` -> passed.
+- v2 schema alignment: `python -m pytest tests/infrastructure/export/test_pmla_v2_schema_alignment.py -q` -> `27 passed, 1 warning`.
+- Full backend suite: `python -m pytest isap\backend\tests -q` -> `704 passed, 3 skipped, 41 warnings`.
+- Frontend typecheck: `npx tsc --noEmit --incremental false` -> passed.
+- Frontend production build: `npm run build` -> passed.
+- `git diff --check` -> passed, with only Git LF/CRLF warnings.
+- `git diff --cached --name-only` -> empty; no files are staged.
+
+Current state:
+- Patch C remains uncommitted and unstaged by design.
+- Latest additional edits touched `directories_pasf.py`, `test_directories.py`, and `pmla_v2.schema.json`; these should be included in the Patch C staging scope if/when staging happens.
+
+### Docker startup fix (2026-07-13 20:37:51 +03:00)
+
+The application startup issue was reproduced and fixed in Docker Compose.
+
+Root cause:
+- The backend container used `uvicorn --reload` over the whole `/app` bind mount. Watchfiles crashed on `/app/.pytest_cache` with `Permission denied`, making startup/reload unstable.
+- The frontend dev container repeatedly logged `Failed to flush logs to file ... /app/.next/dev/logs` because the dev log directory was absent after prior production builds.
+
+Fixes:
+- Backend compose command now uses `--reload-dir src`, so the reloader watches application source only and does not scan local test/build caches.
+- Frontend compose command now creates `.next/dev/logs` before running `next dev`.
+- Removed obsolete Compose `version` key to avoid the Docker Compose warning.
+
+Verification:
+- Recreated backend/frontend containers with `docker compose up -d --force-recreate backend frontend`.
+- `docker compose config --quiet` -> passed.
+- `docker compose ps` -> db, chromadb, backend, frontend all `Up`; db is healthy.
+- Backend `http://localhost:8000/health` -> `200 {"status":"ok","env":"development"}`.
+- Frontend `http://localhost:3000/` -> `200` after first dev compilation.
+- Frontend rewrite `http://localhost:3000/health` -> backend health `200`.
+- Backend logs now show `Will watch for changes in these directories: ['/app/src']` and no watchfiles permission error.
+- Frontend logs now show `Ready` and successful `GET / 200`; no `.next/dev/logs` flush error in fresh logs.
+- `git diff --check` -> passed with only Git LF/CRLF warnings.
+- `git diff --cached --name-only` -> empty; no files are staged.
+
+Current state:
+- Docker app is currently running at `http://localhost:3000` with backend at `http://localhost:8000`.
+- Patch C remains uncommitted and unstaged by design.
+
+### Frontend API CORS redirect fix (2026-07-13 20:48:06 +03:00)
+
+A browser CORS error was reproduced for PMLA API calls through the Next.js frontend proxy.
+
+Root cause:
+- Requests from `http://localhost:3000` to `/api/v1/pmla/` were being normalized/reproxied in a way that let FastAPI issue a `307` redirect with `Location: http://backend:8000/api/v1/pmla/`.
+- The browser then tried to follow the Docker-internal hostname `backend:8000`, causing CORS/preflight failure.
+
+Fixes:
+- Added `skipTrailingSlashRedirect: true` to `next.config.ts` so Next does not normalize API proxy paths before rewrites.
+- Added an explicit slash-preserving API rewrite before the generic rewrite: `/api/:path*/` -> backend `/api/:path*/`.
+- Added explicit no-slash root rewrites for `/api/v1/pmla`, `/api/v1/directories/pasf`, and `/api/v1/directories/emergency-services` to avoid FastAPI root-route redirects leaking `backend:8000`.
+- Updated frontend API client root calls for PASF and emergency-services directories to use trailing slash collection URLs directly.
+
+Verification:
+- Frontend `npx tsc --noEmit --incremental false` -> passed.
+- Frontend `npx eslint src/lib/api-client.ts next.config.ts` -> passed.
+- Frontend `npm run build` -> passed.
+- Recreated frontend container with `docker compose up -d --force-recreate frontend`.
+- `GET http://localhost:3000/api/v1/pmla/` with origin and API key -> `200`, no redirect, no `Location: backend:8000`.
+- `GET http://localhost:3000/api/v1/pmla` with origin and API key -> `200`, no redirect, no `Location: backend:8000`.
+- `OPTIONS http://localhost:3000/api/v1/pmla/` with browser preflight headers -> `200` with `Access-Control-Allow-Origin: http://localhost:3000`.
+- Frontend root `http://localhost:3000/` -> `200`.
+- `docker compose ps` -> db, chromadb, backend, frontend all `Up`; db healthy.
+- `git diff --check` -> passed with only Git LF/CRLF warnings.
+- `git diff --cached --name-only` -> empty; no files are staged.
+
+Current state:
+- Docker app is running at `http://localhost:3000`.
+- Patch C remains uncommitted and unstaged by design.
