@@ -8,15 +8,23 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.application.services.pmla_facility_matching_service import (
+    PmlaFacilityMatchingService,
+)
+from src.application.services.pmla_import_normalizer import PmlaImportNormalizer
 from src.application.services.smart_import.parser import SmartImportParser
 from src.application.services.smart_import.profiles import IMPORT_PROFILES, ImportProfile
 from src.infrastructure.database.models import (
     EmergencyRescueUnitModel,
     EmergencyServiceModel,
+    HazardousFacilityModel,
     ImportJobModel,
     ImportRowModel,
+    OrganizationModel,
     PmlaQuestionnaireModel,
 )
+from src.infrastructure.repositories.facility_repo import FacilityRepository
+from src.infrastructure.repositories.organization_repo import OrganizationRepository
 
 
 class SmartImportService:
@@ -131,7 +139,11 @@ class SmartImportService:
         )
         return [self._row_to_dict(row) for row in result.scalars().all()]
 
-    async def confirm_import(self, job_id: UUID) -> dict[str, Any]:
+    async def confirm_import(
+        self,
+        job_id: UUID,
+        bind_params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         job = await self._get_job_model(job_id)
         if job.status not in {"preview", "confirmed"}:
             raise ValueError(f"Импорт в статусе '{job.status}' нельзя подтвердить")
@@ -158,7 +170,7 @@ class SmartImportService:
                 elif profile.code == "pasf_units":
                     outcome = await self._apply_pasf_unit(job, row)
                 elif profile.code == "pmla_questionnaire":
-                    outcome = await self._apply_pmla_questionnaire(job, row)
+                    outcome = await self._apply_pmla_questionnaire(job, row, bind_params=bind_params)
                 else:
                     raise ValueError(f"Профиль не поддерживается: {profile.code}")
                 if outcome == "created":
@@ -288,17 +300,134 @@ class SmartImportService:
         self.session.add(EmergencyRescueUnitModel(**data))
         return "created"
 
-    async def _apply_pmla_questionnaire(self, job: ImportJobModel, row: ImportRowModel) -> str:
-        data = dict(row.normalized_data or {})
-        title = f"Анкета ПМЛА: {data.get('facility_name') or data.get('organization_name') or job.filename}"
+    async def _apply_pmla_questionnaire(
+        self,
+        job: ImportJobModel,
+        row: ImportRowModel,
+        bind_params: dict[str, Any] | None = None,
+    ) -> str:
+        flat_data = dict(row.normalized_data or {})
+        result = PmlaImportNormalizer().normalize(flat_data)
+
+        # --- Resolve binding (organisation / facility) ---
+        binding = await self._resolve_pmla_binding(
+            result.organization_candidate,
+            result.facility_candidate,
+            bind_params,
+        )
+
+        # --- Store binding info in _import_meta ---
+        result.questionnaire_data["_import_meta"].update({
+            "organization_candidate": result.organization_candidate,
+            "facility_candidate": result.facility_candidate,
+            "selected_organization_id": str(binding["organization_id"]) if binding["organization_id"] else None,
+            "selected_facility_id": str(binding["facility_id"]) if binding["facility_id"] else None,
+            "binding_method": binding["binding_method"],
+            "requires_binding": binding["requires_binding"],
+        })
+
+        title = (
+            f"Анкета ПМЛА: {result.organization_candidate.get('name')
+            or result.facility_candidate.get('name')
+            or job.filename}"
+        )
+
         self.session.add(
             PmlaQuestionnaireModel(
                 title=title,
-                data=data,
+                data=result.questionnaire_data,
+                organization_id=binding["organization_id"],
+                facility_id=binding["facility_id"],
                 source_import_job_id=job.id,
             )
         )
         return "created"
+
+    async def _resolve_pmla_binding(
+        self,
+        org_candidate: dict[str, Any],
+        fac_candidate: dict[str, Any],
+        bind_params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Resolve organisation / facility binding for a PMLA questionnaire.
+
+        Priority:
+        1. Explicit IDs from confirm request (bind_params)
+        2. Auto-binding via unique registration number
+        3. Fallback — no binding (draft)
+        """
+        org_id: UUID | None = None
+        fac_id: UUID | None = None
+        binding_method = "none"
+        requires_binding = True
+        warnings: list[str] = []
+
+        # --- 1. Explicit IDs ---
+        if bind_params:
+            provided_org_id = bind_params.get("organization_id")
+            provided_fac_id = bind_params.get("facility_id")
+
+            if provided_fac_id:
+                # Validate facility exists
+                fac_result = await self.session.execute(
+                    select(HazardousFacilityModel).where(
+                        HazardousFacilityModel.id == UUID(str(provided_fac_id))
+                    )
+                )
+                facility = fac_result.scalar_one_or_none()
+                if not facility:
+                    raise ValueError(f"ОПО с ID {provided_fac_id} не найден")
+
+                fac_id = facility.id
+                org_id = facility.organization_id
+
+                # If organisation also explicitly provided, validate consistency
+                if provided_org_id:
+                    if UUID(str(provided_org_id)) != facility.organization_id:
+                        raise ValueError(
+                            f"ОПО {facility.name} принадлежит организации "
+                            f"{facility.organization_id}, не {provided_org_id}"
+                        )
+                    org_id = UUID(str(provided_org_id))
+
+                binding_method = "explicit"
+                requires_binding = False
+            elif provided_org_id:
+                # Validate organisation exists
+                org_result = await self.session.execute(
+                    select(OrganizationModel).where(
+                        OrganizationModel.id == UUID(str(provided_org_id))
+                    )
+                )
+                org = org_result.scalar_one_or_none()
+                if not org:
+                    raise ValueError(f"Организация с ID {provided_org_id} не найдена")
+                org_id = UUID(str(provided_org_id))
+                binding_method = "explicit"
+                requires_binding = fac_id is None  # still need facility
+
+            return {
+                "organization_id": org_id,
+                "facility_id": fac_id,
+                "binding_method": binding_method,
+                "requires_binding": requires_binding,
+                "warnings": warnings,
+            }
+
+        # --- 2. Auto-binding via matching service ---
+        matching = PmlaFacilityMatchingService(
+            OrganizationRepository(self.session),
+            FacilityRepository(self.session),
+        )
+        resolution = await matching.resolve_auto_binding(org_candidate, fac_candidate)
+
+        return {
+            "organization_id": resolution.organization_id,
+            "facility_id": resolution.facility_id,
+            "binding_method": resolution.binding_method,
+            "requires_binding": resolution.requires_binding,
+            "warnings": resolution.warnings,
+        }
 
     @staticmethod
     def _build_report(job: ImportJobModel) -> dict[str, Any]:

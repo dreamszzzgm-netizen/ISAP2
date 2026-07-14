@@ -4,12 +4,23 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
 from src.application.services.smart_import.service import SmartImportService
 
 router = APIRouter()
+
+
+class ConfirmImportRequest(BaseModel):
+    """Optional binding parameters for PMLA questionnaire import.
+
+    All fields are optional.  When omitted the created questionnaire will
+    not be linked to any organisation or facility (draft mode).
+    """
+    organization_id: UUID | None = None
+    facility_id: UUID | None = None
 
 
 @router.get("/profiles")
@@ -60,9 +71,22 @@ async def get_import_rows(
 
 
 @router.post("/jobs/{job_id}/confirm")
-async def confirm_import(job_id: UUID, db: AsyncSession = Depends(get_db)):
-    """Apply valid preview rows to target tables."""
+async def confirm_import(
+    job_id: UUID,
+    request: ConfirmImportRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply valid preview rows to target tables.
+
+    For ``pmla_questionnaire`` imports, optional ``organization_id`` and
+    ``facility_id`` can be provided to bind the created questionnaire to
+    existing records.  When omitted the questionnaire is saved as a draft
+    without binding.
+    """
     try:
-        return await SmartImportService(db).confirm_import(job_id)
+        return await SmartImportService(db).confirm_import(
+            job_id,
+            bind_params=request.model_dump() if request else None,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
