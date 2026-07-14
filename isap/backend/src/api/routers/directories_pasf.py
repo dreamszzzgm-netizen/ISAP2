@@ -41,6 +41,7 @@ class PasfCreateRequest(BaseModel):
     certificate_number: str | None = None
     certificate_date: str | None = None
     certificate_valid_until: str | None = None
+    agreement_date: str | None = None
     permitted_work_types: list[str] | None = None
     equipment_passport: list[str] | None = None
     staff_count: str | None = None
@@ -65,6 +66,7 @@ class PasfUpdateRequest(BaseModel):
     certificate_number: str | None = None
     certificate_date: str | None = None
     certificate_valid_until: str | None = None
+    agreement_date: str | None = None
     permitted_work_types: list[str] | None = None
     equipment_passport: list[str] | None = None
     staff_count: str | None = None
@@ -91,6 +93,7 @@ def _to_dict(obj) -> dict:
         "certificate_number": obj.certificate_number,
         "certificate_date": obj.certificate_date,
         "certificate_valid_until": obj.certificate_valid_until,
+        "agreement_date": obj.agreement_date,
         "permitted_work_types": obj.permitted_work_types or [],
         "equipment_passport": obj.equipment_passport or [],
         "staff_count": obj.staff_count,
@@ -186,10 +189,13 @@ async def export_pasf_csv(
 
 from src.core.settings import settings
 
-PASF_DOCUMENTS_UPLOAD_DIR = os.path.join(
+PASF_DOCUMENTS_UPLOAD_DIR = os.path.normpath(os.path.join(
     os.path.dirname(__file__), "..", "..", settings.upload_root, "pasf_documents"
-)
+))
 os.makedirs(PASF_DOCUMENTS_UPLOAD_DIR, exist_ok=True)
+PASF_UPLOAD_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", settings.upload_root)
+)
 
 ALLOWED_PASF_MIME_TYPES = {
     "application/pdf",
@@ -255,6 +261,42 @@ def _pasf_document_to_dict(doc: PasfDocumentModel) -> dict:
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
     }
+
+
+def _resolve_pasf_document_path(file_path: str) -> str:
+    """Resolve stored PASF document path and keep it inside upload root."""
+    if os.path.isabs(file_path):
+        resolved = os.path.normpath(file_path)
+    else:
+        resolved = os.path.normpath(os.path.join(PASF_UPLOAD_ROOT, file_path))
+
+    try:
+        inside_root = os.path.commonpath([PASF_UPLOAD_ROOT, resolved]) == PASF_UPLOAD_ROOT
+    except ValueError:
+        inside_root = False
+    if not inside_root:
+        raise HTTPException(status_code=400, detail="Некорректный путь файла")
+    return resolved
+
+
+def _build_pasf_upload_paths(pasf_id: UUID, filename: str | None, timestamp: str | None = None) -> tuple[str, str, str]:
+    """Build safe PASF document storage paths under pasf_documents."""
+    safe_filename = os.path.basename((filename or "").replace("\\", "/")).strip()
+    if not safe_filename or safe_filename in {".", ".."}:
+        raise HTTPException(status_code=400, detail="Некорректное имя файла")
+
+    ts = timestamp or datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_name = f"{ts}_{pasf_id.hex[:8]}_{safe_filename}"
+    relative_path = os.path.join("pasf_documents", safe_name)
+    absolute_path = os.path.normpath(os.path.join(PASF_DOCUMENTS_UPLOAD_DIR, safe_name))
+
+    try:
+        inside_documents_dir = os.path.commonpath([PASF_DOCUMENTS_UPLOAD_DIR, absolute_path]) == PASF_DOCUMENTS_UPLOAD_DIR
+    except ValueError:
+        inside_documents_dir = False
+    if not inside_documents_dir:
+        raise HTTPException(status_code=400, detail="Некорректный путь файла")
+    return safe_filename, relative_path, absolute_path
 
 
 def _validate_pasf_document_file(file: UploadFile) -> None:
@@ -368,18 +410,9 @@ async def upload_pasf_document(
     # SHA-256
     checksum = hashlib.sha256(content).hexdigest()
 
-    # Safe filename — store relative path (storage_key) in DB
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_name = f"{ts}_{pasf_id.hex[:8]}_{file.filename}"
-    relative_path = os.path.join("pasf_documents", safe_name)
-    absolute_path = os.path.normpath(os.path.join(PASF_DOCUMENTS_UPLOAD_DIR, safe_name))
-
-    # Security: ensure resolved path stays within upload root
-    upload_root_abs = os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", settings.upload_root)
-    )
-    if not absolute_path.startswith(upload_root_abs):
-        raise HTTPException(status_code=400, detail="Некорректный путь файла")
+    # Safe filename — store relative path (storage_key) in DB.
+    # The helper strips path separators and confines writes to pasf_documents.
+    safe_filename, relative_path, absolute_path = _build_pasf_upload_paths(pasf_id, file.filename)
 
     # Write to disk
     try:
@@ -410,16 +443,16 @@ async def upload_pasf_document(
         pasf_id=pasf_id,
         document_type=document_type,
         document_number=document_number,
-        title=title or file.filename,
+        title=title or safe_filename,
         issued_at=parsed_issued,
         valid_until=parsed_valid,
-        file_path=file_path,
-        file_name=file.filename,
+        file_path=relative_path,
+        file_name=safe_filename,
         file_size=file_size,
         mime_type=mime_type,
         checksum_sha256=checksum,
         status="active",
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(UTC).replace(tzinfo=None),
     )
     db.add(doc)
     await db.commit()
@@ -518,13 +551,16 @@ async def download_pasf_document(
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Документ ПАСФ не найден")
-    if not doc.file_path or not os.path.exists(doc.file_path):
+    if not doc.file_path:
+        raise HTTPException(status_code=404, detail="Файл документа не найден на диске")
+    resolved_path = _resolve_pasf_document_path(doc.file_path)
+    if not os.path.exists(resolved_path):
         raise HTTPException(status_code=404, detail="Файл документа не найден на диске")
     if doc.status in ("revoked", "archived"):
         raise HTTPException(status_code=403, detail="Документ отозван или архивирован")
 
     return FileResponse(
-        path=doc.file_path,
+        path=resolved_path,
         filename=doc.file_name or f"document_{document_id}",
         media_type=doc.mime_type or "application/octet-stream",
     )

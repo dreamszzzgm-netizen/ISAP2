@@ -848,8 +848,16 @@ function GenerationResultBlock({
   const [downloading, setDownloading] = useState(false)
 
   const review = generation.quality_review
-  const statusLabel = generation.status === "completed" ? "Завершён" : generation.status
-  const statusVariant = generation.status === "completed" ? ("default" as const) : ("secondary" as const)
+  const hasDocument = Boolean(generation.document_id)
+  const isBlocked = generation.status === "blocked"
+  // Успешные статусы генерации: pending_review (документ создан, ждёт ревью) и completed.
+  const isSuccess = generation.status === "pending_review" || generation.status === "completed"
+  const statusLabel = isBlocked ? "Заблокировано" : isSuccess ? "Готов к ревью" : generation.status
+  const statusVariant = isBlocked
+    ? ("destructive" as const)
+    : isSuccess
+      ? ("default" as const)
+      : ("secondary" as const)
 
   const copyToClipboard = async (text: string, kind: "id" | "report") => {
     try {
@@ -860,6 +868,7 @@ function GenerationResultBlock({
   }
 
   const handleDownload = async () => {
+    if (!generation.document_id) return
     setDownloading(true)
     try {
       const blob = await isapApi.downloadPmlaDocumentBlob(generation.document_id)
@@ -886,8 +895,8 @@ function GenerationResultBlock({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            Созданный документ
+            {isBlocked ? <AlertTriangle className="h-5 w-5 text-destructive" /> : <CheckCircle2 className="h-5 w-5 text-green-600" />}
+            {isBlocked ? "Генерация не выполнена" : "Созданный документ"}
             <Badge variant={statusVariant}>{statusLabel}</Badge>
           </CardTitle>
           <CardDescription>Источник: {generation.source === "pmla_questionnaire" ? "Анкета ПМЛА" : generation.source || "Генерация"}</CardDescription>
@@ -896,7 +905,7 @@ function GenerationResultBlock({
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-md border p-3 text-sm">
               <div className="text-muted-foreground text-xs">document_id</div>
-              <div className="break-all font-mono text-xs mt-1">{generation.document_id}</div>
+              <div className="break-all font-mono text-xs mt-1">{generation.document_id ?? "—"}</div>
             </div>
             <div className="rounded-md border p-3 text-sm">
               <div className="text-muted-foreground text-xs">Версия</div>
@@ -904,11 +913,11 @@ function GenerationResultBlock({
             </div>
             <div className="rounded-md border p-3 text-sm">
               <div className="text-muted-foreground text-xs">questionnaire_id</div>
-              <div className="break-all font-mono text-xs mt-1">{generation.questionnaire_id}</div>
+              <div className="break-all font-mono text-xs mt-1">{generation.questionnaire_id ?? "—"}</div>
             </div>
             <div className="rounded-md border p-3 text-sm">
               <div className="text-muted-foreground text-xs">facility_id</div>
-              <div className="break-all font-mono text-xs mt-1">{generation.facility_id}</div>
+              <div className="break-all font-mono text-xs mt-1">{generation.facility_id ?? "—"}</div>
             </div>
           </div>
 
@@ -934,7 +943,21 @@ function GenerationResultBlock({
               <AlertDescription>Все проверки пройдены. Перед выдачей клиенту рекомендуется финальная проверка.</AlertDescription>
             </Alert>
           )}
-          {generation.status !== "completed" && (
+          {isBlocked && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Генерация заблокирована проверками preflight</AlertTitle>
+              <AlertDescription>
+                {generation.reason || "Не пройдены обязательные проверки перед генерацией."}
+                {generation.preflight && (
+                  <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted p-2 text-[10px] leading-tight">
+                    {JSON.stringify(generation.preflight, null, 2)}
+                  </pre>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+          {!isBlocked && !isSuccess && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Статус генерации: {generation.status}</AlertTitle>
@@ -944,15 +967,15 @@ function GenerationResultBlock({
 
           {/* Document actions */}
           <div className="flex flex-wrap gap-2">
-            <Button variant="default" onClick={handleDownload} disabled={downloading} className="gap-2">
+            <Button variant="default" onClick={handleDownload} disabled={downloading || !hasDocument} className="gap-2">
               {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
               Скачать DOCX
             </Button>
-            <Button variant="outline" onClick={() => onOpenDocument(generation.document_id)} className="gap-2">
+            <Button variant="outline" onClick={() => generation.document_id && onOpenDocument(generation.document_id)} disabled={!hasDocument} className="gap-2">
               <ExternalLink className="h-4 w-4" />
               Открыть карточку документа
             </Button>
-            <Button variant="outline" onClick={() => copyToClipboard(generation.document_id, "id")} className="gap-2">
+            <Button variant="outline" onClick={() => generation.document_id && copyToClipboard(generation.document_id, "id")} disabled={!hasDocument} className="gap-2">
               <Copy className="h-4 w-4" />
               {copied === "id" ? "Скопировано!" : "Скопировать document_id"}
             </Button>

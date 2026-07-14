@@ -64,13 +64,31 @@ function hazardClassToLabel(cls: string | number | null | undefined): string {
   }
 }
 
+function hazardClassToApiValue(cls: string | null | undefined): number | undefined {
+  switch (cls) {
+    case "I": return 1
+    case "II": return 2
+    case "III": return 3
+    case "IV": return 4
+    default: return undefined
+  }
+}
+
 function mapFromApi(item: Record<string, unknown>): OpoObject {
+  const hazardClass =
+    typeof item.hazard_class === "string" || typeof item.hazard_class === "number" || item.hazard_class == null
+      ? item.hazard_class
+      : String(item.hazard_class)
+
+  const organizationName = item.organization_name
+  const organizationId = item.organization_id
+
   return {
     id: String(item.id || ""),
     name: String(item.name || ""),
-    orgName: String((item as any).organization_name || item.organization_id || ""),
+    orgName: String(organizationName || organizationId || ""),
     regNumber: String(item.reg_number || ""),
-    dangerClass: hazardClassToLabel(item.hazard_class),
+    dangerClass: hazardClassToLabel(hazardClass),
     address: String(item.address || ""),
   }
 }
@@ -284,12 +302,13 @@ function DocumentsForm({ docs, onChange }: {
   onChange: (d: DocItem[]) => void
 }) {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const nextDocIdRef = useRef(0)
 
   const addDoc = (typeKey: string) => {
     const docType = DOC_TYPES.find((d) => d.key === typeKey)
     if (!docType) return
     const newItem: DocItem = {
-      id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `doc-${++nextDocIdRef.current}`,
       typeKey,
       number: "",
       date: "",
@@ -464,7 +483,6 @@ export function OpoPage() {
   const [search, setSearch] = useState("")
   const [open, setOpen] = useState(false)
   const [editingOpo, setEditingOpo] = useState<OpoObject | undefined>(undefined)
-  const [saving, setSaving] = useState(false)
 
   const loadOpos = async () => {
     try {
@@ -515,12 +533,9 @@ export function OpoPage() {
 
   const handleSave = async (data: Partial<OpoObject>) => {
     try {
-      setSaving(true)
       if (editingOpo) {
         // Обновление существующего
-        const hazardClass = data.dangerClass
-          ? "IVII".indexOf(data.dangerClass) + 1 || undefined
-          : undefined
+        const hazardClass = hazardClassToApiValue(data.dangerClass)
         await isapApi.updateFacility(editingOpo.id, {
           name: data.name,
           address: data.address,
@@ -530,9 +545,7 @@ export function OpoPage() {
         toast.success("Объект ОПО обновлён")
       } else {
         // Создание нового
-        const hazardClass = data.dangerClass
-          ? "IVII".indexOf(data.dangerClass) + 1 || undefined
-          : undefined
+        const hazardClass = hazardClassToApiValue(data.dangerClass)
         const orgId = opoPreSelectedOrgId || undefined
         await isapApi.createFacility({
           organization_id: orgId || "00000000-0000-0000-0000-000000000001",
@@ -553,8 +566,6 @@ export function OpoPage() {
       toast.error("Ошибка сохранения", {
         description: err instanceof Error ? err.message : "Неизвестная ошибка",
       })
-    } finally {
-      setSaving(false)
     }
   }
 

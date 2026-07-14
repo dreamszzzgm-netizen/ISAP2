@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,26 @@ def _safe_str(value: Any, default: str = "") -> str:
     return str(value)
 
 
+def _format_date_str(value: Any) -> str:
+    """Format supported date values as DD.MM.YYYY for the v2 DOCX schema."""
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.date().strftime("%d.%m.%Y")
+    if isinstance(value, date):
+        return value.strftime("%d.%m.%Y")
+    raw = str(value).strip()
+    if not raw or raw == "—":
+        return raw
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%d.%m.%Y"):
+        try:
+            parsed = datetime.strptime(raw[:19], fmt)
+            return parsed.strftime("%d.%m.%Y")
+        except ValueError:
+            continue
+    return raw
+
+
 def _extract_initials_surname(full_name: str) -> str:
     """Convert 'Иванов Иван Иванович' → 'И.И. Иванов'."""
     parts = full_name.strip().split()
@@ -59,7 +80,7 @@ def _extract_initials_surname(full_name: str) -> str:
 
 def _parse_settlement(address: str) -> tuple[str, str]:
     """Extract settlement name and district from address.
-    
+
     Examples:
         'г. Москва, ул. Тестовая, д. 1' → ('г. Москва', '')
         'Московская область, г. Тест' → ('г. Тест', 'Московская область')
@@ -98,17 +119,48 @@ def _find_person(persons: list[dict], role: str | None = None) -> dict | None:
     return persons[0] if persons else None
 
 
-def _find_emergency_service(
-    services: dict | list, service_type: str,
+# Service type normalization
+_SERVICE_TYPE_ALIASES = {
+    "fire": {"fire", "fire_department", "fire_service", "пожарная", "пожарная_охрана"},
+    "ambulance": {"ambulance", "medical", "medical_service", "скорая", "скорная", "медицинская"},
+    "police": {"police", "полиция"},
+    "gas": {"gas", "gas_service", "газовая", "газовая_служба"},
+    "electric": {"electric", "electricity", "power", "power_service", "электрика", "энергосбыт"},
+    "edds": {"edds", "112", "еддс"},
+    "mchs": {"mchs", "emergency", "мчс", "чрезвычайные_ситуации"},
+    "rostechnadzor": {"rostechnadzor", "rtn", "ростехнадзор"},
+    "admin": {"admin", "administration", "администрация", "местная_администрация"},
+    "pasf": {"pasf", "пасф", "ппсф", "пфас"},
+    "gas_supplier": {"gas_supplier", "газоснабжение", "газопровод"},
+}
+
+def _normalize_service_type(service_type: str) -> str:
+    """Normalize service type to canonical form."""
+    if not service_type:
+        return ""
+    st = service_type.lower().strip()
+    for canonical, aliases in _SERVICE_TYPE_ALIASES.items():
+        if st in aliases:
+            return canonical
+    return st  # Return as-is if no alias matches
+
+
+def _find_emergency_service_by_type(
+    services: dict | list, canonical_type: str,
 ) -> dict | None:
-    """Find first emergency service of given type."""
+    """Find first emergency service of given canonical type."""
+    canonical_type = _normalize_service_type(canonical_type)
     if isinstance(services, dict):
-        for svc in services.get(service_type, []):
-            if isinstance(svc, dict):
-                return svc
+        for raw_type, raw_items in services.items():
+            if _normalize_service_type(str(raw_type)) != canonical_type:
+                continue
+            items = raw_items if isinstance(raw_items, list) else [raw_items]
+            for svc in items:
+                if isinstance(svc, dict):
+                    return svc
     elif isinstance(services, list):
         for svc in services:
-            if isinstance(svc, dict) and svc.get("service_type") == service_type:
+            if isinstance(svc, dict) and _normalize_service_type(svc.get("service_type", "")) == canonical_type:
                 return svc
     return None
 
@@ -122,6 +174,13 @@ def _get_phone(service: dict | None, *keys: str) -> str:
         if val:
             return _safe_str(val)
     return ""
+
+
+def _find_emergency_service(
+    services: dict | list, service_type: str,
+) -> dict | None:
+    """Find first emergency service of given type (uses normalization)."""
+    return _find_emergency_service_by_type(services, service_type)
 
 
 # ---------------------------------------------------------------------------
@@ -182,13 +241,25 @@ def _map_equipment_scenario_links(
     for eq in equipment:
         if not isinstance(eq, dict):
             continue
+        eq_id = _safe_str(eq.get("id") or eq.get("equipment_id") or "")
         eq_name = _safe_str(eq.get("name") or eq.get("device_name") or "—")
-        # Match scenarios relevant to this equipment
+        # Match scenarios relevant to this equipment via equipment_ids
         matching_codes = []
         descriptions = set()
         factors = set()
         for sc in scenarios:
-            if isinstance(sc, dict):
+            if not isinstance(sc, dict):
+                continue
+            # Check if this scenario references this equipment
+            sc_equip_ids = sc.get("equipment_ids") or sc.get("equipment_id") or []
+            if isinstance(sc_equip_ids, str):
+                sc_equip_ids = [sc_equip_ids]
+            matches_equipment = bool(eq_id and eq_id in sc_equip_ids)
+            # Matrix-selected scenarios often do not carry equipment_ids; keep
+            # the previous broad fallback so the v2 table is still informative.
+            if not sc_equip_ids:
+                matches_equipment = True
+            if matches_equipment:
                 code = _safe_str(sc.get("code", ""))
                 if code:
                     matching_codes.append(code)
@@ -218,7 +289,7 @@ def _map_accident_scenarios(
     """Map scenarios to v2 AccidentScenario format."""
     result = []
     seen_codes: set[str] = set()
-    
+
     for sc in scenarios:
         if not isinstance(sc, dict):
             continue
@@ -240,11 +311,19 @@ def _map_accident_scenarios(
             "signs": _safe_str(signs) or "—",
             "damaging_factors": _safe_str(damaging) or "—",
         })
-    
-    # Add questionnaire/custom scenarios
+
+    # Add questionnaire/custom scenarios - handle both dict and string formats
     for sc in (questionnaire_scenarios or []) + (custom_scenarios or []):
         if not isinstance(sc, dict):
-            continue
+            # Convert string scenario to dict
+            sc_str = _safe_str(sc)
+            if not sc_str:
+                continue
+            sc = {
+                "title": sc_str,
+                "name": sc_str,
+                "description": sc_str,
+            }
         code = _safe_str(sc.get("code") or f"С-{len(result) + 1}")
         if code in seen_codes:
             continue
@@ -257,7 +336,7 @@ def _map_accident_scenarios(
             "signs": _safe_str(sc.get("signs", "")) or "—",
             "damaging_factors": _safe_str(sc.get("damaging_factors", "")) or "—",
         })
-    
+
     return result
 
 
@@ -265,7 +344,7 @@ def _load_countermeasures(facility_type: str | None = None) -> list[dict]:
     """Load countermeasures from reference data for the given facility type."""
     ref_path = Path(__file__).resolve().parents[4] / "backend" / "data" / "references" / "scenario_instructions.json"
     alt_path = Path(__file__).resolve().parents[4] / "data" / "references" / "scenario_instructions.json"
-    
+
     data = None
     for p in [ref_path, alt_path]:
         if p.exists():
@@ -275,16 +354,16 @@ def _load_countermeasures(facility_type: str | None = None) -> list[dict]:
                 break
             except (json.JSONDecodeError, OSError):
                 continue
-    
+
     if not data or not isinstance(data, dict):
         return []
-    
+
     templates = data.get("templates", {})
     if not facility_type:
         # Return first available
         for ft, scenarios in templates.items():
             return _scenarios_to_countermeasures(scenarios)
-    
+
     scenarios = templates.get(facility_type, [])
     # Try partial match
     if not scenarios and facility_type:
@@ -294,7 +373,7 @@ def _load_countermeasures(facility_type: str | None = None) -> list[dict]:
                 break
     if not scenarios:
         return []
-    
+
     return _scenarios_to_countermeasures(scenarios)
 
 
@@ -339,14 +418,14 @@ def _map_incident_history(
     accident_type: str = "injury",
 ) -> list[dict]:
     """Map questionnaire incident_history to v2 IncidentRecord array.
-    
+
     Args:
         incident_history: From questionnaire or context
         accident_type: "injury" for травматизм, "accident" for аварии
     """
     if not incident_history:
         return []
-    
+
     items = []
     if isinstance(incident_history, dict):
         items = incident_history.get("items") or []
@@ -359,7 +438,7 @@ def _map_incident_history(
         items = incident_history
     else:
         return []
-    
+
     result = []
     for idx, item in enumerate(items):
         if not isinstance(item, dict):
@@ -382,14 +461,14 @@ def _map_material_reserve(
 ) -> list[dict]:
     """Map organization resources to v2 MaterialReserveItem format with group headers."""
     result = []
-    
+
     if not organization_resources:
         return result
-    
+
     if isinstance(organization_resources, dict):
         actual = organization_resources.get("actual_items") or []
         recommended = organization_resources.get("recommended_items") or []
-        
+
         if actual:
             result.append({"is_group_header": True, "group_name": "Фактические силы и средства"})
             for item in actual:
@@ -422,7 +501,7 @@ def _map_material_reserve(
                         "quantity": _safe_str(item.get("quantity") or "—"),
                         "location": _safe_str(item.get("location") or "—"),
                     })
-    
+
     return result
 
 
@@ -432,12 +511,12 @@ def _map_material_reserve(
 
 def map_to_v2_context(source_context: dict) -> dict:
     """Transform nested generation context into flat v2 schema format.
-    
+
     Args:
         source_context: Context dict from PmlaGenerationService.build_context()
                        or from PmlaQuestionnaireService.build_generation_context()
                        optionally enriched by EnhancedDocumentGenerator._enrich_context()
-    
+
     Returns:
         Flat dict matching pmla_v2.schema.json structure.
     """
@@ -452,23 +531,23 @@ def map_to_v2_context(source_context: dict) -> dict:
     custom_scenarios = source_context.get("custom_scenarios") or []
     questionnaire = source_context.get("questionnaire") or {}
     pasf = source_context.get("pasf") or {}
-    
+
     # Main responsible person
     director = _find_person(persons, "director") or _find_person(persons)
     deputy = _find_person(persons, "deputy") or _find_person(persons, "deputy_chairman")
-    
+
     # Director info
     director_full_name = _safe_str(director.get("full_name", "")) if director else ""
     director_position = _safe_str(director.get("position", "")) if director else ""
     director_position_fullname = f"{director_position} {director_full_name}".strip()
-    
+
     # Settlement from address
     facility_address = _safe_str(facility.get("address", ""))
     settlement_name, settlement_district = _parse_settlement(facility_address)
-    
+
     # Hazard class
     hazard_class_raw = facility.get("hazard_class") or ""
-    
+
     # Total substance quantity
     total_qty = 0.0
     for sub in substances:
@@ -477,14 +556,14 @@ def map_to_v2_context(source_context: dict) -> dict:
                 total_qty += float(sub.get("quantity_kg") or 0)
             except (ValueError, TypeError):
                 pass
-    
+
     # Substance info string
     substance_names = []
     for sub in substances:
         if isinstance(sub, dict) and sub.get("name"):
             substance_names.append(str(sub["name"]))
     hazardous_substances_info = "; ".join(substance_names) if substance_names else "—"
-    
+
     # Hazard characteristics from 116-FZ
     hazard_chars = []
     for sub in substances:
@@ -493,42 +572,68 @@ def map_to_v2_context(source_context: dict) -> dict:
             if isinstance(hp, dict) and hp.get("characteristics"):
                 hazard_chars.append(str(hp["characteristics"]))
     hazard_characteristics_116fz = "; ".join(hazard_chars) if hazard_chars else "—"
-    
+
     # PASF info
     contractor_name = _safe_str(pasf.get("name") or "")
     contractor_short = _safe_str(pasf.get("short_name") or contractor_name)
-    contractor_date = _safe_str(pasf.get("agreement_date") or pasf.get("certificate_date") or "—")
+
+    # Contract date/number from PASF document of type "contract"
+    contractor_date = "—"
+    contractor_number = ""
+    pasf_docs = source_context.get("pasf_documents") or []
+    for doc in pasf_docs:
+        if isinstance(doc, dict) and doc.get("document_type") == "contract":
+            if doc.get("issued_at"):
+                contractor_date = _format_date_str(doc["issued_at"])
+            if doc.get("document_number"):
+                contractor_number = _safe_str(doc["document_number"])
+            break
+    appendices_manifest = source_context.get("appendices_manifest")
+    if not appendices_manifest:
+        from src.application.services.enhanced_generator import _synthesize_appendices_manifest
+
+        appendices_manifest = _synthesize_appendices_manifest(
+            source_context.get("attachments_checklist") or [],
+            pasf_docs,
+        )
+
+    # Fallback to agreement_date ONLY (not certificate_date)
+    if contractor_date == "—":
+        contractor_date = _format_date_str(pasf.get("agreement_date")) or "—"
+    if not contractor_number:
+        contractor_number = _safe_str(pasf.get("certificate_number") or "")
+
     dislocation_address = _safe_str(pasf.get("actual_address") or org.get("address") or facility_address)
-    
+
     # Emergency services
     edds = _find_emergency_service(services, "edds")
     fire = _find_emergency_service(services, "fire")
-    ambulance = _find_emergency_service(services, "ambulance")
+    ambulance = _find_emergency_service(services, "ambulance") or _find_emergency_service(services, "medical")
     gas = _find_emergency_service(services, "gas")
     electric = _find_emergency_service(services, "electric")
     admin = _find_emergency_service(services, "admin")
     pasf_svc = _find_emergency_service(services, "pasf")
     mchs = _find_emergency_service(services, "mchs") or _find_emergency_service(services, "emergency")
     rostechnadzor = _find_emergency_service(services, "rostechnadzor") or _find_emergency_service(services, "rtn")
-    
+
     # EDDS
     edds_name = _safe_str(edds.get("name", "")) if edds else "—"
     edds_district_val = settlement_district or "—"
-    
+
     # Electric company
     electric_company = _safe_str(electric.get("name", "")) if electric else "—"
-    
+
     # Local admin
     local_admin = _safe_str(admin.get("name", "")) if admin else "—"
-    
+
     # Gas supplier (from org or emergency service)
     gas_supplier = _find_emergency_service(services, "gas_supplier") or gas
     gas_supplier_name = _safe_str(gas_supplier.get("name", "") if gas_supplier else org.get("name", ""))
     gas_supplier_branch = _safe_str(gas_supplier.get("branch", "") if gas_supplier else "")
-    
+
     # Notification phones
     chairman_phone = _safe_str(director.get("phone", "")) if director else ""
-    
+
     ctx: dict[str, Any] = {
         # Organization
         "organization_full_name": _safe_str(org.get("name", "")),
@@ -538,20 +643,20 @@ def map_to_v2_context(source_context: dict) -> dict:
         "ogrn": _safe_str(org.get("ogrn", "")),
         "phone": _safe_str(org.get("phone", "")),
         "email": _safe_str(org.get("email", "")),
-        
+
         # Director
         "director_position_fullname": director_position_fullname or "—",
         "director_initials_surname": _extract_initials_surname(director_full_name) if director_full_name else "—",
         "director_initials_surname_full": director_full_name or "—",
         "deputy_chairman_fullname": _safe_str(deputy.get("full_name", "")) if deputy else "—",
-        
+
         # Main activity
         "main_activity_description": _safe_str(
             questionnaire.get("main_activity")
             or (facility.get("properties") or {}).get("okved")
             or "—"
         ),
-        
+
         # Facility
         "facility_name": _safe_str(facility.get("name", "")),
         "facility_reg_number": _safe_str(facility.get("reg_number", "")),
@@ -560,40 +665,42 @@ def map_to_v2_context(source_context: dict) -> dict:
         "hazardous_substances_info": hazardous_substances_info,
         "hazard_characteristics_116fz": hazard_characteristics_116fz,
         "total_hazardous_substance_quantity": total_qty,
-        
+
         # Settlement
         "settlement_name": settlement_name or "—",
         "settlement_district": settlement_district or "—",
-        
+
         # PASF / Contractor
         "contractor_organization_name": contractor_name or "—",
         "contractor_organization_short_name": contractor_short or "—",
         "contractor_agreement_date": contractor_date,
+        "contractor_agreement_number": contractor_number,
+        "appendices_manifest": appendices_manifest,
         "gas_supplier_name": gas_supplier_name or "—",
         "gas_supplier_branch": gas_supplier_branch or "—",
         "dislocation_address": dislocation_address or "—",
-        
+
         # EDDS
         "edds_name": edds_name,
         "edds_district": edds_district_val,
-        
+
         # Utilities + admin
         "electric_company": electric_company,
         "local_admin": local_admin,
-        
+
         # Notification phones
         "notification_chairman_phone": chairman_phone,
         "notification_deputy_phone": _safe_str(deputy.get("phone", "")) if deputy else "",
-        "notification_edds_phone": _get_phone(edds, "phone", "dispatcher_phone", "dispatch_phone"),
-        "notification_pasf_phone": _get_phone(pasf_svc or pasf, "phone", "dispatch_phone", "dispatcher_phone"),
-        "notification_fire_phone": _get_phone(fire, "phone", "dispatcher_phone"),
-        "notification_ambulance_phone": _get_phone(ambulance, "phone", "dispatcher_phone"),
-        "notification_gas_phone": _get_phone(gas, "phone", "dispatcher_phone"),
-        "notification_electric_phone": _get_phone(electric, "phone", "dispatcher_phone"),
-        "notification_mchs_phone": _get_phone(mchs, "phone", "dispatcher_phone"),
+        "notification_edds_phone": _get_phone(edds, "dispatcher_phone", "dispatch_phone", "phone", "additional_phone"),
+        "notification_pasf_phone": _get_phone(pasf_svc or pasf, "dispatch_phone", "dispatcher_phone", "phone", "additional_phone"),
+        "notification_fire_phone": _get_phone(fire, "dispatcher_phone", "phone", "additional_phone"),
+        "notification_ambulance_phone": _get_phone(ambulance, "dispatcher_phone", "phone", "additional_phone"),
+        "notification_gas_phone": _get_phone(gas, "dispatcher_phone", "phone", "additional_phone"),
+        "notification_electric_phone": _get_phone(electric, "dispatcher_phone", "phone", "additional_phone"),
+        "notification_mchs_phone": _get_phone(mchs, "dispatcher_phone", "phone", "additional_phone"),
         "notification_rostechnadzor_phone": _get_phone(rostechnadzor, "phone"),
         "notification_admin_phone": _get_phone(admin, "phone"),
-        
+
         # Arrays
         "equipment_list": _map_equipment(equipment),
         "substance_params": _map_substance_params(substances),
@@ -617,7 +724,7 @@ def map_to_v2_context(source_context: dict) -> dict:
         ),
         "countermeasures": _load_countermeasures(facility.get("facility_type")),
     }
-    
+
     # Clean up any None values
     for key, value in list(ctx.items()):
         if isinstance(value, (list, str)):
@@ -625,7 +732,7 @@ def map_to_v2_context(source_context: dict) -> dict:
                 ctx[key] = [] if isinstance(value, list) else ""
         if isinstance(value, float):
             ctx[key] = value
-    
+
     return ctx
 
 
@@ -635,17 +742,17 @@ def map_to_v2_context(source_context: dict) -> dict:
 
 def validate_v2_context(context: dict) -> list[str]:
     """Validate a v2 context dict against pmla_v2.schema.json.
-    
+
     Uses a two-pass approach:
     1. Check required property existence (hard errors)
     2. Run jsonschema validation and classify errors as errors vs warnings
-    
+
     Returns:
         List of human-readable validation error messages.
         Empty list = context is valid and ready for rendering.
     """
     import jsonschema
-    
+
     schema_path = _SCHEMA_PATH
     if not schema_path.exists():
         schema_path = _CONTAINER_SCHEMA_PATH
@@ -653,20 +760,20 @@ def validate_v2_context(context: dict) -> list[str]:
         alt = Path(__file__).resolve().parents[4] / "files" / "pmla_v2.schema.json"
         if alt.exists():
             schema_path = alt
-    
+
     if not schema_path.exists():
         return [f"Schema file not found at {schema_path}"]
-    
+
     try:
         with open(schema_path, encoding="utf-8") as f:
             schema = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         return [f"Cannot load schema: {e}"]
-    
+
     errors: list[str] = []
     required_fields = set(schema.get("required", []))
     properties = schema.get("properties", {})
-    
+
     # Pass 1: check that all required fields exist and are non-null, non-empty
     for req_field in required_fields:
         if req_field not in context or context[req_field] is None:
@@ -688,13 +795,13 @@ def validate_v2_context(context: dict) -> list[str]:
         elif prop_type == "number":
             if val == "" or val is None:
                 errors.append(f"Поле {req_field} обязательно для заполнения")
-    
+
     # Pass 2: jsonschema validation — collect pattern mismatches as warnings
     # for phone/date fields (template handles these with Jinja defaults),
     # but flag other structural errors.
     validator = jsonschema.Draft202012Validator(schema)
     schema_errors = sorted(validator.iter_errors(context), key=lambda e: e.path)
-    
+
     for ve in schema_errors:
         path = " → ".join(str(p) for p in ve.path) if ve.path else "(root)"
         # Skip pattern mismatches for phone and date fields — the template
@@ -708,8 +815,8 @@ def validate_v2_context(context: dict) -> list[str]:
             field_name = str(ve.path[-1])
             if field_name not in required_fields:
                 continue
-        
+
         msg = ve.message
         errors.append(f"{path}: {msg}")
-    
+
     return errors

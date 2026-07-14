@@ -3,7 +3,6 @@
   "$id": "https://isap.example.com/schemas/pmla-v2",
   "title": "PMLA v2 Context Schema",
   "description": "JSON Schema Draft 2020-12 for the PMLA v2 docxtpl context object. Covers 37 template scalars, 9 array loops, 11 notification phone scalars, and $defs for all reusable item types.",
-
   "type": "object",
   "properties": {
     "organization_full_name": {
@@ -106,6 +105,10 @@
       "$ref": "#/$defs/DateStr",
       "description": "Дата договора с ПАСФ"
     },
+    "contractor_agreement_number": {
+      "type": "string",
+      "description": "Номер договора с ПАСФ"
+    },
     "gas_supplier_name": {
       "type": "string",
       "description": "Наименование газоснабжающей организации"
@@ -134,7 +137,6 @@
       "type": "string",
       "description": "Наименование местной администрации"
     },
-
     "notification_chairman_phone": {
       "$ref": "#/$defs/PhoneNumber",
       "description": "Телефон председателя (таблица 17)"
@@ -179,62 +181,77 @@
       "$ref": "#/$defs/PhoneNumber",
       "description": "Телефон местной администрации (таблица 17)"
     },
-
     "equipment_list": {
       "type": "array",
-      "items": { "$ref": "#/$defs/EquipmentItem" },
+      "items": {
+        "$ref": "#/$defs/EquipmentItem"
+      },
       "minItems": 1,
       "description": "Таблица 5 — технические устройства ОПО"
     },
     "substance_params": {
       "type": "array",
-      "items": { "$ref": "#/$defs/SubstanceParam" },
+      "items": {
+        "$ref": "#/$defs/SubstanceParam"
+      },
       "description": "Таблица 6 — характеристики опасного вещества"
     },
     "equipment_scenario_links": {
       "type": "array",
-      "items": { "$ref": "#/$defs/EquipmentScenarioLink" },
+      "items": {
+        "$ref": "#/$defs/EquipmentScenarioLink"
+      },
       "description": "Таблица 7 — связь элементов оборудования со сценариями"
     },
     "equipment_defects": {
       "type": "array",
-      "items": { "$ref": "#/$defs/EquipmentDefect" },
+      "items": {
+        "$ref": "#/$defs/EquipmentDefect"
+      },
       "description": "Таблица 8 — возможные неисправности и дефекты оборудования (зарезервировано для будущего шаблона, не применена к текущему pmla_v2_template.docx)",
       "$comment": "DEPRECATED — поле сохранено в схеме как опциональное для обратной совместимости. В текущем шаблоне pmla_v2_template.docx не используется"
     },
     "accident_scenarios": {
       "type": "array",
-      "items": { "$ref": "#/$defs/AccidentScenario" },
+      "items": {
+        "$ref": "#/$defs/AccidentScenario"
+      },
       "minItems": 1,
       "description": "Таблица 9 — сценарии наиболее вероятных аварий"
     },
     "injury_history": {
       "type": "array",
-      "items": { "$ref": "#/$defs/IncidentRecord" },
+      "items": {
+        "$ref": "#/$defs/IncidentRecord"
+      },
       "description": "Таблица 10 — характеристика травматизма"
     },
     "accident_history": {
       "type": "array",
-      "items": { "$ref": "#/$defs/IncidentRecord" },
+      "items": {
+        "$ref": "#/$defs/IncidentRecord"
+      },
       "description": "Таблица 11 — произошедшие аварии и инциденты"
     },
     "material_reserve": {
       "type": "array",
-      "items": { "$ref": "#/$defs/MaterialReserveItem" },
+      "items": {
+        "$ref": "#/$defs/MaterialReserveItem"
+      },
       "description": "Таблица 13 — материально-техническое обеспечение"
     },
     "countermeasures": {
       "type": "array",
-      "items": { "$ref": "#/$defs/Countermeasure" },
+      "items": {
+        "$ref": "#/$defs/Countermeasure"
+      },
       "description": "Таблица 18 — противоаварийные меры"
     },
-
     "financial_reserve": {
       "$ref": "#/$defs/FinancialReserve",
       "description": "Финансовый резерв на ликвидацию аварий"
     }
   },
-
   "required": [
     "organization_full_name",
     "inn",
@@ -247,28 +264,36 @@
     "substance_params",
     "accident_scenarios"
   ],
-
-  "additionalProperties": { "type": ["string", "number", "array", "object", "null"] },
-
+  "additionalProperties": {
+    "type": [
+      "string",
+      "number",
+      "array",
+      "object",
+      "null"
+    ]
+  },
   "$defs": {
     "HazardClass": {
       "type": "string",
-      "enum": ["I", "II", "III", "IV"],
+      "enum": [
+        "I",
+        "II",
+        "III",
+        "IV"
+      ],
       "description": "Класс опасности ОПО (римская цифра I–IV)"
     },
-
     "DateStr": {
       "type": "string",
       "pattern": "^[0-9]{2}\\.[0-9]{2}\\.[0-9]{4}$",
       "description": "Дата в формате ДД.ММ.ГГГГ"
     },
-
     "PhoneNumber": {
       "type": "string",
       "description": "Номер телефона",
       "pattern": "^[+]?[0-9()\\- /;]+$"
     },
-
     "EquipmentItem": {
       "type": "object",
       "properties": {
@@ -293,10 +318,15 @@
           "description": "Числовое обозначение процессов"
         }
       },
-      "required": ["location", "hazard_characteristic", "device_name", "specifications", "process_codes"],
+      "required": [
+        "location",
+        "hazard_characteristic",
+        "device_name",
+        "specifications",
+        "process_codes"
+      ],
       "additionalProperties": false
     },
-
     "SubstanceParam": {
       "type": "object",
       "properties": {
@@ -309,10 +339,12 @@
           "description": "Значение параметра"
         }
       },
-      "required": ["parameter", "value"],
+      "required": [
+        "parameter",
+        "value"
+      ],
       "additionalProperties": false
     },
-
     "EquipmentScenarioLink": {
       "type": "object",
       "properties": {
@@ -333,10 +365,14 @@
           "description": "Поражающие факторы"
         }
       },
-      "required": ["equipment_name", "scenario_codes", "description", "damaging_factors"],
+      "required": [
+        "equipment_name",
+        "scenario_codes",
+        "description",
+        "damaging_factors"
+      ],
       "additionalProperties": false
     },
-
     "EquipmentDefect": {
       "type": "object",
       "description": "Строка таблицы 8. DEPRECATED — не применяется в pmla_v2_template.docx, сохранено для будущей реализации",
@@ -362,10 +398,15 @@
           "description": "Соответствующий сценарий"
         }
       },
-      "required": ["equipment_name", "defect", "cause", "location", "scenario"],
+      "required": [
+        "equipment_name",
+        "defect",
+        "cause",
+        "location",
+        "scenario"
+      ],
       "additionalProperties": false
     },
-
     "AccidentScenario": {
       "type": "object",
       "properties": {
@@ -395,10 +436,16 @@
           "description": "Поражающие факторы"
         }
       },
-      "required": ["code", "name", "source", "preconditions", "signs", "damaging_factors"],
+      "required": [
+        "code",
+        "name",
+        "source",
+        "preconditions",
+        "signs",
+        "damaging_factors"
+      ],
       "additionalProperties": false
     },
-
     "IncidentRecord": {
       "type": "object",
       "description": "Общая запись для таблиц 10 (травматизм) и 11 (аварии/инциденты)",
@@ -434,10 +481,17 @@
           "description": "% выполнения мероприятий"
         }
       },
-      "required": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"],
+      "required": [
+        "year",
+        "incident_number",
+        "date",
+        "character",
+        "trauma",
+        "consequences",
+        "measures_percent"
+      ],
       "additionalProperties": false
     },
-
     "MaterialReserveItem": {
       "type": "object",
       "description": "Строка таблицы 13. Заголовки группы: is_group_header=true, group_name задано. Данные: is_group_header=false/undefined, name/quantity/location заданы.",
@@ -466,16 +520,25 @@
       "required": [],
       "additionalProperties": false,
       "if": {
-        "properties": { "is_group_header": { "const": true } }
+        "properties": {
+          "is_group_header": {
+            "const": true
+          }
+        }
       },
       "then": {
-        "required": ["group_name"]
+        "required": [
+          "group_name"
+        ]
       },
       "else": {
-        "required": ["name", "quantity", "location"]
+        "required": [
+          "name",
+          "quantity",
+          "location"
+        ]
       }
     },
-
     "Countermeasure": {
       "type": "object",
       "properties": {
@@ -500,10 +563,15 @@
           "description": "Исполнители и порядок действий"
         }
       },
-      "required": ["scenario_label", "signs", "protection", "technical_means", "executors"],
+      "required": [
+        "scenario_label",
+        "signs",
+        "protection",
+        "technical_means",
+        "executors"
+      ],
       "additionalProperties": false
     },
-
     "FinancialReserve": {
       "type": "object",
       "description": "Финансовый резерв на ликвидацию аварий",
@@ -522,12 +590,19 @@
           "description": "Номер приказа об образовании резерва"
         },
         "order_date": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Дата приказа об образовании резерва",
           "format": "date"
         }
       },
-      "required": ["amount", "currency", "order_number"],
+      "required": [
+        "amount",
+        "currency",
+        "order_number"
+      ],
       "additionalProperties": false
     }
   }

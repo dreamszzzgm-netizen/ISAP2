@@ -11,8 +11,11 @@ Covers:
 """
 from __future__ import annotations
 
+import hashlib
+import shutil
 import uuid
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
@@ -418,6 +421,71 @@ class TestPreflightRules:
         ctx = make_full_context()
         report = run_preflight(ctx)
         assert report.passed, f"Errors: {[e.message for e in report.errors]}"
+
+    def test_relative_pasf_document_path_resolves_under_upload_root(self, monkeypatch):
+        """Uploaded PASF storage keys should not block final preflight."""
+        from src.application.services import pmla_preflight
+
+        upload_root = Path(__file__).resolve().parent / ".tmp_pasf_preflight" / str(uuid.uuid4())
+        try:
+            doc_dir = upload_root / "pasf_documents"
+            doc_dir.mkdir(parents=True)
+            doc_path = doc_dir / "certificate.pdf"
+            content = b"pasf certificate"
+            doc_path.write_bytes(content)
+            checksum = hashlib.sha256(content).hexdigest()
+            monkeypatch.setattr(pmla_preflight, "PASF_UPLOAD_ROOT", str(upload_root))
+
+            ctx = make_full_context()
+            ctx.attachments = [
+                {
+                    "id": "doc-1",
+                    "pasf_id": ctx.pasf["id"],
+                    "document_type": "certificate",
+                    "title": "Свидетельство ПАСФ",
+                    "file_path": "pasf_documents/certificate.pdf",
+                    "checksum_sha256": checksum,
+                    "status": "active",
+                }
+            ]
+
+            report = run_preflight(ctx, generation_mode="final")
+
+            assert "PASF_FILE_NOT_FOUND" not in [e.code for e in report.errors]
+            assert "PASF_FILE_CHECKSUM_MISMATCH" not in [e.code for e in report.errors]
+        finally:
+            shutil.rmtree(upload_root.parent, ignore_errors=True)
+    def test_absolute_pasf_document_path_outside_upload_root_is_rejected(self, monkeypatch):
+        """Preflight should match download policy and reject paths outside upload root."""
+        from src.application.services import pmla_preflight
+
+        test_root = Path(__file__).resolve().parent / ".tmp_pasf_preflight" / str(uuid.uuid4())
+        upload_root = test_root / "uploads"
+        outside_root = test_root / "outside"
+        try:
+            upload_root.mkdir(parents=True)
+            outside_root.mkdir(parents=True)
+            outside_file = outside_root / "certificate.pdf"
+            outside_file.write_bytes(b"outside pasf certificate")
+            monkeypatch.setattr(pmla_preflight, "PASF_UPLOAD_ROOT", str(upload_root))
+
+            ctx = make_full_context()
+            ctx.attachments = [
+                {
+                    "id": "doc-escape",
+                    "pasf_id": ctx.pasf["id"],
+                    "document_type": "certificate",
+                    "title": "Outside certificate",
+                    "file_path": str(outside_file),
+                    "status": "active",
+                }
+            ]
+
+            report = run_preflight(ctx, generation_mode="final")
+
+            assert "PASF_FILE_NOT_FOUND" in [e.code for e in report.errors]
+        finally:
+            shutil.rmtree(test_root, ignore_errors=True)
 
 
 # =========================================================================

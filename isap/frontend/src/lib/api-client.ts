@@ -4,11 +4,17 @@ export type ApiErrorPayload = {
   error?: string
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || ""
 
+function toApiUrl(path: string): string {
+  if (path.startsWith("http")) {
+    return path
+  }
+  return path
+}
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`
+  const url = toApiUrl(path)
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -39,7 +45,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 export async function apiUpload<T>(path: string, file: File): Promise<T> {
   const form = new FormData()
   form.append("file", file)
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(toApiUrl(path), {
     method: "POST",
     headers: {
       ...(API_KEY ? { Authorization: `Bearer ${API_KEY}`, "X-API-Key": API_KEY } : {}),
@@ -90,15 +96,20 @@ export type PmlaQualityReview = {
 }
 
 export type PmlaGenerationResult = {
-  document_id: string
-  questionnaire_id: string
-  facility_id: string
+  // Успешная генерация (status: pending_review)
+  document_id?: string
+  questionnaire_id?: string
+  facility_id?: string
   status: string
   version?: number
   source?: string
   context_quality?: Record<string, unknown>
   quality_review?: PmlaQualityReview | null
   debug_artifacts?: Record<string, string> | null
+  // Заблокировано preflight (status: "blocked")
+  reason?: string
+  preflight?: Record<string, unknown>
+  provenance?: Record<string, unknown>
 }
 
 export type PmlaDocumentListItem = {
@@ -194,9 +205,9 @@ export const isapApi = {
   confirmImportJob: (jobId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/imports/jobs/${jobId}/confirm`, { method: "POST" }),
   downloadPmlaDocument: (documentId: string): string =>
-    `${API_BASE_URL}/api/v1/pmla/${documentId}/download${API_KEY ? `?api_key=${API_KEY}` : ""}`,
+    `${toApiUrl(`/api/v1/pmla/${documentId}/download`)}${API_KEY ? `?api_key=${API_KEY}` : ""}`,
   downloadPmlaDocumentBlob: async (documentId: string): Promise<Blob> => {
-    const url = `${API_BASE_URL}/api/v1/pmla/${documentId}/download`
+    const url = toApiUrl(`/api/v1/pmla/${documentId}/download`)
     const response = await fetch(url, {
       headers: {
         ...(API_KEY ? { Authorization: `Bearer ${API_KEY}`, "X-API-Key": API_KEY } : {}),
@@ -243,9 +254,9 @@ export const isapApi = {
 
   // Directories: ПАСФ
   getPasfUnits: (search?: string) =>
-    apiRequest<Record<string, unknown>[]>(`/api/v1/directories/pasf${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+    apiRequest<Record<string, unknown>[]>(`/api/v1/directories/pasf/${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   createPasfUnit: (data: Record<string, unknown>) =>
-    apiRequest<Record<string, unknown>>("/api/v1/directories/pasf", { method: "POST", body: JSON.stringify(data) }),
+    apiRequest<Record<string, unknown>>("/api/v1/directories/pasf/", { method: "POST", body: JSON.stringify(data) }),
   updatePasfUnit: (id: string, data: Record<string, unknown>) =>
     apiRequest<Record<string, unknown>>(`/api/v1/directories/pasf/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deletePasfUnit: (id: string) =>
@@ -257,10 +268,10 @@ export const isapApi = {
     if (params?.search) q.set("search", params.search)
     if (params?.service_type) q.set("service_type", params.service_type)
     const qs = q.toString()
-    return apiRequest<Record<string, unknown>[]>(`/api/v1/directories/emergency-services${qs ? `?${qs}` : ""}`)
+    return apiRequest<Record<string, unknown>[]>(`/api/v1/directories/emergency-services/${qs ? `?${qs}` : ""}`)
   },
   createEmergencyService: (data: Record<string, unknown>) =>
-    apiRequest<Record<string, unknown>>("/api/v1/directories/emergency-services", { method: "POST", body: JSON.stringify(data) }),
+    apiRequest<Record<string, unknown>>("/api/v1/directories/emergency-services/", { method: "POST", body: JSON.stringify(data) }),
   updateEmergencyService: (id: string, data: Record<string, unknown>) =>
     apiRequest<Record<string, unknown>>(`/api/v1/directories/emergency-services/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteEmergencyService: (id: string) =>

@@ -253,6 +253,7 @@ class EmergencyRescueUnitModel(Base):
     certificate_number = Column(String(100))
     certificate_date = Column(String(50))
     certificate_valid_until = Column(String(50))
+    agreement_date = Column(String(50))
     permitted_work_types = Column(JSONB, default=list)
     equipment_passport = Column(JSONB, default=list)
     staff_count = Column(String(50))

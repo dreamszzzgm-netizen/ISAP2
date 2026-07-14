@@ -71,10 +71,10 @@ Next.js → Prisma → SQLite/PostgreSQL
 frontend/src/lib/api-client.ts
 ```
 
-Он использует переменную:
+Браузерные запросы идут на same-origin пути `/api/...`; Next.js проксирует их в backend через rewrites. Для локального dev-сервера и Docker build используется серверная переменная:
 
 ```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+INTERNAL_API_BASE_URL=http://localhost:8000
 ```
 
 ## Новые страницы

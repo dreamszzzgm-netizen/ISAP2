@@ -18,8 +18,29 @@ from datetime import date, datetime
 from typing import Any
 
 from src.application.services.pmla_generation_context import PmlaGenerationContext
+from src.core.settings import settings
 
 logger = logging.getLogger(__name__)
+
+PASF_UPLOAD_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", settings.upload_root)
+)
+
+
+def _resolve_pasf_document_file_path(file_path: str) -> str | None:
+    """Resolve stored PASF file paths, including relative upload storage keys."""
+    raw_path = str(file_path or "").strip()
+    if not raw_path:
+        return None
+    if os.path.isabs(raw_path):
+        resolved = os.path.normpath(raw_path)
+    else:
+        resolved = os.path.normpath(os.path.join(PASF_UPLOAD_ROOT, raw_path))
+    try:
+        inside_upload_root = os.path.commonpath([PASF_UPLOAD_ROOT, resolved]) == PASF_UPLOAD_ROOT
+    except ValueError:
+        inside_upload_root = False
+    return resolved if inside_upload_root else None
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +392,8 @@ def run_preflight(context: PmlaGenerationContext,
         # File existence check
         doc_file_path = doc.get("file_path")
         if doc_file_path:
-            if not os.path.exists(doc_file_path):
+            resolved_doc_file_path = _resolve_pasf_document_file_path(str(doc_file_path))
+            if not resolved_doc_file_path or not os.path.exists(resolved_doc_file_path):
                 report.add_issue(
                     code="PASF_FILE_NOT_FOUND",
                     field=f"pasf_documents.{doc_id}",
@@ -382,7 +404,7 @@ def run_preflight(context: PmlaGenerationContext,
             else:
                 # File unreadable check
                 try:
-                    with open(doc_file_path, "rb") as f:
+                    with open(resolved_doc_file_path, "rb") as f:
                         content = f.read()
                     # Checksum verification
                     saved_checksum = doc.get("checksum_sha256")

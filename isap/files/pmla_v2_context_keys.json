@@ -22,6 +22,7 @@
       "contractor_organization_name",
       "contractor_organization_short_name",
       "contractor_agreement_date",
+      "contractor_agreement_number",
       "gas_supplier_name",
       "total_hazardous_substance_quantity",
       "equipment_list",
@@ -69,6 +70,7 @@
       "contractor_organization_name",
       "contractor_organization_short_name",
       "contractor_agreement_date",
+      "contractor_agreement_number",
       "gas_supplier_name",
       "equipment_list",
       "substance_params",
@@ -113,6 +115,7 @@
       "contractor_organization_name",
       "contractor_organization_short_name",
       "contractor_agreement_date",
+      "contractor_agreement_number",
       "gas_supplier_name",
       "total_hazardous_substance_quantity",
       "equipment_list",
@@ -185,18 +188,74 @@
     }
   },
   "array_item_keys": {
-    "equipment_list": ["location", "hazard_characteristic", "device_name", "specifications", "process_codes"],
-    "substance_params": ["parameter", "value"],
-    "equipment_scenario_links": ["equipment_name", "scenario_codes", "description", "damaging_factors"],
-    "equipment_defects": ["equipment_name", "defect", "cause", "location", "scenario"],
-    "accident_scenarios": ["code", "name", "source", "preconditions", "signs", "damaging_factors"],
-    "injury_history": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"],
-    "accident_history": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"],
-    "material_reserve": ["is_group_header", "group_name", "name", "quantity", "location"],
-    "countermeasures": ["scenario_label", "signs", "protection", "technical_means", "executors"]
+    "equipment_list": [
+      "location",
+      "hazard_characteristic",
+      "device_name",
+      "specifications",
+      "process_codes"
+    ],
+    "substance_params": [
+      "parameter",
+      "value"
+    ],
+    "equipment_scenario_links": [
+      "equipment_name",
+      "scenario_codes",
+      "description",
+      "damaging_factors"
+    ],
+    "equipment_defects": [
+      "equipment_name",
+      "defect",
+      "cause",
+      "location",
+      "scenario"
+    ],
+    "accident_scenarios": [
+      "code",
+      "name",
+      "source",
+      "preconditions",
+      "signs",
+      "damaging_factors"
+    ],
+    "injury_history": [
+      "year",
+      "incident_number",
+      "date",
+      "character",
+      "trauma",
+      "consequences",
+      "measures_percent"
+    ],
+    "accident_history": [
+      "year",
+      "incident_number",
+      "date",
+      "character",
+      "trauma",
+      "consequences",
+      "measures_percent"
+    ],
+    "material_reserve": [
+      "is_group_header",
+      "group_name",
+      "name",
+      "quantity",
+      "location"
+    ],
+    "countermeasures": [
+      "scenario_label",
+      "signs",
+      "protection",
+      "technical_means",
+      "executors"
+    ]
   },
   "template_scalar_variables": [
     "contractor_agreement_date",
+    "contractor_agreement_number",
     "contractor_organization_name",
     "contractor_organization_short_name",
     "deputy_chairman_fullname",
@@ -235,14 +294,87 @@
     "total_hazardous_substance_quantity"
   ],
   "template_loop_variables": {
-    "equipment_list": {"var": "eq", "fields": ["location", "hazard_characteristic", "device_name", "specifications", "process_codes"]},
-    "substance_params": {"var": "param", "fields": ["parameter", "value"]},
-    "equipment_scenario_links": {"var": "link", "fields": ["equipment_name", "scenario_codes", "description", "damaging_factors"]},
-    "accident_scenarios": {"var": "scenario", "fields": ["code", "name", "source", "preconditions", "signs", "damaging_factors"]},
-    "injury_history": {"var": "injury", "fields": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"]},
-    "accident_history": {"var": "accident", "fields": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"]},
-    "material_reserve": {"var": "item", "fields": ["is_group_header", "group_name", "name", "quantity", "location"]},
-    "countermeasures": {"var": "cm", "fields": ["scenario_label", "signs", "protection", "technical_means", "executors"]}
+    "equipment_list": {
+      "var": "eq",
+      "fields": [
+        "location",
+        "hazard_characteristic",
+        "device_name",
+        "specifications",
+        "process_codes"
+      ]
+    },
+    "substance_params": {
+      "var": "param",
+      "fields": [
+        "parameter",
+        "value"
+      ]
+    },
+    "equipment_scenario_links": {
+      "var": "link",
+      "fields": [
+        "equipment_name",
+        "scenario_codes",
+        "description",
+        "damaging_factors"
+      ]
+    },
+    "accident_scenarios": {
+      "var": "scenario",
+      "fields": [
+        "code",
+        "name",
+        "source",
+        "preconditions",
+        "signs",
+        "damaging_factors"
+      ]
+    },
+    "injury_history": {
+      "var": "injury",
+      "fields": [
+        "year",
+        "incident_number",
+        "date",
+        "character",
+        "trauma",
+        "consequences",
+        "measures_percent"
+      ]
+    },
+    "accident_history": {
+      "var": "accident",
+      "fields": [
+        "year",
+        "incident_number",
+        "date",
+        "character",
+        "trauma",
+        "consequences",
+        "measures_percent"
+      ]
+    },
+    "material_reserve": {
+      "var": "item",
+      "fields": [
+        "is_group_header",
+        "group_name",
+        "name",
+        "quantity",
+        "location"
+      ]
+    },
+    "countermeasures": {
+      "var": "cm",
+      "fields": [
+        "scenario_label",
+        "signs",
+        "protection",
+        "technical_means",
+        "executors"
+      ]
+    }
   },
   "missing_keys": {
     "in_template_not_in_test_pmla_v2_render": [

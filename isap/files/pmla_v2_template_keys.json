@@ -694,6 +694,17 @@
       ]
     },
     {
+      "name": "contractor_agreement_number",
+      "type": "scalar",
+      "files": [
+        "word\\document.xml"
+      ],
+      "count": 1,
+      "contexts": [
+        "{{ contractor_agreement_number }}"
+      ]
+    },
+    {
       "name": "director_initials_surname_full",
       "type": "scalar",
       "files": [

@@ -126,7 +126,11 @@ FAKE_VERSION = FakeModel(
 @pytest.fixture
 def client():
     transport = ASGITransport(app=app)
-    return AsyncClient(transport=transport, base_url="http://test")
+    return AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": "Bearer isap-secret-2026"},
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -163,8 +167,9 @@ class TestPmlaApiSmokeFlow:
         data = resp.json()
         assert data["name"] == "Котельная №1"
 
-        # ── 2. Создать/получить анкету ──
-        # Questionnaire endpoints use get_db directly, so we mock the service
+        # ── 2-4. Анкета и генерация ──
+        # Questionnaire and generation endpoints use PmlaQuestionnaireService,
+        # so we mock it for the entire flow
         with patch(
             "src.api.routers.pmla_questionnaires.PmlaQuestionnaireService",
         ) as MockService:
@@ -172,7 +177,26 @@ class TestPmlaApiSmokeFlow:
             mock_service.get_by_facility = AsyncMock(return_value=FAKE_QUESTIONNAIRE)
             mock_service.update_block = AsyncMock(return_value=FAKE_QUESTIONNAIRE)
             mock_service.get_by_id = AsyncMock(return_value=FAKE_QUESTIONNAIRE)
+            # build_generation_context must return a proper dict for PmlaContextBuilder
+            mock_service.build_generation_context = AsyncMock(return_value={
+                "organization": {"id": ORGANIZATION_ID, "name": "ООО Газовый сервис", "inn": "7701234567"},
+                "facility": {"id": FACILITY_ID, "name": "Котельная №1", "facility_type": "Сеть газопотребления", "hazard_class": "3", "reg_number": "77-1-2-0001-12345678", "address": "г. Тюмень"},
+                "equipment": [{"id": "eq-1", "name": "Котёл газовый", "equipment_type": "Теплогенератор"}],
+                "substances": [{"id": "s-1", "name": "Природный газ", "quantity_kg": 500}],
+                "responsible_persons": [{"id": "p-1", "full_name": "Иванов И.И.", "position": "Начальник"}],
+                "questionnaire": FAKE_QUESTIONNAIRE.data,
+                "incident_history": {"has_incidents": False, "items": []},
+                "selected_scenarios": [],
+                "custom_scenarios": [],
+                "pasf": {"id": "pasf-1", "name": "ПАСФ", "certificate_number": "CERT-1", "dispatch_phone": "+7", "actual_address": "addr"},
+                "pasf_documents": [],
+                "nearest_services": {},
+                "emergency_services": [],
+                "organization_resources": {},
+                "recommendations": {},
+            })
 
+            # ── 2. Создать/получить анкету ──
             resp = await client.get(f"/api/v1/pmla-questionnaires/facility/{FACILITY_ID}")
             assert resp.status_code == 200
 
@@ -189,47 +213,60 @@ class TestPmlaApiSmokeFlow:
                 )
                 assert resp.status_code == 200, f"PATCH {block_name} failed: {resp.text}"
 
-        # ── 4. Генерация ПМЛА ──
-        app.dependency_overrides[get_document_repo] = lambda: make_mock_repo(
-            return_value=FAKE_DOCUMENT,
-            list_value=[FAKE_DOCUMENT],
-        )
-        app.dependency_overrides[get_regulatory_repo] = lambda: make_mock_repo()
-        app.dependency_overrides[get_scenario_matrix_repo] = lambda: make_mock_repo()
-
-        with patch(
-            "src.api.routers.pmla_questionnaires.PmlaGenerationFromQuestionnaireService.generate",
-            new_callable=AsyncMock,
-        ) as mock_generate:
-            # Create a mock result object with required attributes
-            mock_result = MagicMock()
-            mock_result.document_id = DOCUMENT_ID
-            mock_result.questionnaire_id = QUESTIONNAIRE_ID
-            mock_result.facility_id = FACILITY_ID
-            mock_result.status = "pending_review"
-            mock_result.version = 1
-            mock_result.context_quality = {}
-            mock_result.quality_review = {
-                "overall_status": "ok",
-                "score": 85,
-                "checks": [],
-            }
-            mock_result.debug_artifacts = None
-            mock_result.review_status = "needs_review"
-            mock_generate.return_value = mock_result
-
-            resp = await client.post(
-                f"/api/v1/pmla-questionnaires/{QUESTIONNAIRE_ID}/generate",
-                json={"regenerate_sections": None, "save_debug_artifacts": True},
+            # ── 4. Генерация ПМЛА ──
+            app.dependency_overrides[get_document_repo] = lambda: make_mock_repo(
+                return_value=FAKE_DOCUMENT,
+                list_value=[FAKE_DOCUMENT],
             )
-            if resp.status_code != 200:
-                print(f"Generate failed: {resp.status_code} {resp.text}")
-            assert resp.status_code == 200
-            gen_data = resp.json()
-            assert gen_data["document_id"] == DOCUMENT_ID
-            assert gen_data["status"] == "pending_review"
-            assert gen_data["version"] == 1
-            assert "quality_review" in gen_data
+            app.dependency_overrides[get_regulatory_repo] = lambda: make_mock_repo()
+            app.dependency_overrides[get_scenario_matrix_repo] = lambda: make_mock_repo()
+
+            # Create a mock result dataclass-like object
+            from dataclasses import dataclass
+
+            @dataclass
+            class MockGenerationResult:
+                document_id: str
+                questionnaire_id: str
+                facility_id: str
+                status: str
+                version: int
+                context_quality: dict
+                quality_review: dict
+                debug_artifacts: dict | None = None
+                review_status: str = "needs_review"
+
+            mock_result = MockGenerationResult(
+                document_id=DOCUMENT_ID,
+                questionnaire_id=QUESTIONNAIRE_ID,
+                facility_id=FACILITY_ID,
+                status="pending_review",
+                version=1,
+                context_quality={},
+                quality_review={"overall_status": "ok", "score": 85, "checks": []},
+                debug_artifacts=None,
+                review_status="needs_review",
+            )
+
+            # Patch the generation service at its import location in the router
+            with patch(
+                "src.api.routers.pmla_questionnaires.PmlaGenerationFromQuestionnaireService",
+            ) as MockServiceClass:
+                mock_service_instance = MockServiceClass.return_value
+                mock_service_instance.generate = AsyncMock(return_value=mock_result)
+
+                resp = await client.post(
+                    f"/api/v1/pmla-questionnaires/{QUESTIONNAIRE_ID}/generate",
+                    json={"generation_mode": "draft", "save_debug_artifacts": True},
+                )
+                if resp.status_code != 200:
+                    print(f"Generate failed: {resp.status_code} {resp.text}")
+                assert resp.status_code == 200
+                gen_data = resp.json()
+                assert gen_data["document_id"] == DOCUMENT_ID
+                assert gen_data["status"] == "pending_review"
+                assert gen_data["version"] == 1
+                assert "quality_review" in gen_data
 
         # ── 5. Получить список документов ──
         with patch(

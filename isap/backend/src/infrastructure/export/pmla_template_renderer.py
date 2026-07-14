@@ -25,6 +25,8 @@ from docx.enum.section import WD_ORIENT
 from docx.oxml.ns import qn
 from docx.shared import Cm
 
+from src.infrastructure.export.docx_helpers import add_appendices_manifest
+
 logger = logging.getLogger(__name__)
 
 # backend/src/infrastructure/export/ → 5 levels up = isap/ (project root)
@@ -73,9 +75,21 @@ class PmlaTemplateRenderer:
 
         # Second pass: remove any remaining Jinja lines via XML
         docx_bytes = self._clean_xml_jinja(docx_bytes)
+        docx_bytes = self._append_appendices_manifest(docx_bytes, context.get("appendices_manifest"))
 
         logger.info("Rendered PMLA: %d bytes", len(docx_bytes))
         return docx_bytes
+
+    def _append_appendices_manifest(self, docx_bytes: bytes, appendices: list[dict] | None) -> bytes:
+        """Append generated/file appendix manifest to rendered v2 DOCX output."""
+        if not appendices:
+            return docx_bytes
+        doc = Document(io.BytesIO(docx_bytes))
+        doc.add_page_break()
+        add_appendices_manifest(doc, appendices)
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
 
     def render_to_file(self, context: dict, output_path: str | Path) -> Path:
         """Render and save to a file."""

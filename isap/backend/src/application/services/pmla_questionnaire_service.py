@@ -307,6 +307,7 @@ class PmlaQuestionnaireService:
             "certificate_number": item.certificate_number,
             "certificate_date": item.certificate_date,
             "certificate_valid_until": item.certificate_valid_until,
+            "agreement_date": getattr(item, "agreement_date", None),
             "permitted_work_types": item.permitted_work_types or [],
             "equipment_passport": item.equipment_passport or [],
             "staff_count": item.staff_count,
