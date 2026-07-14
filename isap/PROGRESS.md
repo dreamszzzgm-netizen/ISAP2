@@ -1,7 +1,46 @@
 # Отчёт прогресса: ISAP
 
-**Дата обновления:** 2026-07-14T15:40
+**Дата обновления:** 2026-07-14T19:30
 **Проект:** ISAP — Industrial Safety AI Platform
+
+---
+
+## Equipment + Substances UI в карточке ОПО (2026-07-14)
+
+Добавлены секции «Оборудование» и «Опасные вещества» в карточку ОПО для разблокировки генерации ПМЛА (preflight блокировал с `EQ_EMPTY_LIST`).
+
+**Коммит:** `213a56b feat(opo): add Equipment and Substance sections to OPO card form`
+**Ветка:** `patch-c/pmla-pasf-frontend-hardening` (наверх от `207ce6a`)
+**Объём:** 2 файла, +335 строк
+
+### Что сделано
+
+| Файл | Изменение |
+|------|-----------|
+| `frontend/src/lib/api-client.ts` (+32 строки) | Добавлены методы API: `equipment()`, `createEquipment()`, `updateEquipment()`, `deleteEquipment()`, `substances()`, `createSubstance()`, `updateSubstance()`, `deleteSubstance()` |
+| `frontend/src/components/dashboard/opo-page.tsx` (+303 строки) | Добавлены компоненты `EquipmentForm` и `SubstanceForm` с построчным добавлением/сохранением/удалением, интегрированы в `OpoCardForm` как раскрывающиеся секции |
+
+### UI-логика
+
+- **Существующий ОПО** (`initialData?.id` есть): показываются две раскрывающиеся секции «Оборудование» и «Опасные вещества»
+- **Новый ОПО** (создание): выводится подсказка «Сохраните объект ОПО, затем добавьте оборудование и опасные вещества»
+- Каждая строка сохраняется отдельно по кнопке «Сохранить» (POST для новых, PUT для существующих)
+- Удаление через кнопку с корзиной (DELETE)
+- Загрузка данных при открытии секции через `GET /api/v1/equipment/?hazardous_facility_id={id}` и `GET /api/v1/substances/?hazardous_facility_id={id}`
+- Backend API уже был готов — изменения только frontend
+
+### Проверки
+
+| Проверка | Результат |
+|----------|-----------|
+| `npx tsc --noEmit --incremental false` | ✅ Без ошибок |
+| `npm run build` | ✅ `Finished TypeScript in 4.3s` |
+| Docker containers | ✅ Все 4 Up |
+| `docker compose restart frontend` | ✅ Перезапущен |
+
+### Примечание
+
+После `docker compose restart frontend` необходимо жёсткое обновление страницы в браузере (`Ctrl+Shift+R`) из-за кэширования JS-бандла.
 
 ---
 
