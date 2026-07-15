@@ -281,11 +281,19 @@ class PmlaContextBuilder:
         ctx.questionnaire = dict(qdata)
 
         # Financial reserve
-        fin = qdata.get("financial_reserve") or {}
+        fin = qdata.get("financial_reserve") or raw.get("financial_reserve") or {}
         ctx.financial_reserve = dict(fin)
 
+        fin_insurance = (
+            qdata.get("financial_reserve_insurance")
+            or raw.get("financial_reserve_insurance")
+            or fin.get("insurance")
+            or {}
+        )
+        ctx.financial_reserve_insurance = dict(fin_insurance)
+
         # Insurance
-        ins = qdata.get("insurance") or {}
+        ins = qdata.get("insurance") or raw.get("insurance") or {}
         ctx.insurance = dict(ins)
 
         # Organization resources
@@ -306,9 +314,15 @@ class PmlaContextBuilder:
         incident = qdata.get("incident_history") or raw.get("incident_history") or {}
         ctx.accident_history = dict(incident) if isinstance(incident, dict) else {}
 
-        # Attachments
-        attachments = qdata.get("attachments_checklist") or raw.get("attachments_checklist") or []
-        ctx.attachments = list(attachments)
+        # Attachments checklist (plain list of strings from the questionnaire, e.g.
+        # ["схема расположения ОПО", "договор с ПАСФ", ...]) is NOT the same as
+        # ctx.attachments (PASF document dicts). Keep it in the questionnaire dict
+        # and the raw source so downstream consumers (enhanced_generator,
+        # quality_review, v2 mapper) can read it via context["attachments_checklist"]
+        # without overwriting the PASF document list the preflight validates.
+        attachments_checklist = qdata.get("attachments_checklist") or raw.get("attachments_checklist") or []
+        ctx.questionnaire.setdefault("attachments_checklist", attachments_checklist)
+        ctx._raw_source_context.setdefault("attachments_checklist", attachments_checklist)
 
         # Recommendations from questionnaire service
         recommendations = raw.get("recommendations") or {}

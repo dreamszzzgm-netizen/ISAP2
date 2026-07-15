@@ -95,7 +95,10 @@ class PmlaGenerationContext:
 
     # ── Financial reserve ──────────────────────────────────────────────
     financial_reserve: dict[str, Any] = field(default_factory=dict)
-    # Expected keys: created, order_number, order_date, amount
+    # Expected keys: created, order_number, order_date, amount, source, purpose
+
+    # Insurance securing the financial reserve; distinct from OPO insurance.
+    financial_reserve_insurance: dict[str, Any] = field(default_factory=dict)
 
     # ── Organization resources / forces ────────────────────────────────
     organization_resources: dict[str, Any] = field(default_factory=dict)
@@ -178,12 +181,21 @@ class PmlaGenerationContext:
             "custom_scenarios": list(self.custom_scenarios),
             "insurance": dict(self.insurance),
             "financial_reserve": dict(self.financial_reserve),
+            "financial_reserve_insurance": dict(self.financial_reserve_insurance),
             "organization_resources": dict(self.organization_resources) if self.organization_resources else {},
             "incident_history": dict(self.accident_history) if self.accident_history else {},
             "protective_equipment": [],
             "attachments": list(self.attachments),
             "recommendations": dict(self.recommendations) if self.recommendations else {},
         }
+        # attachments_checklist is a plain list of strings from the questionnaire
+        # (e.g. ["схема расположения ОПО", ...]); distinct from self.attachments
+        # (PASF document dicts). Expose it flatly so enhanced_generator /
+        # quality_review / v2 mapper read it via context["attachments_checklist"].
+        if self.questionnaire.get("attachments_checklist"):
+            result["attachments_checklist"] = list(self.questionnaire["attachments_checklist"])
+        elif self._raw_source_context.get("attachments_checklist"):
+            result["attachments_checklist"] = list(self._raw_source_context["attachments_checklist"])
         if self._raw_source_context:
             # Preserve additional keys from raw context for engine compatibility
             for k, v in self._raw_source_context.items():
