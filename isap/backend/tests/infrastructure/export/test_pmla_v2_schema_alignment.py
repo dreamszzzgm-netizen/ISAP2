@@ -455,6 +455,10 @@ def _build_full_context() -> dict:
                 "executors": "Оператор",
             },
         ],
+        "person": {
+            "position": "Генеральный директор",
+            "phone": "+7 900 000-00-00",
+        },
         "notification_chairman_phone": "+7 928 709-95-15",
         "notification_deputy_phone": "+7 906 881-07-07",
         "notification_edds_phone": "112",
