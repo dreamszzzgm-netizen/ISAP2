@@ -344,7 +344,7 @@ class PmlaTemplateRenderer:
                 for root_dir, dirs, files in os.walk(tmpdir):
                     for file in files:
                         file_path = os.path.join(root_dir, file)
-                        arcname = os.path.relpath(file_path, tmpdir)
+                        arcname = os.path.relpath(file_path, tmpdir).replace("\\", "/")
                         zout.write(file_path, arcname)
 
             return output_buf.getvalue()

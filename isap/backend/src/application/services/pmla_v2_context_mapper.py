@@ -122,7 +122,7 @@ def _find_person(persons: list[dict], role: str | None = None) -> dict | None:
 # Service type normalization
 _SERVICE_TYPE_ALIASES = {
     "fire": {"fire", "fire_department", "fire_service", "пожарная", "пожарная_охрана"},
-    "ambulance": {"ambulance", "medical", "medical_service", "скорая", "скорная", "медицинская"},
+    "ambulance": {"ambulance", "medical", "medical_service", "hospital", "скорая", "скорная", "медицинская"},
     "police": {"police", "полиция"},
     "gas": {"gas", "gas_service", "газовая", "газовая_служба"},
     "electric": {"electric", "electricity", "power", "power_service", "электрика", "энергосбыт"},
@@ -173,6 +173,17 @@ def _get_phone(service: dict | None, *keys: str) -> str:
         val = service.get(key)
         if val:
             return _safe_str(val)
+    return ""
+
+
+def _get_value(source: dict | None, *keys: str) -> str:
+    """Return the first non-empty scalar value from a source record."""
+    if not source:
+        return ""
+    for key in keys:
+        value = source.get(key)
+        if value is not None and str(value).strip():
+            return _safe_str(value)
     return ""
 
 
@@ -531,6 +542,17 @@ def map_to_v2_context(source_context: dict) -> dict:
     custom_scenarios = source_context.get("custom_scenarios") or []
     questionnaire = source_context.get("questionnaire") or {}
     pasf = source_context.get("pasf") or {}
+    insurance = source_context.get("insurance") or questionnaire.get("insurance") or {}
+    financial_reserve = (
+        source_context.get("financial_reserve")
+        or questionnaire.get("financial_reserve")
+        or {}
+    )
+    financial_reserve_insurance = (
+        source_context.get("financial_reserve_insurance")
+        or financial_reserve.get("insurance")
+        or {}
+    )
 
     # Main responsible person
     director = _find_person(persons, "director") or _find_person(persons)
@@ -540,6 +562,10 @@ def map_to_v2_context(source_context: dict) -> dict:
     director_full_name = _safe_str(director.get("full_name", "")) if director else ""
     director_position = _safe_str(director.get("position", "")) if director else ""
     director_position_fullname = f"{director_position} {director_full_name}".strip()
+    director_initials_surname = (
+        _extract_initials_surname(director_full_name) if director_full_name else ""
+    )
+    director_phone = _safe_str(director.get("phone", "")) if director else ""
 
     # Settlement from address
     facility_address = _safe_str(facility.get("address", ""))
@@ -576,6 +602,14 @@ def map_to_v2_context(source_context: dict) -> dict:
     # PASF info
     contractor_name = _safe_str(pasf.get("name") or "")
     contractor_short = _safe_str(pasf.get("short_name") or contractor_name)
+    contractor_director_full_name = _get_value(
+        pasf, "director_full_name", "director_name", "manager_name",
+    )
+    contractor_director_position = _get_value(pasf, "director_position")
+    contractor_director_initials_surname = (
+        _extract_initials_surname(contractor_director_full_name)
+        if contractor_director_full_name else ""
+    )
 
     # Contract date/number from PASF document of type "contract"
     contractor_date = "—"
@@ -603,16 +637,18 @@ def map_to_v2_context(source_context: dict) -> dict:
     if not contractor_number:
         contractor_number = _safe_str(pasf.get("certificate_number") or "")
 
-    dislocation_address = _safe_str(pasf.get("actual_address") or org.get("address") or facility_address)
+    contractor_dispatch_address = _get_value(pasf, "actual_address", "dispatch_address")
+    contractor_phone = _get_phone(
+        pasf, "dispatch_phone", "dispatcher_phone", "phone", "additional_phone",
+    )
 
     # Emergency services
     edds = _find_emergency_service(services, "edds")
     fire = _find_emergency_service(services, "fire")
-    ambulance = _find_emergency_service(services, "ambulance") or _find_emergency_service(services, "medical")
+    ambulance = _find_emergency_service(services, "ambulance")
     gas = _find_emergency_service(services, "gas")
     electric = _find_emergency_service(services, "electric")
     admin = _find_emergency_service(services, "admin")
-    pasf_svc = _find_emergency_service(services, "pasf")
     mchs = _find_emergency_service(services, "mchs") or _find_emergency_service(services, "emergency")
     rostechnadzor = _find_emergency_service(services, "rostechnadzor") or _find_emergency_service(services, "rtn")
 
@@ -620,19 +656,52 @@ def map_to_v2_context(source_context: dict) -> dict:
     edds_name = _safe_str(edds.get("name", "")) if edds else "—"
     edds_district_val = settlement_district or "—"
 
-    # Electric company
-    electric_company = _safe_str(electric.get("name", "")) if electric else "—"
+    fire_department_name = _get_value(fire, "name")
+    fire_department_short_name = _get_value(fire, "short_name")
+    fire_department_address = _get_value(fire, "address")
+    ambulance_service_name = _get_value(ambulance, "name")
+    hospital_name = _get_value(ambulance, "hospital_name") or ambulance_service_name
+    hospital_address = _get_value(ambulance, "hospital_address", "address")
+    gas_service_name = _get_value(gas, "name")
+    gas_service_address = _get_value(gas, "address")
+    gas_supplier_branch = _get_value(gas, "branch")
+    electric_network_name = _get_value(electric, "name")
+    electric_network_short_name = _get_value(electric, "short_name")
+    electric_network_address = _get_value(electric, "address")
+    edds_short_name = _get_value(edds, "short_name")
+    edds_address = _get_value(edds, "address")
+    edds_additional_phone = _get_phone(edds, "additional_phone")
+    mchs_department_name = _get_value(mchs, "name")
+    mchs_department_short_name = _get_value(mchs, "short_name")
+    mchs_department_address = _get_value(mchs, "address")
+    rostechnadzor_department_name = _get_value(rostechnadzor, "name")
+    rostechnadzor_department_short_name = _get_value(rostechnadzor, "short_name")
+    rostechnadzor_department_address = _get_value(rostechnadzor, "address")
+    local_administration_name = _get_value(admin, "name")
+    local_administration_short_name = _get_value(admin, "short_name")
+    local_administration_address = _get_value(admin, "address")
+    local_administration_additional_phone = _get_phone(admin, "additional_phone")
 
-    # Local admin
-    local_admin = _safe_str(admin.get("name", "")) if admin else "—"
+    opo_insurance_company_name = _get_value(insurance, "company_name", "company")
+    opo_insurance_company_short_name = _get_value(insurance, "company_short_name", "short_name")
+    opo_insurance_policy_number = _get_value(insurance, "policy_number", "contract_number")
+    opo_insurance_policy_date = _format_date_str(
+        insurance.get("policy_date") or insurance.get("contract_date")
+    )
+    opo_insurance_valid_from = _format_date_str(insurance.get("valid_from"))
+    opo_insurance_valid_until = _format_date_str(insurance.get("valid_until"))
+    opo_insurance_amount = _get_value(
+        insurance, "insured_amount", "insurance_amount", "amount", "sum", "sum_rub",
+    )
 
-    # Gas supplier (from org or emergency service)
-    gas_supplier = _find_emergency_service(services, "gas_supplier") or gas
-    gas_supplier_name = _safe_str(gas_supplier.get("name", "") if gas_supplier else org.get("name", ""))
-    gas_supplier_branch = _safe_str(gas_supplier.get("branch", "") if gas_supplier else "")
+    legacy_material_reserve = source_context.get("material_reserve") or {}
+    legacy_insurance_amount = (
+        _get_value(legacy_material_reserve, "insurance_amount")
+        if isinstance(legacy_material_reserve, dict) else ""
+    )
 
     # Notification phones
-    chairman_phone = _safe_str(director.get("phone", "")) if director else ""
+    chairman_phone = director_phone
 
     ctx: dict[str, Any] = {
         # Organization
@@ -645,8 +714,11 @@ def map_to_v2_context(source_context: dict) -> dict:
         "email": _safe_str(org.get("email", "")),
 
         # Director
+        "director_position": director_position,
+        "director_full_name": director_full_name,
+        "director_phone": director_phone,
         "director_position_fullname": director_position_fullname or "—",
-        "director_initials_surname": _extract_initials_surname(director_full_name) if director_full_name else "—",
+        "director_initials_surname": director_initials_surname,
         "director_initials_surname_full": director_full_name or "—",
         "deputy_chairman_fullname": _safe_str(deputy.get("full_name", "")) if deputy else "—",
 
@@ -673,33 +745,93 @@ def map_to_v2_context(source_context: dict) -> dict:
         # PASF / Contractor
         "contractor_organization_name": contractor_name or "—",
         "contractor_organization_short_name": contractor_short or "—",
+        "contractor_director_position": contractor_director_position,
+        "contractor_director_full_name": contractor_director_full_name,
+        "contractor_director_initials_surname": contractor_director_initials_surname,
+        "contractor_dispatch_address": contractor_dispatch_address,
+        "contractor_phone": contractor_phone,
         "contractor_agreement_date": contractor_date,
         "contractor_agreement_number": contractor_number,
         "appendices_manifest": appendices_manifest,
-        "gas_supplier_name": gas_supplier_name or "—",
-        "gas_supplier_branch": gas_supplier_branch or "—",
-        "dislocation_address": dislocation_address or "—",
+        "dislocation_address": contractor_dispatch_address,
+
+        # Emergency service directories
+        "fire_department_name": fire_department_name,
+        "fire_department_short_name": fire_department_short_name,
+        "fire_department_address": fire_department_address,
+        "ambulance_service_name": ambulance_service_name,
+        "hospital_name": hospital_name,
+        "hospital_address": hospital_address,
+        "gas_service_name": gas_service_name,
+        "gas_service_address": gas_service_address,
+        "gas_supplier_name": gas_service_name,
+        "gas_supplier_branch": gas_supplier_branch,
+        "electric_network_name": electric_network_name,
+        "electric_network_short_name": electric_network_short_name,
+        "electric_network_address": electric_network_address,
 
         # EDDS
         "edds_name": edds_name,
+        "edds_short_name": edds_short_name,
+        "edds_address": edds_address,
+        "edds_additional_phone": edds_additional_phone,
         "edds_district": edds_district_val,
+        "mchs_department_name": mchs_department_name,
+        "mchs_department_short_name": mchs_department_short_name,
+        "mchs_department_address": mchs_department_address,
+        "rostechnadzor_department_name": rostechnadzor_department_name,
+        "rostechnadzor_department_short_name": rostechnadzor_department_short_name,
+        "rostechnadzor_department_address": rostechnadzor_department_address,
+        "local_administration_name": local_administration_name,
+        "local_administration_short_name": local_administration_short_name,
+        "local_administration_address": local_administration_address,
+        "local_administration_additional_phone": local_administration_additional_phone,
+        "electric_company": electric_network_name,
+        "local_admin": local_administration_name,
 
-        # Utilities + admin
-        "electric_company": electric_company,
-        "local_admin": local_admin,
+        # OPO insurance
+        "opo_insurance_company_name": opo_insurance_company_name,
+        "opo_insurance_company_short_name": opo_insurance_company_short_name,
+        "opo_insurance_policy_number": opo_insurance_policy_number,
+        "opo_insurance_policy_date": opo_insurance_policy_date,
+        "opo_insurance_valid_from": opo_insurance_valid_from,
+        "opo_insurance_valid_until": opo_insurance_valid_until,
+        "opo_insurance_amount": opo_insurance_amount,
+        # Legacy alias: only the old material_reserve.insurance_amount source.
+        "insurance_amount": legacy_insurance_amount,
+
+        # Financial reserve
+        "financial_reserve_order_number": _get_value(financial_reserve, "order_number"),
+        "financial_reserve_order_date": _format_date_str(financial_reserve.get("order_date")),
+        "financial_reserve_amount": _get_value(financial_reserve, "amount"),
+        "financial_reserve_source": _get_value(financial_reserve, "source"),
+        "financial_reserve_purpose": _get_value(financial_reserve, "purpose"),
+        "financial_reserve_insurance_company_name": _get_value(financial_reserve_insurance, "company_name", "company"),
+        "financial_reserve_insurance_company_short_name": _get_value(financial_reserve_insurance, "company_short_name", "short_name"),
+        "financial_reserve_insurance_policy_number": _get_value(financial_reserve_insurance, "policy_number", "contract_number"),
+        "financial_reserve_insurance_policy_date": _format_date_str(financial_reserve_insurance.get("policy_date") or financial_reserve_insurance.get("contract_date")),
+        "financial_reserve_insurance_valid_from": _format_date_str(financial_reserve_insurance.get("valid_from")),
+        "financial_reserve_insurance_valid_until": _format_date_str(financial_reserve_insurance.get("valid_until")),
+        "financial_reserve_insurance_amount": _get_value(financial_reserve_insurance, "insured_amount", "insurance_amount", "amount"),
 
         # Notification phones
         "notification_chairman_phone": chairman_phone,
         "notification_deputy_phone": _safe_str(deputy.get("phone", "")) if deputy else "",
+        # First responsible person (used as "person" in operational sections)
+        "person": {
+            "position": director_position or "—",
+            "phone": director_phone or chairman_phone or "—",
+        },
         "notification_edds_phone": _get_phone(edds, "dispatcher_phone", "dispatch_phone", "phone", "additional_phone"),
-        "notification_pasf_phone": _get_phone(pasf_svc or pasf, "dispatch_phone", "dispatcher_phone", "phone", "additional_phone"),
+        "notification_pasf_phone": contractor_phone,
         "notification_fire_phone": _get_phone(fire, "dispatcher_phone", "phone", "additional_phone"),
         "notification_ambulance_phone": _get_phone(ambulance, "dispatcher_phone", "phone", "additional_phone"),
         "notification_gas_phone": _get_phone(gas, "dispatcher_phone", "phone", "additional_phone"),
         "notification_electric_phone": _get_phone(electric, "dispatcher_phone", "phone", "additional_phone"),
         "notification_mchs_phone": _get_phone(mchs, "dispatcher_phone", "phone", "additional_phone"),
-        "notification_rostechnadzor_phone": _get_phone(rostechnadzor, "phone"),
-        "notification_admin_phone": _get_phone(admin, "phone"),
+        "notification_rostechnadzor_phone": _get_phone(rostechnadzor, "dispatcher_phone", "phone", "additional_phone"),
+        "notification_administration_phone": _get_phone(admin, "dispatcher_phone", "phone"),
+        "notification_admin_phone": _get_phone(admin, "dispatcher_phone", "phone"),
 
         # Arrays
         "equipment_list": _map_equipment(equipment),
