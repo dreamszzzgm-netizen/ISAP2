@@ -327,9 +327,8 @@ class SmartImportService:
         })
 
         title = (
-            f"Анкета ПМЛА: {result.organization_candidate.get('name')
-            or result.facility_candidate.get('name')
-            or job.filename}"
+            f"Анкета ПМЛА: "
+            f"{result.organization_candidate.get('name') or result.facility_candidate.get('name') or job.filename}"
         )
 
         self.session.add(
