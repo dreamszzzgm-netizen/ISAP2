@@ -222,7 +222,7 @@ class PmlaGenerationFromQuestionnaireService:
             map_to_v2_context,
             validate_v2_context,
         )
-        from src.infrastructure.export.pmla_template_renderer import PmlaTemplateRenderer
+        from src.application.services.pmla_ooxml_flat_renderer import PmlaOoxmlFlatRenderer
 
         logger.info("Starting v2 generation for questionnaire %s", questionnaire_id)
 
@@ -282,7 +282,7 @@ class PmlaGenerationFromQuestionnaireService:
             generation_meta={
                 "source": "pmla_v2_template",
                 "template_version": "v2",
-                "generation_pipeline": "pmla_template_renderer",
+                "generation_pipeline": "pmla_ooxml_flat_renderer",
                 "template_file": "pmla_v2_template.docx",
                 "questionnaire_id": str(questionnaire_id),
                 "facility_id": str(facility_id),
@@ -300,7 +300,7 @@ class PmlaGenerationFromQuestionnaireService:
 
         try:
             # Render DOCX via v2 template
-            renderer = PmlaTemplateRenderer()
+            renderer = PmlaOoxmlFlatRenderer()
             docx_bytes = renderer.render(v2_context)
 
             # Save to DB

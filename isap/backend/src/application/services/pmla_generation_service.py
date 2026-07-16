@@ -104,17 +104,18 @@ class PmlaGenerationService:
         facility: Any,
         source_context: dict,
     ) -> dict:
-        """v2 template-based generation path using PmlaTemplateRenderer.
+        """v2 template-based generation path using PmlaOoxmlFlatRenderer.
 
         Steps:
         1. Enrich context with runtime data (emergency services, protective eq)
         2. Map to flat v2 schema format
         3. Validate against schema
         4. Create DocumentModel
-        5. Render DOCX via PmlaTemplateRenderer
+        5. Render DOCX via PmlaOoxmlFlatRenderer (byte-for-byte OOXML copy;
+           preserves graphics, namespaces and relationships of the template)
         6. Save to DB + create version snapshot
         """
-        from src.infrastructure.export.pmla_template_renderer import PmlaTemplateRenderer
+        from src.application.services.pmla_ooxml_flat_renderer import PmlaOoxmlFlatRenderer
         from src.application.services.pmla_v2_context_mapper import (
             map_to_v2_context,
             validate_v2_context,
@@ -140,7 +141,7 @@ class PmlaGenerationService:
 
         try:
             # 5. Render DOCX via v2 template
-            renderer = PmlaTemplateRenderer()
+            renderer = PmlaOoxmlFlatRenderer()
             docx_bytes = renderer.render(v2_context)
 
             # 6. Save to DB
@@ -149,6 +150,7 @@ class PmlaGenerationService:
             doc.generation_meta = {
                 "source": "pmla_v2_template",
                 "template_version": "v2",
+                "generation_pipeline": "pmla_ooxml_flat_renderer",
                 "facility_id": str(facility.id),
                 "context_keys": list(v2_context.keys()),
             }

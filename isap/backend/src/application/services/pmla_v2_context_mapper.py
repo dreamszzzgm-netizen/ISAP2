@@ -8,7 +8,7 @@ Usage:
     context_v2 = map_to_v2_context(source_context)
     errors = validate_v2_context(context_v2)
     if not errors:
-        docx_bytes = PmlaTemplateRenderer().render(context_v2)
+        docx_bytes = PmlaOoxmlFlatRenderer().render(context_v2)
 """
 from __future__ import annotations
 
@@ -738,6 +738,13 @@ def map_to_v2_context(source_context: dict) -> dict:
         "hazard_characteristics_116fz": hazard_characteristics_116fz,
         "total_hazardous_substance_quantity": total_qty,
 
+        # Development year (год разработки документа)
+        "development_year": str(
+            questionnaire.get("development_year")
+            or source_context.get("development_year")
+            or datetime.now().year
+        ),
+
         # Settlement
         "settlement_name": settlement_name or "—",
         "settlement_district": settlement_district or "—",
@@ -797,8 +804,9 @@ def map_to_v2_context(source_context: dict) -> dict:
         "opo_insurance_valid_from": opo_insurance_valid_from,
         "opo_insurance_valid_until": opo_insurance_valid_until,
         "opo_insurance_amount": opo_insurance_amount,
-        # Legacy alias: only the old material_reserve.insurance_amount source.
-        "insurance_amount": legacy_insurance_amount,
+        # Insurance amount: prefer modern opo_insurance_amount,
+        # fall back to legacy material_reserve.insurance_amount.
+        "insurance_amount": legacy_insurance_amount or opo_insurance_amount or "",
 
         # Financial reserve
         "financial_reserve_order_number": _get_value(financial_reserve, "order_number"),
