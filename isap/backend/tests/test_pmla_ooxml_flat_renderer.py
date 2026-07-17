@@ -77,6 +77,67 @@ def _full_context(**overrides) -> dict:
             }
         ],
     )
+    ctx.setdefault(
+        "substance_params",
+        [{"parameter": "P1", "value": "V1"}, {"parameter": "P2", "value": "V2"}],
+    )
+    ctx.setdefault(
+        "equipment_scenario_links",
+        [
+            {
+                "equipment_name": "Оборудование-1",
+                "scenario_codes": "S-1, S-2",
+                "description": "Описание сценария",
+                "damaging_factors": "Факторы воздействия",
+            }
+        ],
+    )
+    ctx.setdefault(
+        "accident_scenarios",
+        [
+            {
+                "code": "S-1",
+                "name": "Сценарий первый",
+                "source": "Источник",
+                "preconditions": "Причины",
+                "signs": "Признаки",
+                "damaging_factors": "Факторы",
+            },
+            {
+                "code": "S-2",
+                "name": "Сценарий второй",
+                "source": "Источник-2",
+                "preconditions": "Причины-2",
+                "signs": "Признаки-2",
+                "damaging_factors": "Факторы-2",
+            },
+        ],
+    )
+    ctx.setdefault(
+        "material_reserve_actual",
+        [
+            {"name": "Средство-1", "quantity": "10", "location": "Склад-1"},
+            {"name": "Средство-2", "quantity": "5", "location": "Склад-2"},
+        ],
+    )
+    ctx.setdefault(
+        "material_reserve_recommended",
+        [
+            {"name": "Рек. средство", "quantity": "2", "location": "Склад-Р"},
+        ],
+    )
+    ctx.setdefault(
+        "countermeasures",
+        [
+            {
+                "scenario_label": "S-1 Мера",
+                "signs": "Признак",
+                "protection": "Защита",
+                "technical_means": "Средства",
+                "executors": "Исполнители",
+            }
+        ],
+    )
     ctx.update(overrides)
     return ctx
 
@@ -265,9 +326,11 @@ class TestLoopExpansion:
         # robust against bare-digit false positives.
         root = etree.fromstring(zipfile.ZipFile(io.BytesIO(out)).read("word/document.xml"))
         eq_table_rows = 0
-        for tbl in root.iter(W("tr")):
-            row_text = "".join((t.text or "") for t in tbl.iter(W("t")))
-            if any(f"Оборудование-{i}" in row_text for i in (1, 2, 3)):
+        for tr in root.iter(W("tr")):
+            row_text = "".join((t.text or "") for t in tr.iter(W("t")))
+            # Use "Характеристика-" which is unique to equipment_list fields
+            # (avoids false match from equipment_scenario_links containing "Оборудование-1")
+            if any(f"Характеристика-{i}" in row_text for i in (1, 2, 3)):
                 eq_table_rows += 1
         assert eq_table_rows == 3, f"expected 3 data rows from loop.index, got {eq_table_rows}"
 
@@ -886,3 +949,180 @@ class TestLoopFieldReliability:
         # At least the header + 3 data rows must exist.
         row_count = sum(1 for _ in rows)
         assert row_count >= 4, f"expected >=4 rows, got {row_count}"
+
+
+# ---------------------------------------------------------------------------
+# 9. Six-independent-loop tests (D6)
+# ---------------------------------------------------------------------------
+class TestSixIndependentLoops:
+    """Verify that all 6 table-row loops in the template work together."""
+
+    SIX_LIST_KEYS = [
+        "equipment_list",
+        "substance_params",
+        "equipment_scenario_links",
+        "accident_scenarios",
+        "material_reserve_actual",
+        "material_reserve_recommended",
+        "countermeasures",
+    ]
+
+    def test_all_six_loops_expand_with_minimal_data(self, renderer):
+        """Each of the 6 loops gets at least 1 item; every item's tokens
+        are filled and no leftover markers remain."""
+        ctx = _full_context()
+        # _full_context already provides default data for all 6 lists
+        out = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            text = _gather_text(z.read("word/document.xml"))
+        assert "{{" not in text, "unreplaced flat tokens remain"
+        assert "{%" not in text, "unreplaced Jinja markers remain"
+        # Spot-check values from each list
+        for marker in (
+            "Котёл",           # equipment_list
+            "P1", "V1",        # substance_params
+            "Оборудование-1",  # equipment_scenario_links
+            "S-1", "S-2",      # accident_scenarios
+            "Средство-1",      # material_reserve_actual
+            "Рек. средство",   # material_reserve_recommended
+            "S-1 Мера",        # countermeasures
+        ):
+            assert marker in text, f"{marker!r} missing from output"
+
+    def test_two_items_per_list(self, renderer):
+        """With 2 items in every list all values appear; no leftover tokens."""
+        ctx = _full_context()
+        ctx["equipment_list"] = [
+            {"device_name": "DEV-1", "hazard_characteristic": "H1", "location": "L1",
+             "process_codes": "P1", "specifications": "S1"},
+            {"device_name": "DEV-2", "hazard_characteristic": "H2", "location": "L2",
+             "process_codes": "P2", "specifications": "S2"},
+        ]
+        ctx["substance_params"] = [
+            {"parameter": "P1", "value": "V1"}, {"parameter": "P2", "value": "V2"},
+        ]
+        ctx["equipment_scenario_links"] = [
+            {"equipment_name": "EQ1", "scenario_codes": "S1", "description": "D1", "damaging_factors": "F1"},
+            {"equipment_name": "EQ2", "scenario_codes": "S2", "description": "D2", "damaging_factors": "F2"},
+        ]
+        ctx["accident_scenarios"] = [
+            {"code": "C1", "name": "N1", "source": "SRC1", "preconditions": "PRE1", "signs": "SIG1", "damaging_factors": "DF1"},
+            {"code": "C2", "name": "N2", "source": "SRC2", "preconditions": "PRE2", "signs": "SIG2", "damaging_factors": "DF2"},
+        ]
+        ctx["material_reserve_actual"] = [
+            {"name": "M1", "quantity": "Q1", "location": "L1"},
+            {"name": "M2", "quantity": "Q2", "location": "L2"},
+        ]
+        ctx["material_reserve_recommended"] = [
+            {"name": "R1", "quantity": "RQ1", "location": "RL1"},
+            {"name": "R2", "quantity": "RQ2", "location": "RL2"},
+        ]
+        ctx["countermeasures"] = [
+            {"scenario_label": "L1", "signs": "LG1", "protection": "PR1", "technical_means": "TM1", "executors": "EX1"},
+            {"scenario_label": "L2", "signs": "LG2", "protection": "PR2", "technical_means": "TM2", "executors": "EX2"},
+        ]
+        out = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            text = _gather_text(z.read("word/document.xml"))
+        assert "{{" not in text
+        assert "{%" not in text
+        for m in ("DEV-1", "DEV-2", "P1", "P2", "EQ1", "EQ2", "C1", "C2",
+                  "M1", "M2", "R1", "R2", "L1", "L2"):
+            assert m in text, f"{m!r} missing"
+
+    @pytest.mark.parametrize("list_key", SIX_LIST_KEYS)
+    def test_empty_list_leaves_no_markers(self, renderer, list_key):
+        """When a single list is emptied, no Jinja markers survive anywhere."""
+        ctx = _full_context()
+        ctx[list_key] = [] if isinstance(ctx.get(list_key, []), list) else []
+        out = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            for part in PmlaOoxmlFlatRenderer.TEXT_PARTS:
+                if part not in z.namelist():
+                    continue
+                text = _gather_text(z.read(part))
+                assert "{%tr" not in text, (
+                    f"Jinja leftover in {part} when {list_key}=[]"
+                )
+
+    def test_all_lists_empty_leaves_no_markers(self, renderer):
+        """When ALL 6 lists are empty simultaneously, no markers remain."""
+        ctx = _full_context()
+        for k in self.SIX_LIST_KEYS:
+            ctx[k] = []
+        out = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            for part in PmlaOoxmlFlatRenderer.TEXT_PARTS:
+                if part not in z.namelist():
+                    continue
+                text = _gather_text(z.read(part))
+                assert "{%" not in text, f"Jinja leftover in {part}"
+                assert "{{" not in text, f"Brace leftover in {part}"
+
+    def test_actual_and_recommended_not_mixed(self, renderer):
+        """material_reserve_actual items should NOT appear in the
+        recommended section and vice versa."""
+        ctx = _full_context()
+        ctx["material_reserve_actual"] = [
+            {"name": "UNIQUE_ACTUAL", "quantity": "1", "location": "A"},
+        ]
+        ctx["material_reserve_recommended"] = [
+            {"name": "UNIQUE_RECOMMENDED", "quantity": "2", "location": "R"},
+        ]
+        out = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            text = _gather_text(z.read("word/document.xml"))
+        assert "UNIQUE_ACTUAL" in text
+        assert "UNIQUE_RECOMMENDED" in text
+
+    def test_special_chars_in_all_loops(self, renderer):
+        """XML-special characters (<> &) in every loop type must be single-escaped."""
+        ctx = _full_context()
+        ctx["substance_params"] = [
+            {"parameter": "Темп < 100°C", "value": "Давление > 2 МПа & норма"},
+        ]
+        ctx["equipment_scenario_links"] = [
+            {"equipment_name": "Котёл <№2>", "scenario_codes": "S-1, S-2",
+             "description": "Описание <тест>", "damaging_factors": "Фактор & риск"},
+        ]
+        ctx["accident_scenarios"] = [
+            {"code": "S-1", "name": "Тест <имя>", "source": "Источник",
+             "preconditions": "Причина > нормы", "signs": "Сигнал & шум",
+             "damaging_factors": "Фактор < 1.2"},
+        ]
+        out = renderer.render(ctx)
+        raw = b""
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            raw = z.read("word/document.xml")
+            text = _gather_text(raw)
+        # Verify values appear correctly (XML-decoded)
+        assert "Темп < 100°C" in text
+        assert "Давление > 2 МПа & норма" in text
+        assert "Котёл <№2>" in text
+        assert "Описание <тест>" in text
+        assert "Фактор & риск" in text
+        assert "Тест <имя>" in text
+        # Double-encoding must NOT happen
+        assert b"&amp;lt;" not in raw
+        assert b"&amp;amp;" not in raw
+
+    def test_split_runs_in_new_loops(self, renderer):
+        """Ensure split-run tokens in the newly added loops also reassemble."""
+        ctx = _full_context()
+        ctx["accident_scenarios"] = [
+            {"code": "SPLIT-CODE", "name": "SPLIT-NAME", "source": "SPLIT-SRC",
+             "preconditions": "SPLIT-PRE", "signs": "SPLIT-SIGNS",
+             "damaging_factors": "SPLIT-DF"},
+        ]
+        ctx["countermeasures"] = [
+            {"scenario_label": "SPLIT-LABEL", "signs": "SPLIT-SIGN",
+             "protection": "SPLIT-PROT", "technical_means": "SPLIT-TM",
+             "executors": "SPLIT-EX"},
+        ]
+        out = renderer.render(ctx)
+        with zipfile.ZipFile(io.BytesIO(out), "r") as z:
+            text = _gather_text(z.read("word/document.xml"))
+        for m in ("SPLIT-CODE", "SPLIT-NAME", "SPLIT-SRC", "SPLIT-PRE",
+                  "SPLIT-SIGNS", "SPLIT-DF", "SPLIT-LABEL", "SPLIT-SIGN",
+                  "SPLIT-PROT", "SPLIT-TM", "SPLIT-EX"):
+            assert m in text, f"{m!r} missing (split-run issue)"

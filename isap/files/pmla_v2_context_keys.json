@@ -32,7 +32,9 @@
       "accident_scenarios",
       "injury_history",
       "accident_history",
-      "material_reserve",
+      "material_reserve_actual",
+      "material_reserve_recommended",
+      "countermeasures",
       "notification_chairman_phone",
       "notification_deputy_phone",
       "notification_edds_phone",
@@ -44,7 +46,64 @@
       "notification_mchs_phone",
       "notification_rostechnadzor_phone",
       "notification_admin_phone",
-      "countermeasures"
+      "notification_administration_phone",
+      "development_year",
+      "insurance_amount",
+      "financial_reserve_order_number",
+      "financial_reserve_order_date",
+      "financial_reserve_amount",
+      "person",
+      "director_position",
+      "director_full_name",
+      "director_phone",
+      "contractor_director_position",
+      "contractor_director_full_name",
+      "contractor_director_initials_surname",
+      "contractor_dispatch_address",
+      "contractor_phone",
+      "appendices_manifest",
+      "fire_department_name",
+      "fire_department_short_name",
+      "fire_department_address",
+      "ambulance_service_name",
+      "hospital_name",
+      "hospital_address",
+      "gas_service_name",
+      "gas_service_address",
+      "electric_network_name",
+      "electric_network_short_name",
+      "electric_network_address",
+      "edds_name",
+      "edds_short_name",
+      "edds_address",
+      "edds_additional_phone",
+      "edds_district",
+      "mchs_department_name",
+      "mchs_department_short_name",
+      "mchs_department_address",
+      "rostechnadzor_department_name",
+      "rostechnadzor_department_short_name",
+      "rostechnadzor_department_address",
+      "local_administration_name",
+      "local_administration_short_name",
+      "local_administration_address",
+      "local_administration_additional_phone",
+      "opo_insurance_company_name",
+      "opo_insurance_company_short_name",
+      "opo_insurance_policy_number",
+      "opo_insurance_policy_date",
+      "opo_insurance_valid_from",
+      "opo_insurance_valid_until",
+      "opo_insurance_amount",
+      "financial_reserve_source",
+      "financial_reserve_purpose",
+      "financial_reserve_insurance_company_name",
+      "financial_reserve_insurance_company_short_name",
+      "financial_reserve_insurance_policy_number",
+      "financial_reserve_insurance_policy_date",
+      "financial_reserve_insurance_valid_from",
+      "financial_reserve_insurance_valid_until",
+      "financial_reserve_insurance_amount"
     ],
     "full_render_and_pdf.FULL_CTX": [
       "organization_full_name",
@@ -79,7 +138,9 @@
       "accident_scenarios",
       "injury_history",
       "accident_history",
-      "material_reserve",
+      "material_reserve_actual",
+      "material_reserve_recommended",
+      "countermeasures",
       "notification_chairman_phone",
       "notification_deputy_phone",
       "notification_edds_phone",
@@ -90,8 +151,7 @@
       "notification_electric_phone",
       "notification_mchs_phone",
       "notification_rostechnadzor_phone",
-      "notification_admin_phone",
-      "countermeasures"
+      "notification_admin_phone"
     ],
     "verify_final_render.ctx": [
       "organization_full_name",
@@ -125,9 +185,9 @@
       "accident_scenarios",
       "injury_history",
       "accident_history",
-      "material_reserve",
+      "material_reserve_actual",
+      "material_reserve_recommended",
       "countermeasures",
-      "notification_chairman_phone",
       "notification_deputy_phone",
       "notification_edds_phone",
       "notification_pasf_phone",
@@ -151,7 +211,8 @@
         "accident_scenarios",
         "injury_history",
         "accident_history",
-        "material_reserve",
+        "material_reserve_actual",
+        "material_reserve_recommended",
         "countermeasures"
       ],
       "scalar_values_kept": "ALL scalars retained from FULL_CONTEXT"
@@ -238,9 +299,12 @@
       "consequences",
       "measures_percent"
     ],
-    "material_reserve": [
-      "is_group_header",
-      "group_name",
+    "material_reserve_actual": [
+      "name",
+      "quantity",
+      "location"
+    ],
+    "material_reserve_recommended": [
       "name",
       "quantity",
       "location"
@@ -305,7 +369,7 @@
       ]
     },
     "substance_params": {
-      "var": "param",
+      "var": "sp",
       "fields": [
         "parameter",
         "value"
@@ -321,7 +385,7 @@
       ]
     },
     "accident_scenarios": {
-      "var": "scenario",
+      "var": "sc",
       "fields": [
         "code",
         "name",
@@ -355,11 +419,17 @@
         "measures_percent"
       ]
     },
-    "material_reserve": {
-      "var": "item",
+    "material_reserve_actual": {
+      "var": "res",
       "fields": [
-        "is_group_header",
-        "group_name",
+        "name",
+        "quantity",
+        "location"
+      ]
+    },
+    "material_reserve_recommended": {
+      "var": "res",
+      "fields": [
         "name",
         "quantity",
         "location"

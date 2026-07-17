@@ -207,14 +207,18 @@ def _map_equipment(source_equipment: list[dict]) -> list[dict]:
         specs = item.get("specifications") or {}
         if isinstance(specs, dict):
             specs_str = "; ".join(f"{k}: {v}" for k, v in specs.items() if v)
+            loc = _safe_str(specs.get("location") or item.get("location") or "—")
+            proc_codes = _safe_str(specs.get("process_codes") or item.get("process_codes") or "—")
         else:
             specs_str = _safe_str(specs)
+            loc = _safe_str(item.get("location") or "—")
+            proc_codes = _safe_str(item.get("process_codes") or "—")
         result.append({
-            "location": _safe_str(item.get("location") or specs.get("location") or "—"),
+            "location": loc,
             "hazard_characteristic": _safe_str(item.get("equipment_type") or "—"),
             "device_name": _safe_str(item.get("name") or item.get("device_name") or "—"),
             "specifications": specs_str or "—",
-            "process_codes": _safe_str(specs.get("process_codes") or item.get("process_codes") or "—"),
+            "process_codes": proc_codes,
         })
     return result
 
@@ -466,54 +470,58 @@ def _map_incident_history(
     return result
 
 
-def _map_material_reserve(
+def _map_material_reserve_actual(
     organization_resources: dict | list | None,
-    financial_reserve: dict | None = None,
 ) -> list[dict]:
-    """Map organization resources to v2 MaterialReserveItem format with group headers."""
-    result = []
-
+    """Map actual organization resources to v2 MaterialReserveItem format (без групповых заголовков)."""
     if not organization_resources:
-        return result
-
+        return []
+    items = []
     if isinstance(organization_resources, dict):
         actual = organization_resources.get("actual_items") or []
-        recommended = organization_resources.get("recommended_items") or []
-
-        if actual:
-            result.append({"is_group_header": True, "group_name": "Фактические силы и средства"})
-            for item in actual:
-                if isinstance(item, dict):
-                    result.append({
-                        "is_group_header": False,
-                        "name": _safe_str(item.get("name") or item.get("title", "")),
-                        "quantity": _safe_str(item.get("quantity") or "—"),
-                        "location": _safe_str(item.get("location") or item.get("storage_place", "—")),
-                    })
-        if recommended:
-            result.append({"is_group_header": True, "group_name": "Рекомендуемые средства"})
-            for item in recommended:
-                if isinstance(item, dict):
-                    result.append({
-                        "is_group_header": False,
-                        "name": _safe_str(item.get("name") or item.get("title", "")),
-                        "quantity": _safe_str(item.get("quantity") or "—"),
-                        "location": _safe_str(item.get("location") or item.get("storage_place", "—")),
-                    })
-    elif isinstance(organization_resources, list):
-        for idx, item in enumerate(organization_resources):
+        for item in actual:
             if isinstance(item, dict):
-                if item.get("is_group_header"):
-                    result.append(item)
-                else:
-                    result.append({
-                        "is_group_header": False,
-                        "name": _safe_str(item.get("name") or item.get("title", "")),
-                        "quantity": _safe_str(item.get("quantity") or "—"),
-                        "location": _safe_str(item.get("location") or "—"),
-                    })
+                items.append({
+                    "name": _safe_str(item.get("name") or item.get("title", "")),
+                    "quantity": _safe_str(item.get("quantity") or "—"),
+                    "location": _safe_str(item.get("location") or item.get("storage_place", "—")),
+                })
+    elif isinstance(organization_resources, list):
+        for item in organization_resources:
+            if isinstance(item, dict) and not item.get("is_group_header"):
+                items.append({
+                    "name": _safe_str(item.get("name") or item.get("title", "")),
+                    "quantity": _safe_str(item.get("quantity") or "—"),
+                    "location": _safe_str(item.get("location") or "—"),
+                })
+    return items
 
-    return result
+
+def _map_material_reserve_recommended(
+    organization_resources: dict | list | None,
+) -> list[dict]:
+    """Map recommended organization resources to v2 MaterialReserveItem format (без групповых заголовков)."""
+    if not organization_resources:
+        return []
+    items = []
+    if isinstance(organization_resources, dict):
+        recommended = organization_resources.get("recommended_items") or []
+        for item in recommended:
+            if isinstance(item, dict):
+                items.append({
+                    "name": _safe_str(item.get("name") or item.get("title", "")),
+                    "quantity": _safe_str(item.get("quantity") or "—"),
+                    "location": _safe_str(item.get("location") or item.get("storage_place", "—")),
+                })
+    elif isinstance(organization_resources, list):
+        for item in organization_resources:
+            if isinstance(item, dict) and not item.get("is_group_header"):
+                items.append({
+                    "name": _safe_str(item.get("name") or item.get("title", "")),
+                    "quantity": _safe_str(item.get("quantity") or "—"),
+                    "location": _safe_str(item.get("location") or "—"),
+                })
+    return items
 
 
 # ---------------------------------------------------------------------------
@@ -858,9 +866,11 @@ def map_to_v2_context(source_context: dict) -> dict:
             questionnaire.get("incident_history") or source_context.get("incident_history"),
             "accident",
         ),
-        "material_reserve": _map_material_reserve(
+        "material_reserve_actual": _map_material_reserve_actual(
             questionnaire.get("organization_resources") or source_context.get("organization_resources"),
-            questionnaire.get("financial_reserve"),
+        ),
+        "material_reserve_recommended": _map_material_reserve_recommended(
+            questionnaire.get("organization_resources") or source_context.get("organization_resources"),
         ),
         "countermeasures": _load_countermeasures(facility.get("facility_type")),
     }
