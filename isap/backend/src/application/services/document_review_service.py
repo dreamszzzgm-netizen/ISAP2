@@ -34,6 +34,22 @@ ALLOWED_TRANSITIONS = {
     "archived": [],
 }
 
+# ``documents.status`` is the public lifecycle state while ``review_status``
+# drives the detailed review workflow.  Every review transition must update
+# both columns atomically so a subsequent read cannot expose contradictory
+# states.
+DOCUMENT_STATUS_BY_REVIEW_STATUS = {
+    "draft": "draft",
+    "generated": "generated",
+    "needs_review": "pending_review",
+    "in_review": "pending_review",
+    "needs_changes": "needs_changes",
+    "approved": "approved",
+    "ready_to_issue": "ready_to_issue",
+    "issued": "issued",
+    "archived": "archived",
+}
+
 
 class DocumentReviewService:
     """Сервис ручной проверки документов."""
@@ -58,6 +74,7 @@ class DocumentReviewService:
 
         return {
             "document_id": str(doc.id),
+            "status": doc.status,
             "review_status": review_status,
             "review_status_label": REVIEW_STATUS_LABELS.get(review_status, review_status),
             "review_comment": doc.review_comment,
@@ -92,6 +109,7 @@ class DocumentReviewService:
         now = datetime.now(UTC).replace(tzinfo=None)
         update_data: dict = {
             "review_status": review_status,
+            "status": DOCUMENT_STATUS_BY_REVIEW_STATUS[review_status],
             "updated_at": now,
         }
 
@@ -122,4 +140,5 @@ class DocumentReviewService:
 
         await self.document_repo.update(document_id, {
             "review_status": review_status,
+            "status": DOCUMENT_STATUS_BY_REVIEW_STATUS[review_status],
         })

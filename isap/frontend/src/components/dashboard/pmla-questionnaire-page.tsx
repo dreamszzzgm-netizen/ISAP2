@@ -34,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { isapApi, type ImportPreviewResult, type PmlaGenerationResult, type PmlaQuestionnaire } from "@/lib/api-client"
+import { isapApi, type ImportPreviewResult, type PmlaGenerationResult, type PmlaPreflightResult, type PmlaQuestionnaire } from "@/lib/api-client"
 import { useNavStore } from "@/lib/nav-store"
 
 type AnyRecord = Record<string, any>
@@ -47,6 +47,7 @@ type FacilityOption = {
   hazardClass?: string
   facilityType?: string
   address?: string
+  okved?: string
 }
 
 const EMPTY_DATA: AnyRecord = {
@@ -91,6 +92,14 @@ const ATTACHMENTS = [
 
 const SERVICE_TYPES = ["fire", "medical", "police", "gas", "edds"]
 
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  fire: "Пожарная охрана",
+  medical: "Скорая помощь",
+  police: "Полиция",
+  gas: "Газовая служба",
+  edds: "ЕДДС",
+}
+
 function toFacility(row: AnyRecord): FacilityOption {
   return {
     id: String(row.id || row.uuid || ""),
@@ -100,6 +109,7 @@ function toFacility(row: AnyRecord): FacilityOption {
     hazardClass: String(row.hazard_class || row.dangerClass || ""),
     facilityType: String(row.facility_type || row.object_type || ""),
     address: String(row.address || row.actual_address || ""),
+    okved: String(row.properties?.okved || ""),
   }
 }
 
@@ -117,6 +127,93 @@ function getStrings(value: unknown): string[] {
 
 function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2)
+}
+
+// Человекочитаемые русские подписи для технических ключей полей анкеты.
+// Используется и как видимая подпись над полем, и как осмысленный placeholder.
+const FIELD_LABELS: Record<string, string> = {
+  // Инциденты
+  date: "Дата события",
+  event_type: "Тип (авария/инцидент)",
+  place: "Место",
+  description: "Описание",
+  reason: "Причина",
+  consequences: "Последствия",
+  measures: "Принятые меры",
+  source_document: "Документ-основание",
+  // Сценарии
+  title: "Название сценария",
+  source_equipment: "Оборудование-источник",
+  substance: "Опасное вещество",
+  // ПАСФ
+  name: "Наименование",
+  phone: "Телефон",
+  address: "Адрес",
+  certificate_number: "Номер свидетельства",
+  permitted_work_types: "Разрешённые виды работ",
+  equipment: "Оснащение",
+  // Службы
+  service_type: "Тип службы",
+  dispatcher_phone: "Телефон диспетчера",
+  distance: "Удалённость, км",
+  arrival_time: "Время прибытия, мин",
+  // Ресурсы
+  type: "Тип",
+  quantity: "Количество",
+  location: "Место хранения",
+  responsible_person: "Ответственный",
+  purpose: "Назначение",
+  // Оповещение
+  first_receiver: "Кто принимает первое сообщение",
+  responsible_manager: "Ответственный руководитель (РЛЧС)",
+  calls_pasf: "Кто вызывает ПАСФ",
+  calls_fire: "Кто вызывает пожарную охрану",
+  calls_medical: "Кто вызывает скорую помощь",
+  stops_equipment: "Кто останавливает оборудование",
+  evacuation_responsible: "Ответственный за эвакуацию",
+  meets_services: "Кто встречает прибывающие службы",
+  // Финансы
+  created: "Резерв создан",
+  order_number: "Номер приказа",
+  order_date: "Дата приказа",
+  amount: "Сумма, руб",
+  // Страхование
+  has_contract: "Договор заключён",
+  company: "Страховая компания",
+  contract_number: "Номер договора",
+  valid_until: "Действует до",
+  insured_amount: "Страховая сумма, руб",
+  // Тренировки
+  conducted: "Тренировки проводились",
+  frequency: "Периодичность",
+  last_date: "Дата последней тренировки",
+  last_topic: "Тема последней тренировки",
+  participants: "Участники",
+  result: "Результат",
+}
+
+function fieldLabel(fieldKey: string): string {
+  return FIELD_LABELS[fieldKey] || fieldKey
+}
+
+// Поле ввода с видимой подписью над ним и осмысленным placeholder.
+function LabeledInput({
+  fieldKey,
+  value,
+  onChange,
+  placeholder,
+}: {
+  fieldKey: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+}) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{fieldLabel(fieldKey)}</Label>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder ?? fieldLabel(fieldKey)} />
+    </div>
+  )
 }
 
 function SectionActions({ saving, onSave }: { saving: boolean; onSave: () => void }) {
@@ -138,6 +235,7 @@ export function PmlaQuestionnairePage() {
   const [draft, setDraft] = useState<AnyRecord>(EMPTY_DATA)
   const [contextPreview, setContextPreview] = useState<AnyRecord | null>(null)
   const [generation, setGeneration] = useState<PmlaGenerationResult | null>(null)
+  const [finalPreflight, setFinalPreflight] = useState<PmlaPreflightResult | null>(null)
   const [importPreview, setImportPreview] = useState<ImportPreviewResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -154,7 +252,6 @@ export function PmlaQuestionnairePage() {
   const qid = questionnaire?.id || ""
   const incident = draft.incident_history || EMPTY_DATA.incident_history
   const resources = draft.organization_resources || EMPTY_DATA.organization_resources
-
   const loadFacilities = async () => {
     setError("")
     setLoading(true)
@@ -170,6 +267,12 @@ export function PmlaQuestionnairePage() {
     }
   }
 
+  const refreshFinalPreflight = async (questionnaireId: string) => {
+    const result = await isapApi.preflightPmlaQuestionnaire(questionnaireId)
+    setFinalPreflight(result)
+    return result
+  }
+
   const openQuestionnaire = async (create = false) => {
     if (!facilityId) return
     setError("")
@@ -183,6 +286,7 @@ export function PmlaQuestionnairePage() {
       setDraft(dataOf(item))
       setContextPreview(null)
       setGeneration(null)
+      await refreshFinalPreflight(item.id)
       setMessage(create ? "Анкета создана" : "Анкета открыта")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось открыть анкету")
@@ -202,6 +306,7 @@ export function PmlaQuestionnairePage() {
       const item = await isapApi.updatePmlaQuestionnaireBlock(qid, block, data)
       setQuestionnaire(item)
       setDraft(dataOf(item))
+      await refreshFinalPreflight(item.id)
       setMessage(`Блок ${block} сохранен`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сохранить блок")
@@ -210,7 +315,10 @@ export function PmlaQuestionnairePage() {
     }
   }
 
-  const updateDraft = (key: string, value: unknown) => setDraft((prev) => ({ ...prev, [key]: value }))
+  const updateDraft = (key: string, value: unknown) => {
+    setFinalPreflight(null)
+    setDraft((prev) => ({ ...prev, [key]: value }))
+  }
 
   const updateNested = (block: string, key: string, value: unknown) => {
     setDraft((prev) => ({ ...prev, [block]: { ...(prev[block] || {}), [key]: value } }))
@@ -347,6 +455,7 @@ export function PmlaQuestionnairePage() {
           .then((item) => {
             setQuestionnaire(item)
             setDraft(dataOf(item))
+            void refreshFinalPreflight(item.id)
             setMessage("Анкета открыта")
           })
           .catch(() => {
@@ -360,25 +469,15 @@ export function PmlaQuestionnairePage() {
   const selectedScenarios = getStrings(draft.selected_scenarios)
   const customScenarios = getList(draft.custom_scenarios)
   const emergencyServices = getList(draft.selected_emergency_services)
-  const actualResources = getList(resources.actual_items)
-  const hasManualPasf = Boolean((draft.pasf_manual || {}).name || (draft.pasf_manual || {}).certificate_number)
-  const generationWarnings = [
-    !qid ? "Анкета еще не создана или не открыта" : "",
-    incident.has_incidents === null || incident.has_incidents === undefined ? "Не заполнен блок аварий/инцидентов" : "",
-    !draft.selected_pasf_id && !hasManualPasf ? "Не выбран или не заполнен ПАСФ" : "",
-    emergencyServices.length === 0 && getStrings(draft.selected_emergency_service_ids).length === 0 ? "Не добавлены аварийные службы" : "",
-    selectedScenarios.length === 0 && customScenarios.length === 0 ? "Не подтверждены сценарии аварий" : "",
-    actualResources.length === 0 ? "Не заполнены фактические силы и средства организации" : "",
-  ].filter(Boolean)
-  const completedBlocks = [
-    Boolean(qid),
-    incident.has_incidents !== null && incident.has_incidents !== undefined,
-    selectedScenarios.length > 0 || customScenarios.length > 0,
-    Boolean(draft.selected_pasf_id || hasManualPasf),
-    emergencyServices.length > 0 || getStrings(draft.selected_emergency_service_ids).length > 0,
-    actualResources.length > 0,
-  ].filter(Boolean).length
-  const readinessPercent = Math.round((completedBlocks / 6) * 100)
+  const generationWarnings = !qid
+    ? ["Анкета еще не создана или не открыта"]
+    : !finalPreflight
+      ? ["Сохраните изменения и дождитесь final preflight"]
+      : (finalPreflight.preflight.issues || [])
+          .filter((issue) => issue.severity === "BLOCKER")
+          .map((issue) => issue.message || issue.code || "Блокирующая ошибка preflight")
+  const finalGenerationAllowed = Boolean(qid && finalPreflight && !finalPreflight.generation_blocked)
+  const readinessPercent = finalGenerationAllowed ? 100 : 0
 
   return (
     <div className="space-y-6">
@@ -473,6 +572,20 @@ export function PmlaQuestionnairePage() {
                   <AlertDescription>Не заполнены основные данные ОПО. Генерация может быть неполной.</AlertDescription>
                 </Alert>
               )}
+              <div className="space-y-1">
+                <Label>Основной вид деятельности / ОКВЭД</Label>
+                <Textarea
+                  value={draft.main_activity || ""}
+                  onChange={(event) => updateDraft("main_activity", event.target.value)}
+                  placeholder={selectedFacility?.okved || "Код и описание основного вида деятельности"}
+                />
+                {selectedFacility?.okved && !draft.main_activity && (
+                  <p className="text-xs text-muted-foreground">
+                    Будет использован ОКВЭД из карточки ОПО: {selectedFacility.okved}
+                  </p>
+                )}
+              </div>
+              <SectionActions saving={saving} onSave={() => saveBlock("main_activity", draft.main_activity || "")} />
               <pre className="max-h-80 overflow-auto rounded-md bg-muted p-4 text-xs">{pretty({ facility: selectedFacility, questionnaire: { id: qid, title: questionnaire?.title } })}</pre>
             </CardContent>
           </Card>
@@ -498,14 +611,17 @@ export function PmlaQuestionnairePage() {
                   </Label>
                 ))}
               </RadioGroup>
-              <Input value={incident.period || ""} onChange={(event) => updateDraft("incident_history", { ...incident, period: event.target.value })} placeholder="Период" />
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Период</Label>
+                <Input value={incident.period || ""} onChange={(event) => updateDraft("incident_history", { ...incident, period: event.target.value })} placeholder="за период эксплуатации" />
+              </div>
               {incident.has_incidents === true && (
                 <div className="space-y-3">
                   <Button variant="outline" onClick={addIncident} className="gap-2"><Plus className="h-4 w-4" />Добавить событие</Button>
                   {getList(incident.items).map((item, index) => (
                     <div key={index} className="grid gap-2 rounded-md border p-3 md:grid-cols-4">
                       {["date", "event_type", "place", "description", "reason", "consequences", "measures", "source_document"].map((key) => (
-                        <Input key={key} value={item[key] || ""} onChange={(event) => updateIncident(index, key, event.target.value)} placeholder={key} />
+                        <LabeledInput key={key} fieldKey={key} value={item[key] || ""} onChange={(value) => updateIncident(index, key, value)} />
                       ))}
                       <Button variant="ghost" onClick={() => updateDraft("incident_history", { ...incident, items: getList(incident.items).filter((_, i) => i !== index) })}>
                         <Trash2 className="h-4 w-4" />
@@ -546,7 +662,7 @@ export function PmlaQuestionnairePage() {
                 {getList(draft.custom_scenarios).map((scenario, index) => (
                   <div key={index} className="grid gap-2 rounded-md border p-3 md:grid-cols-3">
                     {["title", "description", "source_equipment", "substance", "consequences"].map((key) => (
-                      <Input key={key} value={scenario[key] || ""} onChange={(event) => updateCustomScenario(index, key, event.target.value)} placeholder={key} />
+                      <LabeledInput key={key} fieldKey={key} value={scenario[key] || ""} onChange={(value) => updateCustomScenario(index, key, value)} />
                     ))}
                     <Button variant="ghost" onClick={() => deleteCustomScenario(index)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
@@ -571,7 +687,7 @@ export function PmlaQuestionnairePage() {
               <div className="text-sm text-muted-foreground">Или заполните данные вручную:</div>
               <div className="grid gap-3 md:grid-cols-2">
                 {["name", "phone", "address", "certificate_number", "permitted_work_types", "equipment"].map((key) => (
-                  <Input key={key} value={(draft.pasf_manual || {})[key] || ""} onChange={(event) => updateNested("pasf_manual", key, event.target.value)} placeholder={key} />
+                  <LabeledInput key={key} fieldKey={key} value={(draft.pasf_manual || {})[key] || ""} onChange={(value) => updateNested("pasf_manual", key, value)} />
                 ))}
               </div>
               <SectionActions saving={saving} onSave={async () => { await saveBlock("selected_pasf_id", draft.selected_pasf_id || ""); await saveBlock("pasf_manual", draft.pasf_manual || {}) }} />
@@ -597,20 +713,23 @@ export function PmlaQuestionnairePage() {
               </Button>
               {getList(draft.selected_emergency_services).map((service, index) => (
                 <div key={index} className="grid gap-2 rounded-md border p-3 md:grid-cols-4">
-                  <Select value={service.service_type || "fire"} onValueChange={(value) => {
-                    const rows = getList(draft.selected_emergency_services)
-                    rows[index] = { ...rows[index], service_type: value }
-                    updateDraft("selected_emergency_services", rows)
-                  }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{SERVICE_TYPES.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
-                  </Select>
-                  {["name", "address", "phone", "dispatcher_phone", "distance", "arrival_time"].map((key) => (
-                    <Input key={key} value={service[key] || ""} onChange={(event) => {
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{fieldLabel("service_type")}</Label>
+                    <Select value={service.service_type || "fire"} onValueChange={(value) => {
                       const rows = getList(draft.selected_emergency_services)
-                      rows[index] = { ...rows[index], [key]: event.target.value }
+                      rows[index] = { ...rows[index], service_type: value }
                       updateDraft("selected_emergency_services", rows)
-                    }} placeholder={key} />
+                    }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{SERVICE_TYPES.map((type) => <SelectItem key={type} value={type}>{SERVICE_TYPE_LABELS[type] || type}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  {["name", "address", "phone", "dispatcher_phone", "distance", "arrival_time"].map((key) => (
+                    <LabeledInput key={key} fieldKey={key} value={service[key] || ""} onChange={(value) => {
+                      const rows = getList(draft.selected_emergency_services)
+                      rows[index] = { ...rows[index], [key]: value }
+                      updateDraft("selected_emergency_services", rows)
+                    }} />
                   ))}
                   <Button variant="ghost" onClick={() => updateDraft("selected_emergency_services", getList(draft.selected_emergency_services).filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
                 </div>
@@ -630,12 +749,15 @@ export function PmlaQuestionnairePage() {
               {getList(resources.actual_items).map((row, index) => (
                 <div key={index} className="grid gap-2 rounded-md border p-3 md:grid-cols-3">
                   {["name", "type", "quantity", "location", "responsible_person", "purpose"].map((key) => (
-                    <Input key={key} value={row[key] || ""} onChange={(event) => updateRow("organization_resources", "actual_items", index, key, event.target.value)} placeholder={key} />
+                    <LabeledInput key={key} fieldKey={key} value={row[key] || ""} onChange={(value) => updateRow("organization_resources", "actual_items", index, key, value)} />
                   ))}
                   <Button variant="ghost" onClick={() => removeRow("organization_resources", "actual_items", index)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
-              <Textarea value={resources.user_notes || ""} onChange={(event) => updateDraft("organization_resources", { ...resources, user_notes: event.target.value })} placeholder="Примечания" />
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Примечания</Label>
+                <Textarea value={resources.user_notes || ""} onChange={(event) => updateDraft("organization_resources", { ...resources, user_notes: event.target.value })} placeholder="Дополнительные комментарии по силам и средствам" />
+              </div>
               {contextPreview?.recommendations && <pre className="max-h-60 overflow-auto rounded-md bg-muted p-3 text-xs">{pretty(contextPreview.recommendations)}</pre>}
               <SectionActions saving={saving} onSave={() => saveBlock("organization_resources", resources)} />
             </CardContent>
@@ -659,7 +781,7 @@ export function PmlaQuestionnairePage() {
             <CardContent className="space-y-4">
               <div className="grid gap-3 md:grid-cols-3">
                 {["conducted", "frequency", "last_date", "last_topic", "participants", "result"].map((key) => (
-                  <Input key={key} value={(draft.training || {})[key] || ""} onChange={(event) => updateNested("training", key, event.target.value)} placeholder={key} />
+                  <LabeledInput key={key} fieldKey={key} value={(draft.training || {})[key] || ""} onChange={(value) => updateNested("training", key, value)} />
                 ))}
               </div>
               <div className="grid gap-2 md:grid-cols-2">
@@ -737,11 +859,11 @@ export function PmlaQuestionnairePage() {
                     <FileJson className="h-4 w-4" />
                     Собрать context
                   </Button>
-                  <Button onClick={() => generate("v1")} disabled={disabled || generating} className="gap-2">
+                  <Button onClick={() => generate("v1")} disabled={!finalGenerationAllowed || generating} className="gap-2">
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
                     Сформировать ПМЛА v1
                   </Button>
-                  <Button onClick={() => generate("v2")} disabled={disabled || generating} variant="secondary" className="gap-2">
+                  <Button onClick={() => generate("v2")} disabled={!finalGenerationAllowed || generating} variant="secondary" className="gap-2">
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     Сформировать PMLA v2 — пилот
                   </Button>
@@ -819,7 +941,7 @@ function SimpleFields({
       <CardContent className="space-y-4">
         <div className="grid gap-3 md:grid-cols-2">
           {fields.map((field) => (
-            <Input key={field} value={(draft[block] || {})[field] || ""} onChange={(event) => updateNested(block, field, event.target.value)} placeholder={field} />
+            <LabeledInput key={field} fieldKey={field} value={(draft[block] || {})[field] || ""} onChange={(value) => updateNested(block, field, value)} />
           ))}
         </div>
         <SectionActions saving={saving} onSave={() => saveBlock(block, draft[block] || {})} />

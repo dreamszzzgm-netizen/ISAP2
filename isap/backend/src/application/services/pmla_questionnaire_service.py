@@ -21,6 +21,7 @@ from src.infrastructure.database.models import (
 )
 
 DEFAULT_QUESTIONNAIRE: dict[str, Any] = {
+    "main_activity": "",
     "incident_history": {
         "has_incidents": None,
         "period": "за период эксплуатации",
@@ -204,6 +205,7 @@ class PmlaQuestionnaireService:
                 "latitude": float(facility.latitude) if facility.latitude is not None else None,
                 "longitude": float(facility.longitude) if facility.longitude is not None else None,
                 "inventory_number": facility.inventory_number,
+                "properties": facility.properties or {},
             },
             "equipment": equipment,
             "substances": substances,

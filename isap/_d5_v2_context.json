@@ -1,0 +1,260 @@
+{
+  "organization_full_name": "OOO TekhnoGaz",
+  "organization_short_name": "OOO TekhnoGaz",
+  "legal_address": "g. Moskva, ul. Stroitelei, d. 15",
+  "inn": "7712345678",
+  "ogrn": "1027700123456",
+  "phone": "+7 (495) 123-45-67",
+  "email": "info@technogaz.ru",
+  "director_position": "Generalny direktor",
+  "director_full_name": "Petrov Ivan Sergeevich",
+  "director_phone": "+7 (495) 123-45-68",
+  "director_position_fullname": "Generalny direktor Petrov Ivan Sergeevich",
+  "director_initials_surname": "I.S. Petrov",
+  "director_initials_surname_full": "Petrov Ivan Sergeevich",
+  "deputy_chairman_fullname": "Sidorov Aleksey Viktorovich",
+  "main_activity_description": "Ekspluatatsiya OPO",
+  "facility_name": "Set gazopotrebleniya OOO TekhnoGaz",
+  "facility_reg_number": "A12-34567-2024",
+  "facility_location": "g. Moskva, ul. Stroitelei, d. 15, str. 1",
+  "hazard_class": "III",
+  "hazardous_substances_info": "Metan (prirodny gaz)",
+  "hazard_characteristics_116fz": "Goruchiy gaz, vzryvoopasen",
+  "total_hazardous_substance_quantity": 150.0,
+  "development_year": "2026",
+  "settlement_name": "g. Moskva",
+  "settlement_district": "—",
+  "contractor_organization_name": "OOO Spasatel-Region",
+  "contractor_organization_short_name": "OOO Spasatel-Region",
+  "contractor_director_position": "Generalny direktor",
+  "contractor_director_full_name": "Smirnov Pavel Olegovich",
+  "contractor_director_initials_surname": "P.O. Smirnov",
+  "contractor_dispatch_address": "g. Moskva, ul. Promyshlennaya, d. 5",
+  "contractor_phone": "+7 (495) 111-22-33",
+  "contractor_agreement_date": "15.01.2024",
+  "contractor_agreement_number": "D-001/2024",
+  "appendices_manifest": [
+    {
+      "appendix_number": 1,
+      "title": "Приложение 1. Порядок изучения ПМЛА",
+      "filename": "—",
+      "present": true,
+      "source": "template"
+    },
+    {
+      "appendix_number": 2,
+      "title": "Приложение 2. Форма оперативного сообщения об инциденте",
+      "filename": "—",
+      "present": true,
+      "source": "template"
+    },
+    {
+      "appendix_number": 3,
+      "title": "Приложение 3. Состав ПАСФ",
+      "filename": "—",
+      "present": true,
+      "source": "template"
+    },
+    {
+      "appendix_number": 4,
+      "title": "Приложение 4. Оснащение ПАСФ",
+      "filename": "—",
+      "present": true,
+      "source": "template"
+    },
+    {
+      "appendix_number": 5,
+      "title": "Приложение 5. Схема оповещения",
+      "filename": "—",
+      "present": true,
+      "source": "template"
+    },
+    {
+      "appendix_number": 6,
+      "title": "Документ contract (contract)",
+      "filename": "—",
+      "present": true,
+      "source": "file",
+      "document_type": "contract",
+      "document_number": "D-001/2024",
+      "issued_at": "2024-01-15",
+      "valid_until": "",
+      "checksum": ""
+    }
+  ],
+  "dislocation_address": "g. Moskva, ul. Promyshlennaya, d. 5",
+  "fire_department_name": "PCh-10 FPS GPS GU MChS",
+  "fire_department_short_name": "PCh-10",
+  "fire_department_address": "g. Moskva, ul. Pozharnaya, 1",
+  "ambulance_service_name": "GBUZ Stantsiya skoroy pom.",
+  "hospital_name": "GB Bolnitsa 1",
+  "hospital_address": "g. Moskva, ul. Bolnichnaya, 5",
+  "gas_service_name": "AO Mosgaz",
+  "gas_service_address": "g. Moskva, ul. Gazovaya, 20",
+  "gas_supplier_name": "AO Mosgaz",
+  "gas_supplier_branch": "",
+  "electric_network_name": "PAO Mosenergo",
+  "electric_network_short_name": "Mosenergo",
+  "electric_network_address": "g. Moskva, ul. Energetikov, 30",
+  "edds_name": "EDDS Moskvy",
+  "edds_short_name": "",
+  "edds_address": "",
+  "edds_additional_phone": "+7 (495) 111-11-11",
+  "edds_district": "—",
+  "mchs_department_name": "GU MChS Rossii po g. Moskve",
+  "mchs_department_short_name": "MChS Moskvy",
+  "mchs_department_address": "g. Moskva, ul. MChS, 1",
+  "rostechnadzor_department_name": "TsU Rostekhnadzora",
+  "rostechnadzor_department_short_name": "TsU RTN",
+  "rostechnadzor_department_address": "g. Moskva, ul. Nadzornaya, 5",
+  "local_administration_name": "Admin. munitsip. okruga",
+  "local_administration_short_name": "Admin. MO",
+  "local_administration_address": "g. Moskva, ul. Admin., 1",
+  "local_administration_additional_phone": "",
+  "electric_company": "PAO Mosenergo",
+  "local_admin": "Admin. munitsip. okruga",
+  "opo_insurance_company_name": "AO Strakhovaya kompaniya",
+  "opo_insurance_company_short_name": "AO SK",
+  "opo_insurance_policy_number": "POL-2024-001",
+  "opo_insurance_policy_date": "01.02.2024",
+  "opo_insurance_valid_from": "01.02.2024",
+  "opo_insurance_valid_until": "31.01.2025",
+  "opo_insurance_amount": "10 000 000",
+  "insurance_amount": "10 000 000",
+  "financial_reserve_order_number": "FR-001/2024",
+  "financial_reserve_order_date": "20.01.2024",
+  "financial_reserve_amount": "500 000",
+  "financial_reserve_source": "Sobstvennye sredstva organizatsii",
+  "financial_reserve_purpose": "Finansirovanie meropriyaty po likvidatsii avariy",
+  "financial_reserve_insurance_company_name": "AO Rezerv-Strakh",
+  "financial_reserve_insurance_company_short_name": "AO RS",
+  "financial_reserve_insurance_policy_number": "R-2024-001",
+  "financial_reserve_insurance_policy_date": "20.01.2024",
+  "financial_reserve_insurance_valid_from": "20.01.2024",
+  "financial_reserve_insurance_valid_until": "19.01.2025",
+  "financial_reserve_insurance_amount": "5 000 000",
+  "notification_chairman_phone": "+7 (495) 123-45-68",
+  "notification_deputy_phone": "+7 (495) 123-45-69",
+  "person": {
+    "position": "Generalny direktor",
+    "phone": "+7 (495) 123-45-68"
+  },
+  "notification_edds_phone": "+7 (495) 111-11-12",
+  "notification_pasf_phone": "+7 (495) 111-22-33",
+  "notification_fire_phone": "+7 (495) 222-22-22",
+  "notification_ambulance_phone": "+7 (495) 333-33-33",
+  "notification_gas_phone": "+7 (495) 444-44-44",
+  "notification_electric_phone": "+7 (495) 666-66-66",
+  "notification_mchs_phone": "+7 (495) 999-99-99",
+  "notification_rostechnadzor_phone": "+7 (495) 000-00-01",
+  "notification_administration_phone": "+7 (495) 888-88-88",
+  "notification_admin_phone": "+7 (495) 888-88-88",
+  "equipment_list": [
+    {
+      "location": "Gazoregulyatorny punkt shkafnogo tipa",
+      "hazard_characteristic": "gazoregulyatorny punkt",
+      "device_name": "GRPSh 03BM-04-U1",
+      "specifications": "process_codes: Poz. 1; location: GRPSh shkaf; pressure: 0.6 MPa; capacity: 100 m3/h",
+      "process_codes": "Poz. 1"
+    },
+    {
+      "location": "Podzemny uchastok ot vrezki do GRPSh",
+      "hazard_characteristic": "gazoprovod",
+      "device_name": "Gazoprovod srednego davleniya",
+      "specifications": "process_codes: Poz. 2; location: Podzemny; diameter: 159 mm",
+      "process_codes": "Poz. 2"
+    },
+    {
+      "location": "Kotelny tsekh",
+      "hazard_characteristic": "kotelnoe oborudovanie",
+      "device_name": "Kotel gazovy Vitoplex 100",
+      "specifications": "process_codes: Poz. 3; location: Kotelny tsekh; power: 1.5 MWt",
+      "process_codes": "Poz. 3"
+    }
+  ],
+  "substance_params": [
+    {
+      "parameter": "Наименование вещества",
+      "value": "Metan (prirodny gaz)"
+    },
+    {
+      "parameter": "Количество, кг",
+      "value": "150.0"
+    },
+    {
+      "parameter": "CAS номер",
+      "value": "74-82-8"
+    },
+    {
+      "parameter": "Characteristics",
+      "value": "Goruchiy gaz, vzryvoopasen"
+    },
+    {
+      "parameter": "Pdk",
+      "value": "300 mg/m3"
+    },
+    {
+      "parameter": "Hazard class",
+      "value": "4"
+    }
+  ],
+  "equipment_scenario_links": [
+    {
+      "equipment_name": "GRPSh 03BM-04-U1",
+      "scenario_codes": "S-1, S-2",
+      "description": "Utechka gaza; Fakelnoe gorenie",
+      "damaging_factors": "Zagazovannost, Teplovoe izluchenie"
+    },
+    {
+      "equipment_name": "Gazoprovod srednego davleniya",
+      "scenario_codes": "S-1, S-2",
+      "description": "Utechka gaza; Fakelnoe gorenie",
+      "damaging_factors": "Zagazovannost, Teplovoe izluchenie"
+    },
+    {
+      "equipment_name": "Kotel gazovy Vitoplex 100",
+      "scenario_codes": "S-1, S-2",
+      "description": "Utechka gaza; Fakelnoe gorenie",
+      "damaging_factors": "Zagazovannost, Teplovoe izluchenie"
+    }
+  ],
+  "accident_scenarios": [
+    {
+      "code": "S-1",
+      "name": "Razgermetizatsiya gazoprovoda",
+      "source": "Gazoprovod",
+      "preconditions": "Iznos",
+      "signs": "Zapakh gaza",
+      "damaging_factors": "Zagazovannost"
+    },
+    {
+      "code": "S-2",
+      "name": "Vosplamenenie gaza",
+      "source": "GRPSh",
+      "preconditions": "Razryv",
+      "signs": "Otkryty fakel",
+      "damaging_factors": "Teplovoe izluchenie"
+    }
+  ],
+  "injury_history": [],
+  "accident_history": [],
+  "material_reserve": [
+    {
+      "is_group_header": true,
+      "group_name": "Фактические силы и средства"
+    },
+    {
+      "is_group_header": false,
+      "name": "Protivogazy",
+      "quantity": "10 sht.",
+      "location": "Sklad 1"
+    },
+    {
+      "is_group_header": false,
+      "name": "Ognetushiteli",
+      "quantity": "15 sht.",
+      "location": "Post 1"
+    }
+  ],
+  "countermeasures": []
+}

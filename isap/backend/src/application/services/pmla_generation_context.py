@@ -183,6 +183,7 @@ class PmlaGenerationContext:
             "financial_reserve": dict(self.financial_reserve),
             "financial_reserve_insurance": dict(self.financial_reserve_insurance),
             "organization_resources": dict(self.organization_resources) if self.organization_resources else {},
+            "notification_scheme": dict(self.notification_scheme) if self.notification_scheme else {},
             "incident_history": dict(self.accident_history) if self.accident_history else {},
             "protective_equipment": [],
             "attachments": list(self.attachments),

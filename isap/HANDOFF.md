@@ -1,6 +1,6 @@
 # ISAP2 — HANDOFF
 
-> Актуальность контекста: 15 июля 2026 года, после сессии диагностики (093dafa)
+> Актуальность контекста: 17 июля 2026 года, после сессии D7 (572529e)
 > Назначение: передача проекта в новый чат или другому ИИ-разработчику без потери контекста.  
 > Язык работы и пользовательского интерфейса: русский.
 
@@ -280,7 +280,7 @@ Frontend должен передавать:
 
 ## 8. Подтверждённое состояние
 
-По отчётам предыдущих этапов и подтверждено текущей диагностикой (15.07.2026):
+По отчётам предыдущих этапов и подтверждено текущей диагностикой (17.07.2026):
 
 - Assembly Layer и DOCX runtime реализованы.
 - Исправлялись стили заголовков, оглавление, поля PAGE и состав приложений.
@@ -296,19 +296,19 @@ Frontend должен передавать:
 - Реализован review workflow документа со статусами от `draft` до `archived`.
 - Все 8 ключевых файлов из раздела 6 существуют (с префиксом `isap/`).
 
-### Текущее состояние тестов (15.07.2026)
+### Текущее состояние тестов (17.07.2026)
 
-**779 passed, 3 skipped, 0 failed** (после исправления SyntaxError и `person` fixture).
+**297 passed, 7 skipped, 0 failed** (flat renderer 53 + schema alignment 20 + core 117 + review 107). Без Docker — полный suite не запускался.
 
-Все 8 падавших тестов `test_pmla_v2_schema_alignment.py` (audit_only) исправлены добавлением `person` в тестовый fixture.
-
-**Docker:** 4 контейнера запущены (backend, frontend, db, chromadb).
+**Docker:** не запущен (нужен для интеграционных и API-тестов).
 
 ### Текущая ветка и коммиты
 
 **Ветка:** `patch-c/pmla-pasf-frontend-hardening`
-**Новые коммиты за сессию:**
+**Последние коммиты:**
 ```
+572529e feat(pmla): render dynamic PMLA tables from generation context
+ffc309d fix(pmla): stabilize OOXML flat renderer and add regression tests
 093dafa test(pmla): add missing 'person' key to _build_full_context fixture
 e8f3538 feat(pmla): separate financial_reserve_insurance from insurance; split attachments_checklist from PASF attachments; None-safe facility_type in scenario engine
 5de3d32 fix(smart-import): resolve unterminated f-string SyntaxError blocking test suite
@@ -319,7 +319,7 @@ e8f3538 feat(pmla): separate financial_reserve_insurance from insurance; split a
 1. **SyntaxError** в `smart_import/service.py:330` — unterminated f-string. Исправлен и закоммичен.
 2. **`person` undefined** в `_build_full_context()` — отсутствовал ключ `person` в тестовом fixture. Исправлен и закоммичен.
 
-## 9. Последний выполненный этап: диагностика и подготовка к пилоту (15.07.2026)
+## 9. Последний выполненный этап: D7 mapper fixes, frontend hardening, review sync (17.07.2026)
 
 Завершена диагностическая сессия. Выполнено:
 
@@ -448,6 +448,66 @@ digraph PMLA_v2_Pipeline {
   schema-alignment/integration (60+ тестов). Их миграция на flat renderer —
   отдельная задача.
 
+### 9.3. Сессия D6 (16.07.2026) — 6 table-row loops в шаблоне
+
+Выполнено подключение 5 таблиц (6 циклов) к production pipeline:
+
+**Что сделано:**
+- `pmla_v2_template.docx` — добавлены циклы `{%tr for ... %}` в 5 таблиц (2 в T13):
+  - T6: `substance_params` (`{%tr for sp in substance_params %}`)
+  - T7: `equipment_scenario_links` (`{%tr for link in equipment_scenario_links %}`)
+  - T9: `accident_scenarios` (`{%tr for sc in accident_scenarios %}`)
+  - T13: `material_reserve_actual` + `material_reserve_recommended` (два цикла с фиксированными групповыми заголовками)
+  - T18: `countermeasures` (`{%tr for cm in countermeasures %}`)
+- Все хардкодные тестовые строки удалены (8 строк метана в T6, 3 строки ГРПШ в T7, 3 сценария в T9, 18 строк резерва в T13, 2 сценария в T18).
+- `pmla_v2.schema.json` — `material_reserve` разделён на `material_reserve_actual` + `material_reserve_recommended`; `MaterialReserveItem` упрощён (без `is_group_header`, `group_name`, conditional `if/then/else`).
+- `pmla_v2_context_mapper.py` — `_map_material_reserve` заменён на две независимые функции без `is_group_header`.
+- `pmla_v2_context_keys.json` — обновлены все три FULL_CONTEXT, array_item_keys, template_loop_variables, emptied_lists.
+- `test_pmla_ooxml_flat_renderer.py` — +13 тестов (TestSixIndependentLoops): все 6 циклов, 2 элемента, пустые списки, separated actual/recommended, спецсимволы, split-runs.
+- Резервная копия шаблона: `files/pmla_v2_template_d6_backup.docx`.
+
+**Проверки:**
+- Новый шаблон SHA-256: `502fe719c9d2fed968155792d27674f68c2dff766c9917381e14484ea92e2ed1`
+- Renderer tests: **53/53 PASSED** (+13 D6)
+- Schema alignment: **20/20 PASSED** (7 skipped)
+- Пилот DOCX + PDF сгенерированы: `files/pmla_v2_d6_pilot.docx` / `.pdf`
+- 0 leftover `{{`/`{%`; 14/14 media; ZIP OK; 60 страниц PDF.
+- Старые пилоты не перезаписаны.
+
+**Известные ограничения:**
+- `countermeasures` = 0 в синтетическом fixture (латинский `facility_type` не совпадает с русскими ключами JSON). В production с русским типом ОПО будет работать.
+- `PmlaTemplateRenderer` не тронут (мёртвый код, 60+ тестов ссылаются на него).
+- Таблица оповещения (T17) остаётся хардкодной — вне области D6.
+- Nested loops и `{% if %}` не поддерживаются рендерером.
+
+### 9.4. Сессия D7 (17.07.2026) — mapper fixes, frontend hardening, review sync
+
+Выполнена точечная доработка по результатам диагностики D6:
+
+**Что сделано:**
+- **Mapper:** `development_year` добавлен в `map_to_v2_context()` (fallback `datetime.now().year`); `insurance_amount` получает fallback `opo_insurance_amount` (строка 817).
+- **Schema:** `pmla_v2.schema.json` синхронизирован — 110 полей, 14 $defs. Содержит все поля шаблона.
+- **Fixture:** `_build_full_context()` обновлён — добавлены `person`, `development_year`, `insurance_amount`, `director_position`, `fire_department_*`, `hospital_name`, `financial_reserve_*`, `contractor_director_*`, `opo_insurance_*`.
+- **Review workflow:** `DocumentReviewService` добавлена маппинг `DOCUMENT_STATUS_BY_REVIEW_STATUS` — синхронизация `status` и `review_status` при каждом переходе.
+- **PmlaReviewWorkflowService:** `reject()` теперь явно сохраняет `status=needs_changes` и `review_status=needs_changes` после регенерации; `restore_version()` устанавливает `review_status=needs_review`.
+- **Quality Review:** `NOTIFICATION_KEY_ROLES` расширен с 4 до 8 ролей; добавлены алиасы `medical_caller`, `equipment_stopper`, `evacuation_responsible`, `services_greeter`.
+- **Preflight:** добавлена проверка `FAC_MISSING_MAIN_ACTIVITY` с fallback на ОКВЭД из `facility.properties.okved`.
+- **Frontend:** русские подписи полей (`FIELD_LABELS`), компонент `LabeledInput`, preflight-отображение, `PmlaPreflightResult` тип, `okved` в `FacilityOption`, `SERVICE_TYPE_LABELS`.
+
+**Проверки:**
+- Flat renderer tests: **53/53 PASSED**
+- Schema alignment: **20/20 PASSED** (7 skipped)
+- Core PMLA tests: **117 PASSED**
+- Review workflow tests: **107 PASSED**
+- Key PMLA tests total: **297/297 PASSED** (7 skipped)
+- Frontend: **build clean** (TypeScript OK, 0 errors)
+
+**Известные ограничения:**
+- `_fill_loop_row` split-run баг (xfail, не связан с D7).
+- `_resolve_flat` двойное экранирование (косметический).
+- Docker не запущен — полный E2E с БД не выполнен.
+- Реальный пилот на данных ещё не проведён (блокер: нет эталонного комплекта).
+
 ## 10. Текущая цель
 
 Получить один воспроизводимый приёмочный комплект на реальных данных:
@@ -477,14 +537,12 @@ digraph PMLA_v2_Pipeline {
 - Не определён формальный ожидаемый результат для каждого обязательного поля.
 - Не проведена итоговая ручная экспертиза содержания ПМЛА на реальном объекте.
 
-### Известные дефекты (диагностированы, не исправлены)
+### Известные дефекты (диагностированы, исправлены в сессии D7)
 
-- **Незакоммиченный шаблон** `files/pmla_v2_template.docx` — полная переработка (committed версия — старый шаблон с циклами). Рабочий шаблон использует ~45 плоских переменных вместо ~75 с циклами.
-- **`development_year`** — добавлен в незакоммиченный шаблон, но не формируется `map_to_v2_context()` и отсутствует в схеме. Производственный pipeline через `enhanced_generator` добавляет `year`, но v2 pipeline (напрямую через маппер) — нет.
-- **`insurance_amount`** — в маппере (строка 801) читается только из legacy `material_reserve.insurance_amount`. Современное `opo_insurance_amount` не используется как fallback.
-- **`director_position`, `director_full_name`, `fire_department_name/short_name/address`, `hospital_name`, `financial_reserve_order_*`, `contractor_director_position`, `contractor_dispatch_address`, `edds_name`, `opo_insurance_*`** — добавлены в шаблон, маппер их производит (кроме `contractor_director_position` — проверить).
-- **Пропущенные в тестовом fixture `_build_full_context()`:** `development_year`, `insurance_amount`, `director_position`, `director_full_name`, `director_phone`, `fire_department_*`, `hospital_name`, `financial_reserve_*`, `contractor_director_*`, `contractor_dispatch_address`, `edds_name`, `opo_insurance_*`. Они уже есть в маппере, но не в fixture.
-- **Файл `pmla_v2.schema.json` не синхронизирован** с незакоммиченным шаблоном — не содержит новых полей (`development_year`, `person`, `director_position`, `fire_department_name` и др.), но содержит устаревшие (EquipmentDefect).
+- **`development_year`** — добавлен в маппер (строка 750-754) и схему (строка 261). Fallback: `datetime.now().year`. ✅ Исправлено.
+- **`insurance_amount` fallback** — маппер теперь использует `legacy_insurance_amount or opo_insurance_amount or ""` (строка 817). ✅ Исправлено.
+- **`pmla_v2.schema.json` синхронизирован** с шаблоном: 110 полей, 14 $defs. Содержит `development_year`, `person`, `director_position`, `fire_department_*`, `hospital_name`, `opo_insurance_*`, `financial_reserve_insurance_*`. ✅ Исправлено.
+- **`_build_full_context()` fixture** — обновлён с `person`, `development_year`, `insurance_amount`, `director_position`, `fire_department_*`, `hospital_name`, `financial_reserve_*`, `contractor_director_*`, `opo_insurance_*`. ✅ Исправлено.
 - **Проектные скрипты** (`backend/scripts/agents/`, `fix_headers_*.py`, `visual_qa_deep.py` и др.) — не добавлены в Git, пылятся в рабочем дереве.
 
 ### Не должны блокировать первый пилот
@@ -750,12 +808,14 @@ npm run build
 
 ### Приоритетный следующий этап
 
-После завершённой диагностики следующий этап — **исправление оставшихся дефектов в маппере и шаблоне**, затем сквозной прогон:
+Дефекты маппера и схемы исправлены (см. раздел 11). Следующий этап — **сквозной E2E на реальных данных**:
 
-1. Добавить `development_year` в `map_to_v2_context()` (строка ~740).
-2. Добавить fallback `opo_insurance_amount` для `insurance_amount` (строка 801).
-3. Синхронизировать `pmla_v2.schema.json` с незакоммиченным шаблоном.
+1. ~~Добавить `development_year` в `map_to_v2_context()`~~ ✅ Исправлено.
+2. ~~Добавить fallback `opo_insurance_amount` для `insurance_amount`~~ ✅ Исправлено.
+3. ~~Синхронизировать `pmla_v2.schema.json` с шаблоном~~ ✅ Исправлено.
 4. Запустить сквозной E2E: импорт → привязка → контекст → DOCX → PDF → Quality Review.
+5. Выполнить постраничную проверку DOCX и PDF.
+6. Провести ручную экспертизу содержания ПМЛА.
 
 ## 23. Важное замечание о достоверности
 

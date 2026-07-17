@@ -133,6 +133,8 @@ def make_full_context(**kw) -> PmlaGenerationContext:
     ctx.notification_scheme = {"first_receiver": "Иванов И.И.",
                                 "incident_commander": "Иванов И.И."}
 
+    ctx.questionnaire = {"main_activity": "Pipeline transport of natural gas"}
+
     # Add provenance for key fields
     ctx.add_provenance("organization.name", "organization",
                         ctx.organization["id"], "name")
@@ -336,6 +338,22 @@ class TestPreflightRules:
         assert report.has_blockers
         codes = [e.code for e in report.errors]
         assert "EQ_EMPTY_LIST" in codes
+
+    def test_blocker_on_missing_main_activity(self):
+        ctx = make_full_context()
+        ctx.questionnaire["main_activity"] = ""
+        report = run_preflight(ctx, generation_mode="final")
+        assert "FAC_MISSING_MAIN_ACTIVITY" in [e.code for e in report.errors]
+        assert "main_activity_description" in report.missing_fields
+
+    def test_okved_satisfies_main_activity_contract(self):
+        ctx = make_full_context()
+        ctx.questionnaire["main_activity"] = ""
+        ctx.facility["properties"] = {
+            "okved": "49.50 Pipeline transport",
+        }
+        report = run_preflight(ctx, generation_mode="final")
+        assert "FAC_MISSING_MAIN_ACTIVITY" not in [e.code for e in report.errors]
 
     def test_blocker_on_missing_pasf(self):
         ctx = make_full_context()

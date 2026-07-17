@@ -15,6 +15,7 @@ from src.application.engines.base import DocumentContext
 from src.application.services.pmla_generation_from_questionnaire_service import (
     PmlaGenerationFromQuestionnaireService,
 )
+from src.application.services.pmla_generation_context import PmlaGenerationContext
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +220,23 @@ class TestDocumentContextFromDict:
         assert len(doc_ctx.protective_equipment) == 2
         assert doc_ctx.notification_scheme.get("first_receiver") == "оператор котельной"
         assert "12-ПБ" in doc_ctx.material_reserve.get("fin_reserve_order", "")
+
+    def test_notification_scheme_is_serialized_for_quality_review(self):
+        """All UI notification roles survive context serialization."""
+        source = PmlaGenerationContext()
+        scheme = {
+            "first_receiver": "Оператор",
+            "responsible_manager": "Начальник смены",
+            "calls_pasf": "Диспетчер ПАСФ",
+            "calls_fire": "Диспетчер пожарной охраны",
+            "calls_medical": "Диспетчер скорой помощи",
+            "stops_equipment": "Машинист",
+            "evacuation_responsible": "Начальник участка",
+            "meets_services": "Дежурный",
+        }
+        source.notification_scheme = scheme
+
+        assert source.to_dict()["notification_scheme"] == scheme
 
     def setup_method(self):
         self.service = PmlaGenerationFromQuestionnaireService(

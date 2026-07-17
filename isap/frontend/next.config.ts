@@ -4,7 +4,7 @@ const backendUrl = (process.env.INTERNAL_API_BASE_URL || "http://localhost:8000"
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  allowedDevOrigins: ["127.0.0.1"],
+	  allowedDevOrigins: ["127.0.0.1", "localhost"],
   skipTrailingSlashRedirect: true,
   reactStrictMode: false,
   async rewrites() {

@@ -2,6 +2,9 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from src.application.services.document_review_service import (
+    DOCUMENT_STATUS_BY_REVIEW_STATUS,
+)
 from src.application.services.types import Issue
 from src.infrastructure.repositories.document_repo import DocumentRepository
 
@@ -26,6 +29,7 @@ class ReviewService:
             )
         await self.document_repo.update(document_id, {
             "status": "pending_review",
+            "review_status": "needs_review",
             "submitted_at": datetime.now(UTC).replace(tzinfo=None),
         })
 
@@ -44,6 +48,11 @@ class ReviewService:
                 f"Документ в статусе '{doc.status}', "
                 "можно утвердить только из статуса pending_review"
             )
+        if doc.review_status != "in_review":
+            raise ValueError(
+                f"Документ в статусе проверки '{doc.review_status}', "
+                "утверждение разрешено только из статуса in_review"
+            )
 
         now = datetime.now(UTC).replace(tzinfo=None)
         target_year = now.year + 5
@@ -55,6 +64,7 @@ class ReviewService:
             document_id,
             {
                 "status": "approved",
+                "review_status": "approved",
                 "approved_at": now,
                 "review_date": review_date,
                 "regeneration_count": 0,
@@ -88,6 +98,11 @@ class ReviewService:
                 f"Документ в статусе '{doc.status}', "
                 "можно вернуть только из статуса pending_review"
             )
+        if doc.review_status != "in_review":
+            raise ValueError(
+                f"Документ в статусе проверки '{doc.review_status}', "
+                "возврат на доработку разрешён только из статуса in_review"
+            )
 
         # Извлекаем уникальные имена разделов из замечаний
         rejected_sections = list({i.section for i in issues if i.section})
@@ -100,7 +115,8 @@ class ReviewService:
             await self.document_repo.update(
                 document_id,
                 {
-                    "status": "manual_intervention_required",
+                    "status": DOCUMENT_STATUS_BY_REVIEW_STATUS["needs_changes"],
+                    "review_status": "needs_changes",
                     "rejected_at": datetime.now(UTC).replace(tzinfo=None),
                     "regeneration_count": regen_count,
                     "updated_at": datetime.now(UTC).replace(tzinfo=None),
@@ -112,7 +128,8 @@ class ReviewService:
             await self.document_repo.update(
                 document_id,
                 {
-                    "status": "rejected",
+                    "status": DOCUMENT_STATUS_BY_REVIEW_STATUS["needs_changes"],
+                    "review_status": "needs_changes",
                     "rejected_at": datetime.now(UTC).replace(tzinfo=None),
                     "regeneration_count": regen_count,
                     "updated_at": datetime.now(UTC).replace(tzinfo=None),
@@ -148,6 +165,7 @@ class ReviewService:
         return {
             "document_id": str(doc.id),
             "status": doc.status,
+            "review_status": doc.review_status,
             "issues": issues,
             "version_number": version.version_number if version else None,
             "regeneration_count": doc.regeneration_count or 0,

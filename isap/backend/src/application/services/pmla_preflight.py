@@ -286,6 +286,24 @@ def run_preflight(context: PmlaGenerationContext,
         )
         report.add_missing_field("facility.reg_number")
 
+    # Keep preflight aligned with the v2 mapper/schema contract. The explicit
+    # questionnaire value wins; facility OKVED metadata is the fallback.
+    questionnaire = context.questionnaire or {}
+    facility_properties = fac.get("properties") or {}
+    main_activity = questionnaire.get("main_activity") or facility_properties.get("okved")
+    if _is_empty(main_activity):
+        report.add_issue(
+            code="FAC_MISSING_MAIN_ACTIVITY",
+            field="main_activity_description",
+            message="Не указан основной вид деятельности организации / ОКВЭД",
+            severity="BLOCKER",
+            recommended_action=(
+                "Заполните основной вид деятельности в анкете ПМЛА "
+                "или укажите ОКВЭД в свойствах ОПО"
+            ),
+        )
+        report.add_missing_field("main_activity_description")
+
     # ── Equipment checks ─────────────────────────────────────────────
     equipment = context.equipment or []
     if not equipment:

@@ -131,6 +131,7 @@ class PmlaContextBuilder:
                 facility.commissioning_date.isoformat() if facility.commissioning_date else None
             ),
             "inventory_number": facility.inventory_number,
+            "properties": facility.properties or {},
         }
         ctx.add_provenance("facility.name", "facility", str(facility.id), "name")
         ctx.add_provenance("facility.reg_number", "facility", str(facility.id), "reg_number")

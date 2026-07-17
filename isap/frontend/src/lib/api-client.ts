@@ -112,6 +112,19 @@ export type PmlaGenerationResult = {
   provenance?: Record<string, unknown>
 }
 
+export type PmlaPreflightResult = {
+  questionnaire_id: string
+  facility_id: string
+  generation_mode: "draft" | "final"
+  generation_blocked: boolean
+  preflight: {
+    status?: string
+    issues?: Array<{ code?: string; message?: string; severity?: string }>
+    missing_fields?: string[]
+    has_blockers?: boolean
+  }
+}
+
 export type PmlaDocumentListItem = {
   document_id: string
   version?: number
@@ -224,6 +237,10 @@ export const isapApi = {
     }),
   getPmlaQuestionnaireContext: (questionnaireId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla-questionnaires/${questionnaireId}/context`),
+  preflightPmlaQuestionnaire: (questionnaireId: string) =>
+    apiRequest<PmlaPreflightResult>(`/api/v1/pmla-questionnaires/${questionnaireId}/preflight?generation_mode=final`, {
+      method: "POST",
+    }),
   generatePmlaFromQuestionnaire: (
     questionnaireId: string,
     options: { template_version?: PmlaTemplateVersion; regenerate_sections?: string[] | null; save_debug_artifacts?: boolean } = {},

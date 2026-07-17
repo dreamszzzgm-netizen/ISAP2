@@ -1,0 +1,476 @@
+{
+  "meta": {
+    "fixture_name": "pmla_v2_pilot_case",
+    "description": "Полный синтетический набор данных для пилотного прогона ПМЛА v2. Все ФИО, телефоны, адреса, ИНН/ОГРН — синтетические.",
+    "schema_hint": "Структура соответствует источнику: questionnaire → map_to_v2_context() → PmlaTemplateRenderer.render()",
+    "created_at": "2026-07-15",
+    "version": "1.0"
+  },
+  "organization": {
+    "name": "ООО «ТехноГазСервис»",
+    "short_name": "ООО «ТГС»",
+    "inn": "7728123456",
+    "ogrn": "1027739876543",
+    "address": "г. Москва, ул. Инженерная, д. 15, офис 301",
+    "phone": "+7 (495) 123-45-67",
+    "email": "office@technogaz.ru"
+  },
+  "facility": {
+    "name": "Сеть газопотребления котельной ООО «ТехноГазСервис»",
+    "facility_type": "Сеть газопотребления",
+    "reg_number": "А34-56789-0001",
+    "hazard_class": "III",
+    "address": "г. Москва, Зеленоград, ул. Заводская, д. 3"
+  },
+  "equipment": [
+    {
+      "id": "eq-001",
+      "name": "ГРПШ-1",
+      "equipment_type": "Газорегуляторный пункт шкафной",
+      "serial_number": "ГРПШ-2023-001",
+      "manufacturer": "ООО «ГазТехМаш»",
+      "manufacture_year": "2023",
+      "specifications": {
+        "process_codes": "2.1",
+        "location": "Площадка ГРП",
+        "pressure": "0.6 МПа",
+        "capacity": "100 м³/ч"
+      }
+    },
+    {
+      "id": "eq-002",
+      "name": "ГРУ-1",
+      "equipment_type": "Газорегуляторная установка",
+      "serial_number": "ГРУ-2022-005",
+      "manufacturer": "АО «ПромГаз»",
+      "manufacture_year": "2022",
+      "specifications": {
+        "process_codes": "2.1",
+        "location": "Котельный цех",
+        "pressure": "0.3 МПа",
+        "capacity": "200 м³/ч"
+      }
+    },
+    {
+      "id": "eq-003",
+      "name": "Газопровод среднего давления",
+      "equipment_type": "Газопровод",
+      "serial_number": "ТР-2021-012",
+      "manufacturer": "—",
+      "manufacture_year": "2021",
+      "specifications": {
+        "process_codes": "1.1, 2.1",
+        "location": "Территория котельной",
+        "pressure": "0.6 МПа",
+        "length_m": 150,
+        "diameter_mm": 159
+      }
+    },
+    {
+      "id": "eq-004",
+      "name": "Котёл газовый КВ-Г-1,0",
+      "equipment_type": "Теплогенератор",
+      "serial_number": "КВ-2023-078",
+      "manufacturer": "АО «КотлоМаш»",
+      "manufacture_year": "2023",
+      "specifications": {
+        "process_codes": "2.1",
+        "location": "Котельный цех",
+        "power": "1.0 МВт",
+        "efficiency": "92%"
+      }
+    }
+  ],
+  "substances": [
+    {
+      "id": "sub-001",
+      "name": "природный газ",
+      "cas_number": "74-82-8",
+      "quantity_kg": 500.0,
+      "threshold_quantity_kg": 50.0,
+      "hazard_properties": {
+        "Класс опасности": "4",
+        "Характеристика": "Горючий газ",
+        "Температура воспламенения": "537 °C",
+        "Нижний концентрационный предел": "4.4%",
+        "Верхний концентрационный предел": "17.0%"
+      }
+    }
+  ],
+  "responsible_persons": [
+    {
+      "id": "person-001",
+      "full_name": "Петров Иван Алексеевич",
+      "position": "Генеральный директор",
+      "role": "director",
+      "phone": "+7 (495) 123-45-68",
+      "email": "petrov@technogaz.ru"
+    },
+    {
+      "id": "person-002",
+      "full_name": "Смирнов Алексей Викторович",
+      "position": "Заместитель директора по производству",
+      "role": "deputy",
+      "phone": "+7 (495) 123-45-69",
+      "email": "smirnov@technogaz.ru"
+    },
+    {
+      "id": "person-003",
+      "full_name": "Кузнецов Дмитрий Сергеевич",
+      "position": "Начальник участка",
+      "role": "section_chief",
+      "phone": "+7 (495) 123-45-70",
+      "email": "kuznetsov@technogaz.ru"
+    }
+  ],
+  "emergency_services": [
+    {
+      "service_type": "fire",
+      "name": "Пожарная часть № 42 ГУ МЧС России по г. Москве",
+      "short_name": "ПЧ-42",
+      "address": "г. Москва, Зеленоград, ул. Спасателей, д. 1",
+      "phone": "+7 (495) 101-11-22",
+      "dispatcher_phone": "+7 (495) 101-11-23",
+      "additional_phone": "112"
+    },
+    {
+      "service_type": "ambulance",
+      "name": "Станция скорой медицинской помощи г. Зеленоград",
+      "short_name": "ССМП Зеленоград",
+      "address": "г. Москва, Зеленоград, ул. Больничная, д. 5",
+      "phone": "+7 (495) 103-11-11",
+      "dispatcher_phone": "103",
+      "additional_phone": "112"
+    },
+    {
+      "service_type": "mchs",
+      "name": "Главное управление МЧС России по г. Москве",
+      "short_name": "ГУ МЧС г. Москвы",
+      "address": "г. Москва, ул. Пречистенка, д. 22",
+      "phone": "+7 (495) 637-31-31",
+      "dispatcher_phone": "112",
+      "additional_phone": "+7 (495) 637-22-22"
+    },
+    {
+      "service_type": "edds",
+      "name": "Единая дежурно-диспетчерская служба Зеленоградского АО",
+      "short_name": "ЕДДС ЗелАО",
+      "address": "г. Москва, Зеленоград, Центральная площадь, д. 1",
+      "phone": "+7 (495) 112-00-01",
+      "dispatcher_phone": "112",
+      "additional_phone": "+7 (495) 112-00-02"
+    },
+    {
+      "service_type": "gas",
+      "name": "АО «Мосгаз» — Зеленоградское отделение",
+      "short_name": "Мосгаз ЗелАО",
+      "address": "г. Москва, Зеленоград, ул. Газовая, д. 10",
+      "phone": "+7 (495) 104-11-11",
+      "dispatcher_phone": "+7 (495) 104-11-12",
+      "additional_phone": "104"
+    },
+    {
+      "service_type": "electric",
+      "name": "ПАО «Россети Московский регион» — Зеленоградские сети",
+      "short_name": "Россети ЗелАО",
+      "address": "г. Москва, Зеленоград, ул. Энергетиков, д. 7",
+      "phone": "+7 (495) 105-11-11",
+      "dispatcher_phone": "+7 (495) 105-11-12",
+      "additional_phone": "+7 (495) 105-11-13"
+    },
+    {
+      "service_type": "rostechnadzor",
+      "name": "Центральное Управление Ростехнадзора по г. Москве",
+      "short_name": "ЦУ Ростехнадзора",
+      "address": "г. Москва, ул. Тверская, д. 8",
+      "phone": "+7 (495) 106-11-11",
+      "dispatcher_phone": "+7 (495) 106-11-12",
+      "additional_phone": "+7 (495) 106-11-13"
+    },
+    {
+      "service_type": "admin",
+      "name": "Управа района Зеленоград г. Москвы",
+      "short_name": "Управа Зеленоград",
+      "address": "г. Москва, Зеленоград, ул. Административная, д. 1",
+      "phone": "+7 (495) 107-11-11",
+      "dispatcher_phone": "+7 (495) 107-11-12",
+      "additional_phone": "+7 (495) 107-11-13"
+    }
+  ],
+  "pasf": {
+    "id": "pasf-001",
+    "name": "ООО «ГазСпасСервис»",
+    "short_name": "«ГазСпасСервис»",
+    "organization_type": "ПАСФ",
+    "director_name": "Соколов Андрей Михайлович",
+    "director_position": "Начальник ПАСФ",
+    "actual_address": "г. Москва, ул. Промышленная, д. 50",
+    "dispatch_phone": "+7 (495) 108-11-11",
+    "email": "dispatcher@gazspas.ru",
+    "certificate_number": "ЦУ-ПАСФ/2025-001",
+    "certificate_date": "2025-03-15",
+    "certificate_valid_until": "2028-03-15",
+    "agreement_date": "2025-01-20",
+    "agreement_number": "12-А/2025",
+    "permitted_work_types": [
+      "Аварийно-спасательные работы на сетях газопотребления",
+      "Локализация и ликвидация утечек газа",
+      "Ремонт газового оборудования"
+    ],
+    "equipment_passport": [
+      {"name": "Газоанализатор переносной", "quantity": 3},
+      {"name": "Дыхательный аппарат на сжатом воздухе", "quantity": 6},
+      {"name": "Искробезопасный инструмент", "quantity": "комплект"}
+    ],
+    "staff_count": 12,
+    "readiness_mode": "круглосуточный",
+    "service_area": "г. Москва и Московская область",
+    "region": "Москва",
+    "is_active": true
+  },
+  "pasf_documents": [
+    {
+      "id": "pasf-doc-001",
+      "document_type": "contract",
+      "document_number": "12-А/2025",
+      "issued_at": "2025-01-20",
+      "title": "Договор на обслуживание с ПАСФ"
+    },
+    {
+      "id": "pasf-doc-002",
+      "document_type": "certificate",
+      "document_number": "ЦУ-ПАСФ/2025-001",
+      "issued_at": "2025-03-15",
+      "title": "Свидетельство об аттестации ПАСФ"
+    }
+  ],
+  "questionnaire": {
+    "incident_history": {
+      "has_incidents": false,
+      "period": "за период эксплуатации (2021-2026)",
+      "items": []
+    },
+    "operation_mode": {
+      "mode": "двухсменный",
+      "shifts": 2,
+      "staff_per_shift": 3,
+      "night_shift": 1,
+      "has_dispatcher": true,
+      "on_site_staff": 6,
+      "working_hours": "07:00-23:00"
+    },
+    "selected_scenarios": [
+      "утечка опасного вещества",
+      "загазованность помещения",
+      "отказ автоматики безопасности и ПАЗ",
+      "пожар в помещении котельной"
+    ],
+    "custom_scenarios": [
+      {
+        "name": "Разрыв газопровода среднего давления",
+        "title": "Разрыв газопровода среднего давления",
+        "description": "Полное разрушение сварного стыка газопровода среднего давления с выходом газа под давлением до 0,6 МПа",
+        "place": "газопровод / территория котельной",
+        "source_equipment": "Газопровод среднего давления",
+        "equipment": "газопровод",
+        "hazardous_substance": "природный газ",
+        "consequences": "загазованность территории, образование взрывоопасной смеси, взрыв, пожар"
+      },
+      {
+        "name": "Неисправность запорной арматуры на ГРПШ",
+        "title": "Неисправность запорной арматуры на ГРПШ",
+        "description": "Заклинивание запорной арматуры в открытом/закрытом положении, невозможность перекрыть подачу газа",
+        "place": "ГРПШ",
+        "source_equipment": "ГРПШ-1",
+        "equipment": "запорная арматура",
+        "hazardous_substance": "природный газ",
+        "consequences": "неконтролируемая утечка газа"
+      }
+    ],
+    "organization_resources": {
+      "actual_items": [
+        {
+          "name": "Газоанализатор СЕАН-М",
+          "type": "control",
+          "quantity": "2",
+          "storage_place": "операторная",
+          "responsible_person": "начальник смены",
+          "purpose": "контроль загазованности в помещении"
+        },
+        {
+          "name": "Огнетушитель порошковый ОП-5",
+          "type": "firefighting",
+          "quantity": "6",
+          "storage_place": "котельный цех",
+          "responsible_person": "начальник участка",
+          "purpose": "ликвидация начального возгорания"
+        },
+        {
+          "name": "Ключ газовый",
+          "type": "emergency",
+          "quantity": "2",
+          "storage_place": "операторная",
+          "responsible_person": "оператор котельной",
+          "purpose": "перекрытие запорной арматуры"
+        },
+        {
+          "name": "Лопата совковая",
+          "type": "auxiliary",
+          "quantity": "2",
+          "storage_place": "подсобное помещение",
+          "responsible_person": "начальник смены",
+          "purpose": "при необходимости обвалование"
+        },
+        {
+          "name": "Средства индивидуальной защиты (противогазы)",
+          "type": "protection",
+          "quantity": "6",
+          "storage_place": "шкаф СИЗ",
+          "responsible_person": "начальник участка",
+          "purpose": "защита органов дыхания"
+        }
+      ],
+      "recommended_items": [
+        {
+          "name": "Дыхательный аппарат на сжатом воздухе",
+          "type": "protection",
+          "quantity": "4",
+          "storage_place": "ПАСФ (по договору)",
+          "responsible_person": "начальник ПАСФ",
+          "purpose": "работа в загазованной среде"
+        }
+      ]
+    },
+    "notification_scheme": {
+      "first_receiver": "оператор котельной",
+      "incident_commander": "ответственный руководитель работ — начальник участка",
+      "pasf_caller": "оператор котельной",
+      "fire_caller": "оператор котельной",
+      "medical_caller": "начальник смены",
+      "shutdown_responsible": "слесарь-ремонтник",
+      "evacuation_responsible": "начальник смены",
+      "service_meeting_responsible": "заместитель директора по производству"
+    },
+    "financial_reserve": {
+      "created": true,
+      "order_number": "18-ФР",
+      "order_date": "2026-02-01",
+      "amount": "750000",
+      "source": "собственные средства организации",
+      "purpose": "финансовое обеспечение мероприятий по локализации и ликвидации последствий аварий"
+    },
+    "insurance": {
+      "has_contract": true,
+      "company": "АО «Страховая компания «ГазСтрах»",
+      "company_name": "АО «СК «ГазСтрах»",
+      "company_short_name": "ГазСтрах",
+      "contract_number": "ГО-ОПО-2026-001234",
+      "policy_number": "ГО-2026-001234",
+      "contract_date": "2026-01-15",
+      "policy_date": "2026-01-15",
+      "valid_from": "2026-01-20",
+      "valid_until": "2027-01-19",
+      "insured_amount": "10000000",
+      "insurance_amount": "10000000",
+      "amount": "10000000"
+    },
+    "attachments_checklist": [
+      {"name": "Схема расположения ОПО", "present": true},
+      {"name": "Схема оповещения об аварии", "present": true},
+      {"name": "Договор с ПАСФ", "present": true},
+      {"name": "Страховой полис ОПО", "present": true},
+      {"name": "Приказ о создании финансового резерва", "present": true}
+    ],
+    "main_activity": "35.30 Производство, передача и распределение пара и горячей воды; кондиционирование воздуха"
+  },
+  "nearest_services": {
+    "fire": [
+      {
+        "service_type": "fire",
+        "name": "Пожарная часть № 42 ГУ МЧС России по г. Москве",
+        "short_name": "ПЧ-42",
+        "address": "г. Москва, Зеленоград, ул. Спасателей, д. 1",
+        "phone": "+7 (495) 101-11-22",
+        "dispatcher_phone": "+7 (495) 101-11-23",
+        "additional_phone": "112"
+      }
+    ],
+    "ambulance": [
+      {
+        "service_type": "ambulance",
+        "name": "Станция скорой медицинской помощи г. Зеленоград",
+        "short_name": "ССМП Зеленоград",
+        "address": "г. Москва, Зеленоград, ул. Больничная, д. 5",
+        "phone": "+7 (495) 103-11-11",
+        "dispatcher_phone": "103",
+        "additional_phone": "112"
+      }
+    ],
+    "mchs": [
+      {
+        "service_type": "mchs",
+        "name": "Главное управление МЧС России по г. Москве",
+        "short_name": "ГУ МЧС г. Москвы",
+        "address": "г. Москва, ул. Пречистенка, д. 22",
+        "phone": "+7 (495) 637-31-31",
+        "dispatcher_phone": "112",
+        "additional_phone": "+7 (495) 637-22-22"
+      }
+    ],
+    "edds": [
+      {
+        "service_type": "edds",
+        "name": "Единая дежурно-диспетчерская служба Зеленоградского АО",
+        "short_name": "ЕДДС ЗелАО",
+        "address": "г. Москва, Зеленоград, Центральная площадь, д. 1",
+        "phone": "+7 (495) 112-00-01",
+        "dispatcher_phone": "112",
+        "additional_phone": "+7 (495) 112-00-02"
+      }
+    ],
+    "gas": [
+      {
+        "service_type": "gas",
+        "name": "АО «Мосгаз» — Зеленоградское отделение",
+        "short_name": "Мосгаз ЗелАО",
+        "address": "г. Москва, Зеленоград, ул. Газовая, д. 10",
+        "phone": "+7 (495) 104-11-11",
+        "dispatcher_phone": "+7 (495) 104-11-12",
+        "additional_phone": "104"
+      }
+    ],
+    "electric": [
+      {
+        "service_type": "electric",
+        "name": "ПАО «Россети Московский регион» — Зеленоградские сети",
+        "short_name": "Россети ЗелАО",
+        "address": "г. Москва, Зеленоград, ул. Энергетиков, д. 7",
+        "phone": "+7 (495) 105-11-11",
+        "dispatcher_phone": "+7 (495) 105-11-12",
+        "additional_phone": "+7 (495) 105-11-13"
+      }
+    ],
+    "rostechnadzor": [
+      {
+        "service_type": "rostechnadzor",
+        "name": "Центральное Управление Ростехнадзора по г. Москве",
+        "short_name": "ЦУ Ростехнадзора",
+        "address": "г. Москва, ул. Тверская, д. 8",
+        "phone": "+7 (495) 106-11-11",
+        "dispatcher_phone": "+7 (495) 106-11-12",
+        "additional_phone": "+7 (495) 106-11-13"
+      }
+    ],
+    "admin": [
+      {
+        "service_type": "admin",
+        "name": "Управа района Зеленоград г. Москвы",
+        "short_name": "Управа Зеленоград",
+        "address": "г. Москва, Зеленоград, ул. Административная, д. 1",
+        "phone": "+7 (495) 107-11-11",
+        "dispatcher_phone": "+7 (495) 107-11-12",
+        "additional_phone": "+7 (495) 107-11-13"
+      }
+    ]
+  }
+}
