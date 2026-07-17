@@ -6,6 +6,12 @@ This service orchestrates data loading from:
 3. Geoservice / emergency services directory
 
 The result is a fully populated PmlaGenerationContext with provenance entries.
+
+Compatibility mapping:
+    _build_organization_dict() is the single source of truth for mapping
+    OrganizationModel columns → generation context dict. All code paths
+    (context builder, questionnaire service, generation service) MUST
+    use this function to avoid duplication.
 """
 from __future__ import annotations
 
@@ -27,6 +33,67 @@ from src.infrastructure.database.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ── Shared compatibility mapper ───────────────────────────────────────────────
+# Единое место для маппинга OrganizationModel → dict generation context.
+# Все три пути (_from_db_fallback, questionnaire_service, generation_service)
+# вызывают эту функцию, а не дублируют 21 строку каждая.
+
+def build_organization_dict(org: OrganizationModel | None) -> dict[str, Any]:
+    """Map an OrganizationModel ORM instance to a flat dict for generation context.
+
+    Old fields (name, inn, ogrn, address, phone, email) are kept for
+    backward compatibility.  New fields fall back to corresponding old
+    values when not set — this ensures a pre-migration org without
+    new columns still populates the PMLA context correctly.
+
+    Fallback chain:
+        full_name       → name
+        short_name      → name
+        legal_address   → address
+        phone           → phone  (same column, no fallback needed)
+        email           → email  (same column, no fallback needed)
+    """
+    if org is None:
+        return {}
+
+    def _or(v, fallback: str) -> str:
+        return v if v else fallback
+
+    return {
+        # Old fields (unchanged, backward compat)
+        "id": str(org.id),
+        "name": org.name or "",
+        "inn": org.inn or "",
+        "ogrn": org.ogrn or "",
+        "address": org.address or "",
+        "phone": org.phone or "",
+        "email": org.email or "",
+        # New fields with fallback to old
+        "org_type": org.org_type or "legal",
+        "full_name": _or(org.full_name, org.name),
+        "short_name": _or(org.short_name, org.name),
+        "legal_address": _or(org.legal_address, org.address),
+        "actual_address": org.actual_address or "",
+        "postal_address": org.postal_address or "",
+        "phone_additional": org.phone_additional or "",
+        "phone_mobile": org.phone_mobile or "",
+        "fax": org.fax or "",
+        "website": org.website or "",
+        "kpp": org.kpp or "",
+        "ogrnip": org.ogrnip or "",
+        "okpo": org.okpo or "",
+        # Director (legal entity)
+        "director_full_name": org.director_full_name or "",
+        "director_position": org.director_position or "",
+        "director_phone": org.director_phone or "",
+        "director_email": org.director_email or "",
+        # Individual entrepreneur
+        "ip_last_name": org.ip_last_name or "",
+        "ip_first_name": org.ip_first_name or "",
+        "ip_middle_name": org.ip_middle_name or "",
+    }
 
 
 class PmlaContextBuilder:
@@ -104,15 +171,7 @@ class PmlaContextBuilder:
 
         # Organization
         if org:
-            ctx.organization = {
-                "id": str(org.id),
-                "name": org.name or "",
-                "inn": org.inn or "",
-                "ogrn": org.ogrn or "",
-                "address": org.address or "",
-                "phone": org.phone or "",
-                "email": org.email or "",
-            }
+            ctx.organization = build_organization_dict(org)
             ctx.add_provenance("organization.name", "organization", str(org.id), "name")
             ctx.add_provenance("organization.inn", "organization", str(org.id), "inn")
             ctx.add_provenance("organization.address", "organization", str(org.id), "address")

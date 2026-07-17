@@ -1,7 +1,8 @@
 from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.infrastructure.database.models import OrganizationModel
+from src.infrastructure.database.models import BankAccountModel, LicenseModel, OkvedCodeModel, OrganizationModel
 from src.infrastructure.repositories.base import BaseRepository
 
 
@@ -26,6 +27,20 @@ class OrganizationRepository(BaseRepository[OrganizationModel]):
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def get_with_related(self, organization_id) -> OrganizationModel | None:
+        """Получить организацию со всеми связанными таблицами."""
+        from sqlalchemy import select
+        result = await self.session.execute(
+            select(OrganizationModel)
+            .options(
+                selectinload(OrganizationModel.bank_accounts),
+                selectinload(OrganizationModel.okved_codes),
+                selectinload(OrganizationModel.licenses),
+            )
+            .where(OrganizationModel.id == organization_id)
+        )
+        return result.scalar_one_or_none()
 
     async def search_by_inn(self, inn: str) -> OrganizationModel | None:
         """Find organisation by exact INN match."""

@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from src.application.services.enhanced_generator import EnhancedDocumentGenerator
 from src.application.services.opo_service import OpoService
+from src.application.services.pmla_context_builder import build_organization_dict
 from src.infrastructure.database.models import (
     DocumentModel,
     DocumentVersionModel,
@@ -267,13 +268,7 @@ class PmlaGenerationService:
         persons = list(persons_result.scalars().all())
 
         return {
-            "organization": {
-                "name": org.name if org else "",
-                "inn": org.inn if org else "",
-                "address": org.address if org else "",
-                "phone": org.phone if org else "",
-                "email": org.email if org else "",
-            } if org else {},
+            "organization": build_organization_dict(org),
             "facility": {
                 "name": facility.name,
                 "facility_type": facility.facility_type,

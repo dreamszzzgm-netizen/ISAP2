@@ -19,6 +19,7 @@ from src.infrastructure.database.models import (
     PmlaQuestionnaireModel,
     ResponsiblePersonModel,
 )
+from src.application.services.pmla_context_builder import build_organization_dict
 
 DEFAULT_QUESTIONNAIRE: dict[str, Any] = {
     "main_activity": "",
@@ -185,15 +186,7 @@ class PmlaQuestionnaireService:
         recommendations = self._build_resource_recommendations(facility, substances, qdata)
 
         return {
-            "organization": {
-                "id": str(organization.id),
-                "name": organization.name,
-                "inn": organization.inn,
-                "ogrn": organization.ogrn,
-                "address": organization.address,
-                "phone": organization.phone,
-                "email": organization.email,
-            },
+            "organization": build_organization_dict(organization),
             "facility": {
                 "id": str(facility.id),
                 "name": facility.name,

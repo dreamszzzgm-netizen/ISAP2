@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, relationship
 
 
 class Base(DeclarativeBase):
@@ -33,14 +33,108 @@ class OrganizationModel(Base):
     __tablename__ = "organizations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    # --- Базовые поля (обратная совместимость) ---
     name = Column(String(500), nullable=False)
     inn = Column(String(20), nullable=False)
     ogrn = Column(String(20))
     address = Column(String(500))
     phone = Column(String(50))
     email = Column(String(200))
+    # --- Новые поля карточки организации ---
+    org_type = Column(String(20), default="legal")  # legal | individual
+    full_name = Column(String(1000))                  # полное наименование юрлица
+    short_name = Column(String(500))                  # сокращённое наименование
+    legal_address = Column(String(500))               # юридический/регистрационный адрес
+    actual_address = Column(String(500))              # фактический адрес
+    postal_address = Column(String(500))              # почтовый адрес
+    phone_additional = Column(String(50))             # дополнительный телефон
+    phone_mobile = Column(String(50))                 # мобильный телефон
+    fax = Column(String(50))                          # факс
+    website = Column(String(500))                     # сайт
+    kpp = Column(String(20))                          # КПП (для юрлиц)
+    ogrnip = Column(String(20))                       # ОГРНИП (для ИП)
+    okpo = Column(String(20))                         # ОКПО
+    # --- Руководитель (для юрлица) ---
+    director_full_name = Column(String(300))
+    director_position = Column(String(300))
+    director_phone = Column(String(50))
+    director_email = Column(String(200))
+    # --- ИП (фамилия, имя, отчество) ---
+    ip_last_name = Column(String(100))
+    ip_first_name = Column(String(100))
+    ip_middle_name = Column(String(100))
+    # --- Связи (relationships) ---
+    bank_accounts = relationship("BankAccountModel", back_populates="organization", lazy="selectin")
+    okved_codes = relationship("OkvedCodeModel", back_populates="organization", lazy="selectin")
+    licenses = relationship("LicenseModel", back_populates="organization", lazy="selectin")
+    # --- Служебные поля ---
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class BankAccountModel(Base):
+    """Банковские счета организации."""
+    __tablename__ = "bank_accounts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_number = Column(String(34), nullable=False)
+    bank_name = Column(String(500))
+    bank_bik = Column(String(20))
+    bank_corr_account = Column(String(34))
+    currency = Column(String(3), default="RUB")
+    is_primary = Column(SmallInteger, default=0)
+    notes = Column(String(500))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    # Relationship
+    organization = relationship("OrganizationModel", back_populates="bank_accounts")
+
+
+class OkvedCodeModel(Base):
+    """Коды ОКВЭД организации."""
+    __tablename__ = "okved_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(20), nullable=False)
+    description = Column(String(1000))
+    is_primary = Column(SmallInteger, default=0)
+    created_at = Column(DateTime, default=_now)
+    # Relationship
+    organization = relationship("OrganizationModel", back_populates="okved_codes")
+
+
+class LicenseModel(Base):
+    """Лицензии организации.
+
+    Согласованные поля: вид деятельности, номер, дата выдачи, статус, файл.
+    Поле notes и срок действия исключены как несогласованные.
+    file_path — это storage_key (относительный путь внутри upload_root/licenses),
+    никогда не возвращается клиенту напрямую.
+
+    При удалении организации лицензии удаляются каскадно (CASCADE).
+    Файл на диске не удаляется — это ожидаемое поведение: orphan-файлы
+    периодически зачищаются фоновой задачей.
+    """
+    __tablename__ = "licenses"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    activity_type = Column(String(500), nullable=False)   # вид деятельности
+    license_number = Column(String(100), nullable=False)  # номер лицензии
+    issue_date = Column(Date)                              # дата выдачи
+    status = Column(String(50), default="active")         # статус
+    # Файл (storage_key — относительный путь внутри licenses/, не возвращается клиенту)
+    file_path = Column(String(1000))
+    file_name = Column(String(500))
+    file_size = Column(Integer)
+    mime_type = Column(String(100))
+    checksum_sha256 = Column(String(64))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    # Relationship
+    organization = relationship("OrganizationModel", back_populates="licenses")
 
 
 class HazardousFacilityModel(Base):
