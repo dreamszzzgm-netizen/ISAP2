@@ -327,6 +327,8 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}`),
   getFacilityFull: (id: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}/full`),
+  getFacilityComposition: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}/composition`),
 
   // ── Equipment / Оборудование ОПО ──
   equipment: (facilityId: string) =>
