@@ -153,12 +153,161 @@ export type ImportPreviewResult = {
   header_mapping?: Record<string, string>
 }
 
+// ── Organization types ──────────────────────────────────────────────────────
+
+export type OrgType = "legal" | "individual";
+
+export type Organization = {
+  id: string;
+  name: string;
+  inn: string;
+  ogrn: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  org_type: OrgType | null;
+  full_name: string | null;
+  short_name: string | null;
+  legal_address: string | null;
+  actual_address: string | null;
+  postal_address: string | null;
+  phone_additional: string | null;
+  phone_mobile: string | null;
+  fax: string | null;
+  website: string | null;
+  kpp: string | null;
+  ogrnip: string | null;
+  okpo: string | null;
+  director_full_name: string | null;
+  director_position: string | null;
+  director_phone: string | null;
+  director_email: string | null;
+  ip_last_name: string | null;
+  ip_first_name: string | null;
+  ip_middle_name: string | null;
+};
+
+export type BankAccount = {
+  id: string;
+  organization_id: string;
+  account_number: string;
+  bank_name: string | null;
+  bank_bik: string | null;
+  bank_corr_account: string | null;
+  is_primary: boolean;
+  notes: string | null;
+};
+
+export type OkvedCode = {
+  id: string;
+  organization_id: string;
+  code: string;
+  is_primary: boolean;
+};
+
+export type License = {
+  id: string;
+  organization_id: string;
+  activity_type: string;
+  license_number: string;
+  issue_date: string | null;
+  status: string;
+  file_name: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  checksum_sha256: string | null;
+  has_file: boolean;
+};
+
+export type OrganizationDetail = Organization & {
+  bank_accounts: BankAccount[];
+  okved_codes: OkvedCode[];
+  licenses: License[];
+};
+
 /** PMLA template version selector */
 export type PmlaTemplateVersion = "v1" | "v2";
 
 export const isapApi = {
   health: () => apiRequest<{ status: string }>("/health"),
-  organizations: () => apiRequest<unknown[]>("/api/v1/organizations/"),
+
+  // ── Organizations ──
+  organizations: () => apiRequest<Organization[]>("/api/v1/organizations/"),
+  createOrganization: (data: Record<string, unknown>) =>
+    apiRequest<Organization>("/api/v1/organizations/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getOrganization: (id: string) =>
+    apiRequest<Organization>(`/api/v1/organizations/${id}`),
+  updateOrganization: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Organization>(`/api/v1/organizations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteOrganization: (id: string) =>
+    apiRequest<void>(`/api/v1/organizations/${id}`, { method: "DELETE" }),
+  getOrganizationDetail: (id: string) =>
+    apiRequest<OrganizationDetail>(`/api/v1/organizations/${id}/detail`),
+
+  // ── Bank accounts ──
+  listBankAccounts: (orgId: string) =>
+    apiRequest<BankAccount[]>(`/api/v1/organizations/${orgId}/bank-accounts`),
+  createBankAccount: (orgId: string, data: Record<string, unknown>) =>
+    apiRequest<BankAccount>(`/api/v1/organizations/${orgId}/bank-accounts`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateBankAccount: (orgId: string, accountId: string, data: Record<string, unknown>) =>
+    apiRequest<BankAccount>(`/api/v1/organizations/${orgId}/bank-accounts/${accountId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteBankAccount: (orgId: string, accountId: string) =>
+    apiRequest<void>(`/api/v1/organizations/${orgId}/bank-accounts/${accountId}`, { method: "DELETE" }),
+
+  // ── OKVED codes ──
+  listOkvedCodes: (orgId: string) =>
+    apiRequest<OkvedCode[]>(`/api/v1/organizations/${orgId}/okved-codes`),
+  createOkvedCode: (orgId: string, data: Record<string, unknown>) =>
+    apiRequest<OkvedCode>(`/api/v1/organizations/${orgId}/okved-codes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateOkvedCode: (orgId: string, codeId: string, data: Record<string, unknown>) =>
+    apiRequest<OkvedCode>(`/api/v1/organizations/${orgId}/okved-codes/${codeId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteOkvedCode: (orgId: string, codeId: string) =>
+    apiRequest<void>(`/api/v1/organizations/${orgId}/okved-codes/${codeId}`, { method: "DELETE" }),
+
+  // ── Licenses ──
+  listLicenses: (orgId: string) =>
+    apiRequest<License[]>(`/api/v1/organizations/${orgId}/licenses`),
+  getLicense: (orgId: string, licenseId: string) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}`),
+  createLicense: (orgId: string, data: Record<string, unknown>) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateLicense: (orgId: string, licenseId: string, data: Record<string, unknown>) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteLicense: (orgId: string, licenseId: string) =>
+    apiRequest<void>(`/api/v1/organizations/${orgId}/licenses/${licenseId}`, { method: "DELETE" }),
+  uploadLicenseFile: (orgId: string, licenseId: string, file: File) =>
+    apiUpload<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}/file`, file),
+  deleteLicenseFile: (orgId: string, licenseId: string) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}/file`, { method: "DELETE" }),
+  getLicenseDownloadUrl: (orgId: string, licenseId: string): string => {
+    const path = `/api/v1/organizations/${orgId}/licenses/${licenseId}/download`;
+    const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+    return `${path}${API_KEY ? `?api_key=${API_KEY}` : ""}`;
+  },
 
   // ── Facilities / ОПО ──
   facilities: () => apiRequest<Record<string, unknown>[]>("/api/v1/facilities/"),
