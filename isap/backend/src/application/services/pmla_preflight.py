@@ -10,14 +10,37 @@ Severity levels:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from src.application.services.pmla_generation_context import PmlaGenerationContext
+from src.core.settings import settings
 
 logger = logging.getLogger(__name__)
+
+PASF_UPLOAD_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", settings.upload_root)
+)
+
+
+def _resolve_pasf_document_file_path(file_path: str) -> str | None:
+    """Resolve stored PASF file paths, including relative upload storage keys."""
+    raw_path = str(file_path or "").strip()
+    if not raw_path:
+        return None
+    if os.path.isabs(raw_path):
+        resolved = os.path.normpath(raw_path)
+    else:
+        resolved = os.path.normpath(os.path.join(PASF_UPLOAD_ROOT, raw_path))
+    try:
+        inside_upload_root = os.path.commonpath([PASF_UPLOAD_ROOT, resolved]) == PASF_UPLOAD_ROOT
+    except ValueError:
+        inside_upload_root = False
+    return resolved if inside_upload_root else None
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +286,24 @@ def run_preflight(context: PmlaGenerationContext,
         )
         report.add_missing_field("facility.reg_number")
 
+    # Keep preflight aligned with the v2 mapper/schema contract. The explicit
+    # questionnaire value wins; facility OKVED metadata is the fallback.
+    questionnaire = context.questionnaire or {}
+    facility_properties = fac.get("properties") or {}
+    main_activity = questionnaire.get("main_activity") or facility_properties.get("okved")
+    if _is_empty(main_activity):
+        report.add_issue(
+            code="FAC_MISSING_MAIN_ACTIVITY",
+            field="main_activity_description",
+            message="Не указан основной вид деятельности организации / ОКВЭД",
+            severity="BLOCKER",
+            recommended_action=(
+                "Заполните основной вид деятельности в анкете ПМЛА "
+                "или укажите ОКВЭД в свойствах ОПО"
+            ),
+        )
+        report.add_missing_field("main_activity_description")
+
     # ── Equipment checks ─────────────────────────────────────────────
     equipment = context.equipment or []
     if not equipment:
@@ -295,6 +336,26 @@ def run_preflight(context: PmlaGenerationContext,
         )
         report.add_missing_field("pasf")
     else:
+        # PASF is_active check
+        pasf_active = pasf.get("is_active")
+        if pasf_active is False or (isinstance(pasf_active, int) and pasf_active == 0):
+            report.add_issue(
+                code="PASF_DISABLED",
+                field="pasf.is_active",
+                message=f"ПАСФ '{pasf.get('name', '')}' отключён — выберите активный ПАСФ",
+                severity="BLOCKER",
+                recommended_action="Выберите активный ПАСФ из справочника",
+            )
+        # PASF certificate must exist
+        cert_number = pasf.get("certificate_number")
+        if _is_empty(cert_number):
+            report.add_issue(
+                code="PASF_MISSING_CERTIFICATE",
+                field="pasf.certificate_number",
+                message=f"У ПАСФ '{pasf.get('name', '')}' отсутствует свидетельство",
+                severity="BLOCKER",
+                recommended_action="Заполните номер свидетельства ПАСФ",
+            )
         if _is_empty(pasf.get("dispatch_phone")):
             report.add_issue(
                 code="PASF_MISSING_PHONE",
@@ -306,23 +367,137 @@ def run_preflight(context: PmlaGenerationContext,
         # PASF certificate expiry
         cert_until = pasf.get("certificate_valid_until")
         if cert_until and _check_date_expired(str(cert_until)):
+            cert_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
             report.add_issue(
                 code="PASF_CERT_EXPIRED",
                 field="pasf.certificate_valid_until",
-                message=f"Срок действия документа ПАСФ истёк: {cert_until}",
-                severity="WARNING",
-                recommended_action="Обновите документы ПАСФ",
+                message=f"Срок действия свидетельства ПАСФ истёк: {cert_until}",
+                severity=cert_severity,
+                recommended_action="Обновите свидетельство ПАСФ",
             )
             report.add_expired_document("certificate", pasf.get("name", ""), str(cert_until))
+
+    # ── PASF document checks ───────────────────────────────────────
+    pasf_documents = context.attachments or []
+    pasf_id = context.pasf.get("id") if context.pasf else None
+    for doc in pasf_documents:
+        doc_id = doc.get("id", "")
+        doc_type = doc.get("document_type", "unknown")
+        doc_status = doc.get("status", "active")
+        doc_title = doc.get("title") or doc.get("file_name") or doc_id
+        doc_pasf_id = doc.get("pasf_id")
+
+        # Document must belong to the selected PASF
+        if pasf_id and doc_pasf_id and doc_pasf_id != pasf_id:
+            report.add_issue(
+                code="PASF_DOCUMENT_WRONG_OWNER",
+                field=f"pasf_documents.{doc_id}",
+                message=f"Документ '{doc_title}' принадлежит другому ПАСФ",
+                severity="BLOCKER",
+                recommended_action="Выберите документы текущего ПАСФ",
+            )
+
+        # Revoked/archived document check
+        if doc_status in ("revoked", "archived"):
+            report.add_issue(
+                code="PASF_DOCUMENT_REVOKED",
+                field=f"pasf_documents.{doc_id}",
+                message=f"Документ '{doc_title}' имеет статус '{doc_status}'",
+                severity="BLOCKER",
+                recommended_action="Выберите действующий документ",
+            )
+
+        # File existence check
+        doc_file_path = doc.get("file_path")
+        if doc_file_path:
+            resolved_doc_file_path = _resolve_pasf_document_file_path(str(doc_file_path))
+            if not resolved_doc_file_path or not os.path.exists(resolved_doc_file_path):
+                report.add_issue(
+                    code="PASF_FILE_NOT_FOUND",
+                    field=f"pasf_documents.{doc_id}",
+                    message=f"Файл документа '{doc_title}' не найден на диске",
+                    severity="BLOCKER",
+                    recommended_action="Перезагрузите файл документа",
+                )
+            else:
+                # File unreadable check
+                try:
+                    with open(resolved_doc_file_path, "rb") as f:
+                        content = f.read()
+                    # Checksum verification
+                    saved_checksum = doc.get("checksum_sha256")
+                    if saved_checksum:
+                        actual_checksum = hashlib.sha256(content).hexdigest()
+                        if actual_checksum != saved_checksum:
+                            report.add_issue(
+                                code="PASF_FILE_CHECKSUM_MISMATCH",
+                                field=f"pasf_documents.{doc_id}",
+                                message=f"Контрольная сумма документа '{doc_title}' не совпадает — файл был изменён",
+                                severity="BLOCKER",
+                                recommended_action="Перезагрузите файл документа",
+                            )
+                except (OSError, IOError):
+                    report.add_issue(
+                        code="PASF_FILE_UNREADABLE",
+                        field=f"pasf_documents.{doc_id}",
+                        message=f"Файл документа '{doc_title}' не может быть прочитан",
+                        severity="BLOCKER",
+                        recommended_action="Проверьте целостность файла",
+                    )
+
+        # Expired document check
+        valid_until = doc.get("valid_until")
+        if valid_until:
+            try:
+                if isinstance(valid_until, str):
+                    expiry = date.fromisoformat(valid_until)
+                else:
+                    expiry = valid_until
+                if expiry < date.today():
+                    doc_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
+                    report.add_issue(
+                        code="PASF_DOCUMENT_EXPIRED",
+                        field=f"pasf_documents.{doc_id}",
+                        message=f"Срок действия документа '{doc_title}' истёк: {valid_until}",
+                        severity=doc_severity,
+                        recommended_action="Обновите документ",
+                    )
+                    report.add_expired_document(doc_type, doc_title, str(valid_until))
+            except (ValueError, TypeError):
+                pass
+
+        # Unknown MIME type warning
+        mime = doc.get("mime_type", "")
+        if mime and mime not in ("application/pdf", "image/jpeg", "image/png"):
+            report.add_issue(
+                code="PASF_DOCUMENT_UNKNOWN_MIME",
+                field=f"pasf_documents.{doc_id}",
+                message=f"Документ '{doc_title}' имеет неподдерживаемый MIME тип: {mime}",
+                severity="WARNING",
+            )
+
+    # Required document types (certificate must exist for selected PASF)
+    if pasf_id and pasf_documents:
+        selected_types = {d.get("document_type") for d in pasf_documents}
+        if "certificate" not in selected_types:
+            cert_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
+            report.add_issue(
+                code="PASF_DOCUMENT_REQUIRED_MISSING",
+                field="pasf_documents",
+                message="Не выбрано свидетельство ПАСФ (certificate)",
+                severity=cert_severity,
+                recommended_action="Выберите свидетельство ПАСФ для включения в приложения",
+            )
 
     # ── Emergency services checks ────────────────────────────────────
     services = context.emergency_services or []
     if not services:
+        svc_severity = "BLOCKER" if generation_mode == "final" else "WARNING"
         report.add_issue(
             code="SVC_EMPTY_LIST",
             field="emergency_services",
             message="Не выбраны аварийные службы",
-            severity="WARNING",
+            severity=svc_severity,
             recommended_action="Выберите аварийные службы в анкете",
         )
         report.add_missing_field("emergency_services")
@@ -330,6 +505,16 @@ def run_preflight(context: PmlaGenerationContext,
         for svc in services:
             svc_name = svc.get("name", "")
             svc_phone = svc.get("phone") or svc.get("dispatcher_phone") or ""
+            # Service is_active check
+            svc_active = svc.get("is_active")
+            if svc_active is False or (isinstance(svc_active, int) and svc_active == 0):
+                report.add_issue(
+                    code="SVC_DISABLED",
+                    field=f"emergency_services.{services.index(svc)}.is_active",
+                    message=f"Служба '{svc_name}' отключена",
+                    severity="BLOCKER",
+                    recommended_action="Выберите активную аварийную службу",
+                )
             if _is_empty(svc_name):
                 report.add_issue(
                     code="SVC_MISSING_NAME",

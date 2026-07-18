@@ -22,6 +22,7 @@
       "contractor_organization_name",
       "contractor_organization_short_name",
       "contractor_agreement_date",
+      "contractor_agreement_number",
       "gas_supplier_name",
       "total_hazardous_substance_quantity",
       "equipment_list",
@@ -31,7 +32,9 @@
       "accident_scenarios",
       "injury_history",
       "accident_history",
-      "material_reserve",
+      "material_reserve_actual",
+      "material_reserve_recommended",
+      "countermeasures",
       "notification_chairman_phone",
       "notification_deputy_phone",
       "notification_edds_phone",
@@ -43,7 +46,64 @@
       "notification_mchs_phone",
       "notification_rostechnadzor_phone",
       "notification_admin_phone",
-      "countermeasures"
+      "notification_administration_phone",
+      "development_year",
+      "insurance_amount",
+      "financial_reserve_order_number",
+      "financial_reserve_order_date",
+      "financial_reserve_amount",
+      "person",
+      "director_position",
+      "director_full_name",
+      "director_phone",
+      "contractor_director_position",
+      "contractor_director_full_name",
+      "contractor_director_initials_surname",
+      "contractor_dispatch_address",
+      "contractor_phone",
+      "appendices_manifest",
+      "fire_department_name",
+      "fire_department_short_name",
+      "fire_department_address",
+      "ambulance_service_name",
+      "hospital_name",
+      "hospital_address",
+      "gas_service_name",
+      "gas_service_address",
+      "electric_network_name",
+      "electric_network_short_name",
+      "electric_network_address",
+      "edds_name",
+      "edds_short_name",
+      "edds_address",
+      "edds_additional_phone",
+      "edds_district",
+      "mchs_department_name",
+      "mchs_department_short_name",
+      "mchs_department_address",
+      "rostechnadzor_department_name",
+      "rostechnadzor_department_short_name",
+      "rostechnadzor_department_address",
+      "local_administration_name",
+      "local_administration_short_name",
+      "local_administration_address",
+      "local_administration_additional_phone",
+      "opo_insurance_company_name",
+      "opo_insurance_company_short_name",
+      "opo_insurance_policy_number",
+      "opo_insurance_policy_date",
+      "opo_insurance_valid_from",
+      "opo_insurance_valid_until",
+      "opo_insurance_amount",
+      "financial_reserve_source",
+      "financial_reserve_purpose",
+      "financial_reserve_insurance_company_name",
+      "financial_reserve_insurance_company_short_name",
+      "financial_reserve_insurance_policy_number",
+      "financial_reserve_insurance_policy_date",
+      "financial_reserve_insurance_valid_from",
+      "financial_reserve_insurance_valid_until",
+      "financial_reserve_insurance_amount"
     ],
     "full_render_and_pdf.FULL_CTX": [
       "organization_full_name",
@@ -69,6 +129,7 @@
       "contractor_organization_name",
       "contractor_organization_short_name",
       "contractor_agreement_date",
+      "contractor_agreement_number",
       "gas_supplier_name",
       "equipment_list",
       "substance_params",
@@ -77,7 +138,9 @@
       "accident_scenarios",
       "injury_history",
       "accident_history",
-      "material_reserve",
+      "material_reserve_actual",
+      "material_reserve_recommended",
+      "countermeasures",
       "notification_chairman_phone",
       "notification_deputy_phone",
       "notification_edds_phone",
@@ -88,8 +151,7 @@
       "notification_electric_phone",
       "notification_mchs_phone",
       "notification_rostechnadzor_phone",
-      "notification_admin_phone",
-      "countermeasures"
+      "notification_admin_phone"
     ],
     "verify_final_render.ctx": [
       "organization_full_name",
@@ -113,6 +175,7 @@
       "contractor_organization_name",
       "contractor_organization_short_name",
       "contractor_agreement_date",
+      "contractor_agreement_number",
       "gas_supplier_name",
       "total_hazardous_substance_quantity",
       "equipment_list",
@@ -122,9 +185,9 @@
       "accident_scenarios",
       "injury_history",
       "accident_history",
-      "material_reserve",
+      "material_reserve_actual",
+      "material_reserve_recommended",
       "countermeasures",
-      "notification_chairman_phone",
       "notification_deputy_phone",
       "notification_edds_phone",
       "notification_pasf_phone",
@@ -148,7 +211,8 @@
         "accident_scenarios",
         "injury_history",
         "accident_history",
-        "material_reserve",
+        "material_reserve_actual",
+        "material_reserve_recommended",
         "countermeasures"
       ],
       "scalar_values_kept": "ALL scalars retained from FULL_CONTEXT"
@@ -185,18 +249,77 @@
     }
   },
   "array_item_keys": {
-    "equipment_list": ["location", "hazard_characteristic", "device_name", "specifications", "process_codes"],
-    "substance_params": ["parameter", "value"],
-    "equipment_scenario_links": ["equipment_name", "scenario_codes", "description", "damaging_factors"],
-    "equipment_defects": ["equipment_name", "defect", "cause", "location", "scenario"],
-    "accident_scenarios": ["code", "name", "source", "preconditions", "signs", "damaging_factors"],
-    "injury_history": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"],
-    "accident_history": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"],
-    "material_reserve": ["is_group_header", "group_name", "name", "quantity", "location"],
-    "countermeasures": ["scenario_label", "signs", "protection", "technical_means", "executors"]
+    "equipment_list": [
+      "location",
+      "hazard_characteristic",
+      "device_name",
+      "specifications",
+      "process_codes"
+    ],
+    "substance_params": [
+      "parameter",
+      "value"
+    ],
+    "equipment_scenario_links": [
+      "equipment_name",
+      "scenario_codes",
+      "description",
+      "damaging_factors"
+    ],
+    "equipment_defects": [
+      "equipment_name",
+      "defect",
+      "cause",
+      "location",
+      "scenario"
+    ],
+    "accident_scenarios": [
+      "code",
+      "name",
+      "source",
+      "preconditions",
+      "signs",
+      "damaging_factors"
+    ],
+    "injury_history": [
+      "year",
+      "incident_number",
+      "date",
+      "character",
+      "trauma",
+      "consequences",
+      "measures_percent"
+    ],
+    "accident_history": [
+      "year",
+      "incident_number",
+      "date",
+      "character",
+      "trauma",
+      "consequences",
+      "measures_percent"
+    ],
+    "material_reserve_actual": [
+      "name",
+      "quantity",
+      "location"
+    ],
+    "material_reserve_recommended": [
+      "name",
+      "quantity",
+      "location"
+    ],
+    "countermeasures": [
+      "scenario_label",
+      "signs",
+      "protection",
+      "technical_means",
+      "executors"
+    ]
   },
   "template_scalar_variables": [
     "contractor_agreement_date",
+    "contractor_agreement_number",
     "contractor_organization_name",
     "contractor_organization_short_name",
     "deputy_chairman_fullname",
@@ -235,14 +358,93 @@
     "total_hazardous_substance_quantity"
   ],
   "template_loop_variables": {
-    "equipment_list": {"var": "eq", "fields": ["location", "hazard_characteristic", "device_name", "specifications", "process_codes"]},
-    "substance_params": {"var": "param", "fields": ["parameter", "value"]},
-    "equipment_scenario_links": {"var": "link", "fields": ["equipment_name", "scenario_codes", "description", "damaging_factors"]},
-    "accident_scenarios": {"var": "scenario", "fields": ["code", "name", "source", "preconditions", "signs", "damaging_factors"]},
-    "injury_history": {"var": "injury", "fields": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"]},
-    "accident_history": {"var": "accident", "fields": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"]},
-    "material_reserve": {"var": "item", "fields": ["is_group_header", "group_name", "name", "quantity", "location"]},
-    "countermeasures": {"var": "cm", "fields": ["scenario_label", "signs", "protection", "technical_means", "executors"]}
+    "equipment_list": {
+      "var": "eq",
+      "fields": [
+        "location",
+        "hazard_characteristic",
+        "device_name",
+        "specifications",
+        "process_codes"
+      ]
+    },
+    "substance_params": {
+      "var": "sp",
+      "fields": [
+        "parameter",
+        "value"
+      ]
+    },
+    "equipment_scenario_links": {
+      "var": "link",
+      "fields": [
+        "equipment_name",
+        "scenario_codes",
+        "description",
+        "damaging_factors"
+      ]
+    },
+    "accident_scenarios": {
+      "var": "sc",
+      "fields": [
+        "code",
+        "name",
+        "source",
+        "preconditions",
+        "signs",
+        "damaging_factors"
+      ]
+    },
+    "injury_history": {
+      "var": "injury",
+      "fields": [
+        "year",
+        "incident_number",
+        "date",
+        "character",
+        "trauma",
+        "consequences",
+        "measures_percent"
+      ]
+    },
+    "accident_history": {
+      "var": "accident",
+      "fields": [
+        "year",
+        "incident_number",
+        "date",
+        "character",
+        "trauma",
+        "consequences",
+        "measures_percent"
+      ]
+    },
+    "material_reserve_actual": {
+      "var": "res",
+      "fields": [
+        "name",
+        "quantity",
+        "location"
+      ]
+    },
+    "material_reserve_recommended": {
+      "var": "res",
+      "fields": [
+        "name",
+        "quantity",
+        "location"
+      ]
+    },
+    "countermeasures": {
+      "var": "cm",
+      "fields": [
+        "scenario_label",
+        "signs",
+        "protection",
+        "technical_means",
+        "executors"
+      ]
+    }
   },
   "missing_keys": {
     "in_template_not_in_test_pmla_v2_render": [

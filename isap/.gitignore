@@ -35,3 +35,13 @@ backend/.pytest_tmp/
 
 # Local real/anonymized OPO validation materials
 docs/inbox/
+# Local IDE/AI workspace state
+.zcode/
+
+# Local real/anonymized OPO validation outputs
+backend/data/data/
+backend/data/real_opo_insert.sql
+backend/data/real_opo_validation/*.json
+backend/qa_content_*.txt
+backend/qa_trace_data.py
+backend/check_footer.py

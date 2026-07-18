@@ -33,6 +33,10 @@ def _full_context():
             "incident_commander": "Начальник смены",
             "pasf_caller": "Диспетчер",
             "fire_caller": "Диспетчер",
+            "medical_caller": "Диспетчер",
+            "equipment_stopper": "Машинист",
+            "evacuation_responsible": "Начальник участка",
+            "services_greeter": "Дежурный",
         },
         "attachments_checklist": [
             "схема расположения ОПО",
@@ -162,6 +166,38 @@ def test_notification_scheme_warning_when_partial():
     report = _service().review(ctx)
     notify_check = next(c for c in report.checks if c.code == "notification_scheme")
     assert notify_check.status == "warning"
+
+
+def test_notification_scheme_ok_for_eight_ui_roles():
+    ctx = _full_context()
+    ctx["notification_scheme"] = {
+        "first_receiver": "Оператор",
+        "responsible_manager": "Начальник смены",
+        "calls_pasf": "Диспетчер ПАСФ",
+        "calls_fire": "Диспетчер пожарной охраны",
+        "calls_medical": "Диспетчер скорой помощи",
+        "stops_equipment": "Машинист",
+        "evacuation_responsible": "Начальник участка",
+        "meets_services": "Дежурный",
+    }
+
+    report = _service().review(ctx)
+
+    notify_check = next(c for c in report.checks if c.code == "notification_scheme")
+    assert notify_check.status == "ok"
+    assert notify_check.details == {
+        "filled": [
+            "first_receiver",
+            "incident_commander",
+            "pasf_caller",
+            "fire_caller",
+            "medical_caller",
+            "equipment_stopper",
+            "evacuation_responsible",
+            "services_greeter",
+        ],
+        "missing": [],
+    }
 
 
 # --- Patch A regression tests (P0-1, P1-4, P1-5) ---

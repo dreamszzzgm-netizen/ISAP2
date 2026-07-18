@@ -26,6 +26,10 @@ _SCENARIO_TEMPLATES_CACHE: dict[str, dict] = {}
 
 def _load_scenario_templates(facility_type: str) -> dict | None:
     """Загружает шаблон сценариев для указанного типа ОПО."""
+    # facility_type может прийти как None, если в карточке ОПО тип не заполнен.
+    # Без этой защиты последующий .lower() падает с AttributeError.
+    if not facility_type:
+        return None
     if facility_type in _SCENARIO_TEMPLATES_CACHE:
         return _SCENARIO_TEMPLATES_CACHE[facility_type]
 
@@ -145,7 +149,7 @@ class ScenarioEngine(BaseEngine):
     async def generate(self, section_id: str, section_def: dict, context: DocumentContext) -> SectionContent:
         """Генерирует содержимое сценарного раздела."""
         facility = context.facility
-        facility_type = facility.get("facility_type", "")
+        facility_type = facility.get("facility_type") or ""
         hazard_class = str(facility.get("hazard_class", ""))
         title = section_def.get("title", section_id)
 

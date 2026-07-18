@@ -57,7 +57,7 @@ class PmlaReviewWorkflowService:
                 reviewer_id=reviewer_id,
                 comments=comments,
             )
-            return {"status": "approved"}
+            return {"status": "approved", "review_status": "approved"}
 
         if decision != "rejected":
             raise ValueError("decision должен быть 'approved' или 'rejected'")
@@ -79,8 +79,21 @@ class PmlaReviewWorkflowService:
         if reject_result["action"] == "regenerated" and reject_result["sections"]:
             await self._auto_regenerate_sections(document_id, reject_result["sections"])
 
+        # Section regeneration uses the generation pipeline, which normally
+        # resets a document to pending_review/needs_review.  A reviewer return
+        # is still a needs-changes decision, so persist that decision last.
+        await self.document_repo.update(
+            document_id,
+            {
+                "status": "needs_changes",
+                "review_status": "needs_changes",
+                "updated_at": datetime.now(UTC).replace(tzinfo=None),
+            },
+        )
+
         return {
-            "status": "rejected",
+            "status": "needs_changes",
+            "review_status": "needs_changes",
             "action": reject_result["action"],
             "regenerated_sections": reject_result["sections"],
             "regeneration_count": reject_result["regeneration_count"],
@@ -110,6 +123,7 @@ class PmlaReviewWorkflowService:
                     else {}
                 ),
                 "status": "pending_review",
+                "review_status": "needs_review",
                 "updated_at": datetime.now(UTC).replace(tzinfo=None),
             },
         )
@@ -117,6 +131,7 @@ class PmlaReviewWorkflowService:
             "document_id": str(document_id),
             "restored_from_version": version.version_number,
             "status": "pending_review",
+            "review_status": "needs_review",
         }
 
     async def run_ai_review(self, document_id: UUID) -> dict:

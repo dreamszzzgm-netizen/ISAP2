@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, relationship
 
 
 class Base(DeclarativeBase):
@@ -33,14 +33,108 @@ class OrganizationModel(Base):
     __tablename__ = "organizations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    # --- Базовые поля (обратная совместимость) ---
     name = Column(String(500), nullable=False)
     inn = Column(String(20), nullable=False)
     ogrn = Column(String(20))
     address = Column(String(500))
     phone = Column(String(50))
     email = Column(String(200))
+    # --- Новые поля карточки организации ---
+    org_type = Column(String(20), default="legal")  # legal | individual
+    full_name = Column(String(1000))                  # полное наименование юрлица
+    short_name = Column(String(500))                  # сокращённое наименование
+    legal_address = Column(String(500))               # юридический/регистрационный адрес
+    actual_address = Column(String(500))              # фактический адрес
+    postal_address = Column(String(500))              # почтовый адрес
+    phone_additional = Column(String(50))             # дополнительный телефон
+    phone_mobile = Column(String(50))                 # мобильный телефон
+    fax = Column(String(50))                          # факс
+    website = Column(String(500))                     # сайт
+    kpp = Column(String(20))                          # КПП (для юрлиц)
+    ogrnip = Column(String(20))                       # ОГРНИП (для ИП)
+    okpo = Column(String(20))                         # ОКПО
+    # --- Руководитель (для юрлица) ---
+    director_full_name = Column(String(300))
+    director_position = Column(String(300))
+    director_phone = Column(String(50))
+    director_email = Column(String(200))
+    # --- ИП (фамилия, имя, отчество) ---
+    ip_last_name = Column(String(100))
+    ip_first_name = Column(String(100))
+    ip_middle_name = Column(String(100))
+    # --- Связи (relationships) ---
+    bank_accounts = relationship("BankAccountModel", back_populates="organization", lazy="selectin")
+    okved_codes = relationship("OkvedCodeModel", back_populates="organization", lazy="selectin")
+    licenses = relationship("LicenseModel", back_populates="organization", lazy="selectin")
+    # --- Служебные поля ---
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class BankAccountModel(Base):
+    """Банковские счета организации."""
+    __tablename__ = "bank_accounts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_number = Column(String(34), nullable=False)
+    bank_name = Column(String(500))
+    bank_bik = Column(String(20))
+    bank_corr_account = Column(String(34))
+    currency = Column(String(3), default="RUB")
+    is_primary = Column(SmallInteger, default=0)
+    notes = Column(String(500))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    # Relationship
+    organization = relationship("OrganizationModel", back_populates="bank_accounts")
+
+
+class OkvedCodeModel(Base):
+    """Коды ОКВЭД организации."""
+    __tablename__ = "okved_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(20), nullable=False)
+    description = Column(String(1000))
+    is_primary = Column(SmallInteger, default=0)
+    created_at = Column(DateTime, default=_now)
+    # Relationship
+    organization = relationship("OrganizationModel", back_populates="okved_codes")
+
+
+class LicenseModel(Base):
+    """Лицензии организации.
+
+    Согласованные поля: вид деятельности, номер, дата выдачи, статус, файл.
+    Поле notes и срок действия исключены как несогласованные.
+    file_path — это storage_key (относительный путь внутри upload_root/licenses),
+    никогда не возвращается клиенту напрямую.
+
+    При удалении организации лицензии удаляются каскадно (CASCADE).
+    Файл на диске не удаляется — это ожидаемое поведение: orphan-файлы
+    периодически зачищаются фоновой задачей.
+    """
+    __tablename__ = "licenses"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    activity_type = Column(String(500), nullable=False)   # вид деятельности
+    license_number = Column(String(100), nullable=False)  # номер лицензии
+    issue_date = Column(Date)                              # дата выдачи
+    status = Column(String(50), default="active")         # статус
+    # Файл (storage_key — относительный путь внутри licenses/, не возвращается клиенту)
+    file_path = Column(String(1000))
+    file_name = Column(String(500))
+    file_size = Column(Integer)
+    mime_type = Column(String(100))
+    checksum_sha256 = Column(String(64))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    # Relationship
+    organization = relationship("OrganizationModel", back_populates="licenses")
 
 
 class HazardousFacilityModel(Base):
@@ -58,6 +152,13 @@ class HazardousFacilityModel(Base):
     commissioning_date = Column(Date)
     inventory_number = Column(String(100))
     properties = Column(JSONB, default=dict)
+    # --- ОПО card fields (feature/opo-card-backend) ---
+    opo_full_name = Column(String(500))           # полное наименование ОПО
+    classification = Column(JSONB, default=list)   # признаки классификации 4.1–4.12
+    work_processes = Column(JSONB, default=dict)   # процессы и работы 2.1–2.6
+    licensed_activities = Column(JSONB, default=list)  # лицензируемые виды деятельности
+    composition_structures = Column(JSONB, default=list) # здания, сооружения, площадки
+    nearby_hazardous = Column(JSONB, default=list) # опасные вещества на других ОПО ближе 500м
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
@@ -242,6 +343,9 @@ class EmergencyRescueUnitModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     name = Column(String(500), nullable=False)
     short_name = Column(String(200))
+    organization_type = Column(String(100))
+    director_name = Column(String(300))
+    director_position = Column(String(300))
     legal_address = Column(String(500))
     actual_address = Column(String(500))
     dispatch_phone = Column(String(100))
@@ -250,13 +354,45 @@ class EmergencyRescueUnitModel(Base):
     certificate_number = Column(String(100))
     certificate_date = Column(String(50))
     certificate_valid_until = Column(String(50))
+    agreement_date = Column(String(50))
     permitted_work_types = Column(JSONB, default=list)
     equipment_passport = Column(JSONB, default=list)
     staff_count = Column(String(50))
     readiness_mode = Column(String(200))
     service_area = Column(String(500))
+    region = Column(String(200))
+    is_active = Column(SmallInteger, default=1)
     notes = Column(Text)
     source_import_job_id = Column(UUID(as_uuid=True), ForeignKey("import_jobs.id"))
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class PasfDocumentModel(Base):
+    """Документ ПАСФ: свидетельство, паспорт АСФ, договор, лицензия."""
+    __tablename__ = "pasf_documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    pasf_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("emergency_rescue_units.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_type = Column(String(50), nullable=False, default="certificate")
+    document_number = Column(String(200))
+    title = Column(String(500))
+    issued_at = Column(Date)
+    valid_until = Column(Date, index=True)
+    file_path = Column(String(1000))
+    file_name = Column(String(500))
+    file_size = Column(Integer)
+    mime_type = Column(String(100))
+    checksum_sha256 = Column(String(64))
+    status = Column(String(20), default="active")
+    verified_at = Column(DateTime)
+    verified_by = Column(String(200))
+    notes = Column(Text)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
@@ -271,11 +407,15 @@ class EmergencyServiceModel(Base):
     address = Column(String(500))
     phone = Column(String(100))
     dispatcher_phone = Column(String(100))
+    additional_phone = Column(String(100))
     municipality = Column(String(200))
     settlement = Column(String(200))
     latitude = Column(String(50))
     longitude = Column(String(50))
     service_area = Column(String(500))
+    region = Column(String(200))
+    is_active = Column(SmallInteger, default=1)
+    verified_at = Column(String(50))
     notes = Column(Text)
     source_import_job_id = Column(UUID(as_uuid=True), ForeignKey("import_jobs.id"))
     created_at = Column(DateTime, default=_now)

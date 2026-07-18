@@ -4,11 +4,17 @@ export type ApiErrorPayload = {
   error?: string
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || ""
 
+function toApiUrl(path: string): string {
+  if (path.startsWith("http")) {
+    return path
+  }
+  return path
+}
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`
+  const url = toApiUrl(path)
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -39,7 +45,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 export async function apiUpload<T>(path: string, file: File): Promise<T> {
   const form = new FormData()
   form.append("file", file)
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(toApiUrl(path), {
     method: "POST",
     headers: {
       ...(API_KEY ? { Authorization: `Bearer ${API_KEY}`, "X-API-Key": API_KEY } : {}),
@@ -90,15 +96,33 @@ export type PmlaQualityReview = {
 }
 
 export type PmlaGenerationResult = {
-  document_id: string
-  questionnaire_id: string
-  facility_id: string
+  // Успешная генерация (status: pending_review)
+  document_id?: string
+  questionnaire_id?: string
+  facility_id?: string
   status: string
   version?: number
   source?: string
   context_quality?: Record<string, unknown>
   quality_review?: PmlaQualityReview | null
   debug_artifacts?: Record<string, string> | null
+  // Заблокировано preflight (status: "blocked")
+  reason?: string
+  preflight?: Record<string, unknown>
+  provenance?: Record<string, unknown>
+}
+
+export type PmlaPreflightResult = {
+  questionnaire_id: string
+  facility_id: string
+  generation_mode: "draft" | "final"
+  generation_blocked: boolean
+  preflight: {
+    status?: string
+    issues?: Array<{ code?: string; message?: string; severity?: string }>
+    missing_fields?: string[]
+    has_blockers?: boolean
+  }
 }
 
 export type PmlaDocumentListItem = {
@@ -129,12 +153,161 @@ export type ImportPreviewResult = {
   header_mapping?: Record<string, string>
 }
 
+// ── Organization types ──────────────────────────────────────────────────────
+
+export type OrgType = "legal" | "individual";
+
+export type Organization = {
+  id: string;
+  name: string;
+  inn: string;
+  ogrn: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  org_type: OrgType | null;
+  full_name: string | null;
+  short_name: string | null;
+  legal_address: string | null;
+  actual_address: string | null;
+  postal_address: string | null;
+  phone_additional: string | null;
+  phone_mobile: string | null;
+  fax: string | null;
+  website: string | null;
+  kpp: string | null;
+  ogrnip: string | null;
+  okpo: string | null;
+  director_full_name: string | null;
+  director_position: string | null;
+  director_phone: string | null;
+  director_email: string | null;
+  ip_last_name: string | null;
+  ip_first_name: string | null;
+  ip_middle_name: string | null;
+};
+
+export type BankAccount = {
+  id: string;
+  organization_id: string;
+  account_number: string;
+  bank_name: string | null;
+  bank_bik: string | null;
+  bank_corr_account: string | null;
+  is_primary: boolean;
+  notes: string | null;
+};
+
+export type OkvedCode = {
+  id: string;
+  organization_id: string;
+  code: string;
+  is_primary: boolean;
+};
+
+export type License = {
+  id: string;
+  organization_id: string;
+  activity_type: string;
+  license_number: string;
+  issue_date: string | null;
+  status: string;
+  file_name: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  checksum_sha256: string | null;
+  has_file: boolean;
+};
+
+export type OrganizationDetail = Organization & {
+  bank_accounts: BankAccount[];
+  okved_codes: OkvedCode[];
+  licenses: License[];
+};
+
 /** PMLA template version selector */
 export type PmlaTemplateVersion = "v1" | "v2";
 
 export const isapApi = {
   health: () => apiRequest<{ status: string }>("/health"),
-  organizations: () => apiRequest<unknown[]>("/api/v1/organizations/"),
+
+  // ── Organizations ──
+  organizations: () => apiRequest<Organization[]>("/api/v1/organizations/"),
+  createOrganization: (data: Record<string, unknown>) =>
+    apiRequest<Organization>("/api/v1/organizations/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getOrganization: (id: string) =>
+    apiRequest<Organization>(`/api/v1/organizations/${id}`),
+  updateOrganization: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Organization>(`/api/v1/organizations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteOrganization: (id: string) =>
+    apiRequest<void>(`/api/v1/organizations/${id}`, { method: "DELETE" }),
+  getOrganizationDetail: (id: string) =>
+    apiRequest<OrganizationDetail>(`/api/v1/organizations/${id}/detail`),
+
+  // ── Bank accounts ──
+  listBankAccounts: (orgId: string) =>
+    apiRequest<BankAccount[]>(`/api/v1/organizations/${orgId}/bank-accounts`),
+  createBankAccount: (orgId: string, data: Record<string, unknown>) =>
+    apiRequest<BankAccount>(`/api/v1/organizations/${orgId}/bank-accounts`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateBankAccount: (orgId: string, accountId: string, data: Record<string, unknown>) =>
+    apiRequest<BankAccount>(`/api/v1/organizations/${orgId}/bank-accounts/${accountId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteBankAccount: (orgId: string, accountId: string) =>
+    apiRequest<void>(`/api/v1/organizations/${orgId}/bank-accounts/${accountId}`, { method: "DELETE" }),
+
+  // ── OKVED codes ──
+  listOkvedCodes: (orgId: string) =>
+    apiRequest<OkvedCode[]>(`/api/v1/organizations/${orgId}/okved-codes`),
+  createOkvedCode: (orgId: string, data: Record<string, unknown>) =>
+    apiRequest<OkvedCode>(`/api/v1/organizations/${orgId}/okved-codes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateOkvedCode: (orgId: string, codeId: string, data: Record<string, unknown>) =>
+    apiRequest<OkvedCode>(`/api/v1/organizations/${orgId}/okved-codes/${codeId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteOkvedCode: (orgId: string, codeId: string) =>
+    apiRequest<void>(`/api/v1/organizations/${orgId}/okved-codes/${codeId}`, { method: "DELETE" }),
+
+  // ── Licenses ──
+  listLicenses: (orgId: string) =>
+    apiRequest<License[]>(`/api/v1/organizations/${orgId}/licenses`),
+  getLicense: (orgId: string, licenseId: string) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}`),
+  createLicense: (orgId: string, data: Record<string, unknown>) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateLicense: (orgId: string, licenseId: string, data: Record<string, unknown>) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteLicense: (orgId: string, licenseId: string) =>
+    apiRequest<void>(`/api/v1/organizations/${orgId}/licenses/${licenseId}`, { method: "DELETE" }),
+  uploadLicenseFile: (orgId: string, licenseId: string, file: File) =>
+    apiUpload<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}/file`, file),
+  deleteLicenseFile: (orgId: string, licenseId: string) =>
+    apiRequest<License>(`/api/v1/organizations/${orgId}/licenses/${licenseId}/file`, { method: "DELETE" }),
+  getLicenseDownloadUrl: (orgId: string, licenseId: string): string => {
+    const path = `/api/v1/organizations/${orgId}/licenses/${licenseId}/download`;
+    const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+    return `${path}${API_KEY ? `?api_key=${API_KEY}` : ""}`;
+  },
 
   // ── Facilities / ОПО ──
   facilities: () => apiRequest<Record<string, unknown>[]>("/api/v1/facilities/"),
@@ -154,6 +327,40 @@ export const isapApi = {
     apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}`),
   getFacilityFull: (id: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}/full`),
+  getFacilityComposition: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/facilities/${id}/composition`),
+
+  // ── Equipment / Оборудование ОПО ──
+  equipment: (facilityId: string) =>
+    apiRequest<Record<string, unknown>[]>(`/api/v1/equipment/?hazardous_facility_id=${facilityId}`),
+  createEquipment: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/equipment/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateEquipment: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/equipment/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteEquipment: (id: string) =>
+    apiRequest<unknown>(`/api/v1/equipment/${id}`, { method: "DELETE" }),
+
+  // ── Substances / Опасные вещества ОПО ──
+  substances: (facilityId: string) =>
+    apiRequest<Record<string, unknown>[]>(`/api/v1/substances/?hazardous_facility_id=${facilityId}`),
+  createSubstance: (data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>("/api/v1/substances/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateSubstance: (id: string, data: Record<string, unknown>) =>
+    apiRequest<Record<string, unknown>>(`/api/v1/substances/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteSubstance: (id: string) =>
+    apiRequest<unknown>(`/api/v1/substances/${id}`, { method: "DELETE" }),
   pmlaDocuments: () => apiRequest<unknown[]>("/api/v1/pmla/"),
   pmlaExpiring: (days = 30) => apiRequest<unknown[]>(`/api/v1/pmla/expiring?days=${days}`),
   aiConfig: () => apiRequest<Record<string, unknown>>("/api/v1/ai/config"),
@@ -181,6 +388,10 @@ export const isapApi = {
     }),
   getPmlaQuestionnaireContext: (questionnaireId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/pmla-questionnaires/${questionnaireId}/context`),
+  preflightPmlaQuestionnaire: (questionnaireId: string) =>
+    apiRequest<PmlaPreflightResult>(`/api/v1/pmla-questionnaires/${questionnaireId}/preflight?generation_mode=final`, {
+      method: "POST",
+    }),
   generatePmlaFromQuestionnaire: (
     questionnaireId: string,
     options: { template_version?: PmlaTemplateVersion; regenerate_sections?: string[] | null; save_debug_artifacts?: boolean } = {},
@@ -194,9 +405,9 @@ export const isapApi = {
   confirmImportJob: (jobId: string) =>
     apiRequest<Record<string, unknown>>(`/api/v1/imports/jobs/${jobId}/confirm`, { method: "POST" }),
   downloadPmlaDocument: (documentId: string): string =>
-    `${API_BASE_URL}/api/v1/pmla/${documentId}/download${API_KEY ? `?api_key=${API_KEY}` : ""}`,
+    `${toApiUrl(`/api/v1/pmla/${documentId}/download`)}${API_KEY ? `?api_key=${API_KEY}` : ""}`,
   downloadPmlaDocumentBlob: async (documentId: string): Promise<Blob> => {
-    const url = `${API_BASE_URL}/api/v1/pmla/${documentId}/download`
+    const url = toApiUrl(`/api/v1/pmla/${documentId}/download`)
     const response = await fetch(url, {
       headers: {
         ...(API_KEY ? { Authorization: `Bearer ${API_KEY}`, "X-API-Key": API_KEY } : {}),
@@ -243,9 +454,9 @@ export const isapApi = {
 
   // Directories: ПАСФ
   getPasfUnits: (search?: string) =>
-    apiRequest<Record<string, unknown>[]>(`/api/v1/directories/pasf${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+    apiRequest<Record<string, unknown>[]>(`/api/v1/directories/pasf/${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   createPasfUnit: (data: Record<string, unknown>) =>
-    apiRequest<Record<string, unknown>>("/api/v1/directories/pasf", { method: "POST", body: JSON.stringify(data) }),
+    apiRequest<Record<string, unknown>>("/api/v1/directories/pasf/", { method: "POST", body: JSON.stringify(data) }),
   updatePasfUnit: (id: string, data: Record<string, unknown>) =>
     apiRequest<Record<string, unknown>>(`/api/v1/directories/pasf/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deletePasfUnit: (id: string) =>
@@ -257,10 +468,10 @@ export const isapApi = {
     if (params?.search) q.set("search", params.search)
     if (params?.service_type) q.set("service_type", params.service_type)
     const qs = q.toString()
-    return apiRequest<Record<string, unknown>[]>(`/api/v1/directories/emergency-services${qs ? `?${qs}` : ""}`)
+    return apiRequest<Record<string, unknown>[]>(`/api/v1/directories/emergency-services/${qs ? `?${qs}` : ""}`)
   },
   createEmergencyService: (data: Record<string, unknown>) =>
-    apiRequest<Record<string, unknown>>("/api/v1/directories/emergency-services", { method: "POST", body: JSON.stringify(data) }),
+    apiRequest<Record<string, unknown>>("/api/v1/directories/emergency-services/", { method: "POST", body: JSON.stringify(data) }),
   updateEmergencyService: (id: string, data: Record<string, unknown>) =>
     apiRequest<Record<string, unknown>>(`/api/v1/directories/emergency-services/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteEmergencyService: (id: string) =>

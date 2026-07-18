@@ -30,7 +30,18 @@ class FakeModel:
 
 
 def fake_org(**kw):
-    defaults = {"id": uuid.uuid4(), "name": "ТестОрг", "inn": "1234567890", "ogrn": None, "address": "г. Тест", "phone": "+79990001122", "email": "t@t.ru"}
+    defaults = {
+        "id": uuid.uuid4(), "name": "ТестОрг", "inn": "1234567890",
+        "ogrn": None, "address": "г. Тест", "phone": "+79990001122", "email": "t@t.ru",
+        # Новые поля карточки организации
+        "org_type": "legal", "full_name": "ТестОрг", "short_name": "ТестОрг",
+        "legal_address": "г. Тест", "actual_address": None, "postal_address": None,
+        "phone_additional": None, "phone_mobile": None, "fax": None, "website": None,
+        "kpp": None, "ogrnip": None, "okpo": None,
+        "director_full_name": None, "director_position": None,
+        "director_phone": None, "director_email": None,
+        "ip_last_name": None, "ip_first_name": None, "ip_middle_name": None,
+    }
     defaults.update(kw)
     return FakeModel(**defaults)
 
