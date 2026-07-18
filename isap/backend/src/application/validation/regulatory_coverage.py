@@ -163,10 +163,10 @@ REGULATORY_REQUIREMENTS: list[RegulatoryRequirement] = [
     RegulatoryRequirement(
         id="PP1437-11-c",
         description="Достаточность сил и средств для локализации и ликвидации аварий",
-        context_key="material_reserve, countermeasures",
+        context_key="material_reserve_actual, material_reserve_recommended, countermeasures",
         section="Раздел 4 — Силы и средства для локализации и ликвидации",
         required=True,
-        check=lambda ctx: _check_any_nonempty_list(ctx, ["material_reserve", "countermeasures"]),
+        check=lambda ctx: _check_any_nonempty_list(ctx, ["material_reserve_actual", "material_reserve_recommended", "countermeasures"]),
     ),
 
     # --- d) Interaction with PASF and emergency services ---
@@ -233,10 +233,10 @@ REGULATORY_REQUIREMENTS: list[RegulatoryRequirement] = [
     RegulatoryRequirement(
         id="PP1437-11-j",
         description="Действия персонала и АСФ по локализации и ликвидации аварий",
-        context_key="countermeasures, material_reserve",
+        context_key="countermeasures, material_reserve_actual, material_reserve_recommended",
         section="Раздел 8 — Действия по локализации и ликвидации",
         required=True,
-        check=lambda ctx: _check_any_nonempty_list(ctx, ["countermeasures", "material_reserve"]),
+        check=lambda ctx: _check_any_nonempty_list(ctx, ["countermeasures", "material_reserve_actual", "material_reserve_recommended"]),
     ),
 
     # --- k) Public safety ---
@@ -253,10 +253,10 @@ REGULATORY_REQUIREMENTS: list[RegulatoryRequirement] = [
     RegulatoryRequirement(
         id="PP1437-11-l",
         description="Материально-техническое, инженерное и финансовое обеспечение",
-        context_key="material_reserve",
+        context_key="material_reserve_actual, material_reserve_recommended",
         section="Раздел 10 — Обеспечение",
         required=True,
-        check=lambda ctx: _check_any_nonempty_list(ctx, ["material_reserve"]),
+        check=lambda ctx: _check_any_nonempty_list(ctx, ["material_reserve_actual", "material_reserve_recommended"]),
     ),
 
     # --- General section ---

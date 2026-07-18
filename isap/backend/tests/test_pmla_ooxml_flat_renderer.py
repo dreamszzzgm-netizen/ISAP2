@@ -425,13 +425,9 @@ class TestValidation:
 # 6b. Public API extras
 # ---------------------------------------------------------------------------
 class TestPublicApiExtras:
-    def test_render_to_file_writes_valid_docx(self, renderer):
-        """``render_to_file`` must write a valid ZIP/DOCX to disk. Uses the
-        local pytest tmp dir (conftest sets TMPDIR) to avoid Windows system
-        temp permission errors."""
-        out_dir = REPO_ROOT / "backend" / ".pytest_tmp"
-        out_dir.mkdir(exist_ok=True)
-        out_path = out_dir / "flat_renderer_out.docx"
+    def test_render_to_file_writes_valid_docx(self, renderer, tmp_path):
+        """``render_to_file`` must write a valid ZIP/DOCX to disk."""
+        out_path = tmp_path / "flat_renderer_out.docx"
         try:
             result = renderer.render_to_file(_full_context(), out_path)
             assert result.exists()
@@ -449,7 +445,7 @@ class TestPublicApiExtras:
         assert isinstance(r, PmlaOoxmlFlatRenderer)
         assert r.template_path.exists()
 
-    def test_forbidden_jinja_raises(self):
+    def test_forbidden_jinja_raises(self, tmp_path):
         """A template containing an unsupported Jinja construct (``{% if %}``)
         must be rejected. We build a minimal DOCX so we don't touch the real
         template."""
@@ -467,9 +463,7 @@ class TestPublicApiExtras:
             'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
             '</Types>'
         )
-        out_dir = REPO_ROOT / "backend" / ".pytest_tmp"
-        out_dir.mkdir(exist_ok=True)
-        tpl = out_dir / "bad_template.docx"
+        tpl = tmp_path / "bad_template.docx"
         try:
             with zipfile.ZipFile(tpl, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr("[Content_Types].xml", ct_xml)
@@ -713,7 +707,7 @@ class TestDefectFixes:
         assert b"&amp;amp;" not in raw
         assert b"&amp;gt;" not in raw
 
-    def test_loop_with_no_data_row_removes_control(self):
+    def test_loop_with_no_data_row_removes_control(self, tmp_path):
         """A ``{%tr for %}`` control row with no following ``{{ var. }}``
         sibling (malformed template) must not crash: the control row is
         removed and the render completes. Covers the ``data_row is None``
@@ -737,9 +731,7 @@ class TestDefectFixes:
             'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
             '</Types>'
         )
-        out_dir = REPO_ROOT / "backend" / ".pytest_tmp"
-        out_dir.mkdir(exist_ok=True)
-        tpl = out_dir / "no_data_row.docx"
+        tpl = tmp_path / "no_data_row.docx"
         try:
             with zipfile.ZipFile(tpl, "w", zipfile.ZIP_DEFLATED) as z:
                 z.writestr("[Content_Types].xml", ct_xml)
