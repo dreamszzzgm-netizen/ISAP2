@@ -152,6 +152,13 @@ class HazardousFacilityModel(Base):
     commissioning_date = Column(Date)
     inventory_number = Column(String(100))
     properties = Column(JSONB, default=dict)
+    # --- ОПО card fields (feature/opo-card-backend) ---
+    opo_full_name = Column(String(500))           # полное наименование ОПО
+    classification = Column(JSONB, default=list)   # признаки классификации 4.1–4.12
+    work_processes = Column(JSONB, default=dict)   # процессы и работы 2.1–2.6
+    licensed_activities = Column(JSONB, default=list)  # лицензируемые виды деятельности
+    composition_structures = Column(JSONB, default=list) # здания, сооружения, площадки
+    nearby_hazardous = Column(JSONB, default=list) # опасные вещества на других ОПО ближе 500м
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 

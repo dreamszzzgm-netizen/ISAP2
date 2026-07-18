@@ -177,9 +177,11 @@ class PmlaContextBuilder:
             ctx.add_provenance("organization.address", "organization", str(org.id), "address")
 
         # Facility
+        # opo_full_name has priority; name is fallback for old records
+        facility_name = getattr(facility, "opo_full_name", None) or facility.name or ""
         ctx.facility = {
             "id": str(facility.id),
-            "name": facility.name or "",
+            "name": facility_name,
             "reg_number": facility.reg_number or "",
             "hazard_class": facility.hazard_class,
             "facility_type": facility.facility_type or "",
@@ -191,6 +193,13 @@ class PmlaContextBuilder:
             ),
             "inventory_number": facility.inventory_number,
             "properties": facility.properties or {},
+            # --- ОПО card fields ---
+            "opo_full_name": facility.opo_full_name or "",
+            "classification": facility.classification or [],
+            "work_processes": facility.work_processes or {},
+            "licensed_activities": facility.licensed_activities or [],
+            "composition_structures": facility.composition_structures or [],
+            "nearby_hazardous": facility.nearby_hazardous or [],
         }
         ctx.add_provenance("facility.name", "facility", str(facility.id), "name")
         ctx.add_provenance("facility.reg_number", "facility", str(facility.id), "reg_number")
