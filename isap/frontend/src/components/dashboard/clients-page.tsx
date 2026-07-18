@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/tabs"
 import { SmartImport } from "@/components/dashboard/smart-import"
 import { toast } from "sonner"
-import { apiRequest } from "@/lib/api-client"
+import { isapApi } from "@/lib/api-client"
 import { useNavStore } from "@/lib/nav-store"
 
 type CounterpartyType = "legal" | "ip"
@@ -213,19 +213,19 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | undefined>(undefined)
   const [loading, setLoading] = useState(true)
-  const { openOpoForOrganization } = useNavStore()
+  const { openOpoForOrganization, openOrganizationDetail } = useNavStore()
 
   const fetchClients = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await apiRequest<unknown[]>("/api/v1/organizations/")
-      const mapped: Client[] = data.map((o: any) => ({
+      const data = await isapApi.organizations()
+      const mapped: Client[] = data.map((o) => ({
         id: o.id,
         name: o.name,
-        type: "legal" as CounterpartyType,
+        type: o.org_type === "individual" ? "ip" as CounterpartyType : "legal" as CounterpartyType,
         inn: o.inn || "",
-        ogrn: o.ogrn || "",
-        address: o.address || "",
+        ogrn: o.ogrn || o.ogrnip || "",
+        address: o.legal_address || o.address || "",
         phone: o.phone || "",
         email: o.email || "",
       }))
@@ -244,6 +244,10 @@ export function ClientsPage() {
     setOpen(true)
   }
 
+  const openCardDetail = (client: Client) => {
+    openOrganizationDetail(client.id)
+  }
+
   const filtered = clients.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.inn.includes(search)
@@ -252,16 +256,10 @@ export function ClientsPage() {
   const handleSave = async (data: Partial<Client>) => {
     try {
       if (editingClient) {
-        await apiRequest(`/api/v1/organizations/${editingClient.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ name: data.name, inn: data.inn, ogrn: data.ogrn, address: data.address, phone: data.phone, email: data.email }),
-        })
+        await isapApi.updateOrganization(editingClient.id, { name: data.name, inn: data.inn, ogrn: data.ogrn, address: data.address, phone: data.phone, email: data.email })
         toast.success("Организация обновлена")
       } else {
-        await apiRequest("/api/v1/organizations/", {
-          method: "POST",
-          body: JSON.stringify({ name: data.name, inn: data.inn || "", ogrn: data.ogrn, address: data.address, phone: data.phone, email: data.email }),
-        })
+        await isapApi.createOrganization({ name: data.name || "", inn: data.inn || "", ogrn: data.ogrn, address: data.address, phone: data.phone, email: data.email })
         toast.success("Организация создана")
       }
       await fetchClients()
@@ -274,7 +272,7 @@ export function ClientsPage() {
 
   const handleDelete = async (client: Client) => {
     try {
-      await apiRequest(`/api/v1/organizations/${client.id}`, { method: "DELETE" })
+      await isapApi.deleteOrganization(client.id)
       toast.success("Организация удалена", { description: client.name })
       await fetchClients()
     } catch (err: any) {
@@ -353,6 +351,7 @@ export function ClientsPage() {
                   <TableCell className="hidden md:table-cell text-muted-foreground">{client.phone}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openCardDetail(client) }}>Карточка</Button>
                       <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openCard(client) }}>Открыть</Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(client) }}>
                         <Trash2 className="h-3.5 w-3.5" />

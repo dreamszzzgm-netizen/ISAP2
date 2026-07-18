@@ -6,6 +6,12 @@ This service orchestrates data loading from:
 3. Geoservice / emergency services directory
 
 The result is a fully populated PmlaGenerationContext with provenance entries.
+
+Compatibility mapping:
+    _build_organization_dict() is the single source of truth for mapping
+    OrganizationModel columns → generation context dict. All code paths
+    (context builder, questionnaire service, generation service) MUST
+    use this function to avoid duplication.
 """
 from __future__ import annotations
 
@@ -27,6 +33,67 @@ from src.infrastructure.database.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ── Shared compatibility mapper ───────────────────────────────────────────────
+# Единое место для маппинга OrganizationModel → dict generation context.
+# Все три пути (_from_db_fallback, questionnaire_service, generation_service)
+# вызывают эту функцию, а не дублируют 21 строку каждая.
+
+def build_organization_dict(org: OrganizationModel | None) -> dict[str, Any]:
+    """Map an OrganizationModel ORM instance to a flat dict for generation context.
+
+    Old fields (name, inn, ogrn, address, phone, email) are kept for
+    backward compatibility.  New fields fall back to corresponding old
+    values when not set — this ensures a pre-migration org without
+    new columns still populates the PMLA context correctly.
+
+    Fallback chain:
+        full_name       → name
+        short_name      → name
+        legal_address   → address
+        phone           → phone  (same column, no fallback needed)
+        email           → email  (same column, no fallback needed)
+    """
+    if org is None:
+        return {}
+
+    def _or(v, fallback: str) -> str:
+        return v if v else fallback
+
+    return {
+        # Old fields (unchanged, backward compat)
+        "id": str(org.id),
+        "name": org.name or "",
+        "inn": org.inn or "",
+        "ogrn": org.ogrn or "",
+        "address": org.address or "",
+        "phone": org.phone or "",
+        "email": org.email or "",
+        # New fields with fallback to old
+        "org_type": org.org_type or "legal",
+        "full_name": _or(org.full_name, org.name),
+        "short_name": _or(org.short_name, org.name),
+        "legal_address": _or(org.legal_address, org.address),
+        "actual_address": org.actual_address or "",
+        "postal_address": org.postal_address or "",
+        "phone_additional": org.phone_additional or "",
+        "phone_mobile": org.phone_mobile or "",
+        "fax": org.fax or "",
+        "website": org.website or "",
+        "kpp": org.kpp or "",
+        "ogrnip": org.ogrnip or "",
+        "okpo": org.okpo or "",
+        # Director (legal entity)
+        "director_full_name": org.director_full_name or "",
+        "director_position": org.director_position or "",
+        "director_phone": org.director_phone or "",
+        "director_email": org.director_email or "",
+        # Individual entrepreneur
+        "ip_last_name": org.ip_last_name or "",
+        "ip_first_name": org.ip_first_name or "",
+        "ip_middle_name": org.ip_middle_name or "",
+    }
 
 
 class PmlaContextBuilder:
@@ -104,23 +171,17 @@ class PmlaContextBuilder:
 
         # Organization
         if org:
-            ctx.organization = {
-                "id": str(org.id),
-                "name": org.name or "",
-                "inn": org.inn or "",
-                "ogrn": org.ogrn or "",
-                "address": org.address or "",
-                "phone": org.phone or "",
-                "email": org.email or "",
-            }
+            ctx.organization = build_organization_dict(org)
             ctx.add_provenance("organization.name", "organization", str(org.id), "name")
             ctx.add_provenance("organization.inn", "organization", str(org.id), "inn")
             ctx.add_provenance("organization.address", "organization", str(org.id), "address")
 
         # Facility
+        # opo_full_name has priority; name is fallback for old records
+        facility_name = getattr(facility, "opo_full_name", None) or facility.name or ""
         ctx.facility = {
             "id": str(facility.id),
-            "name": facility.name or "",
+            "name": facility_name,
             "reg_number": facility.reg_number or "",
             "hazard_class": facility.hazard_class,
             "facility_type": facility.facility_type or "",
@@ -131,6 +192,14 @@ class PmlaContextBuilder:
                 facility.commissioning_date.isoformat() if facility.commissioning_date else None
             ),
             "inventory_number": facility.inventory_number,
+            "properties": facility.properties or {},
+            # --- ОПО card fields ---
+            "opo_full_name": facility.opo_full_name or "",
+            "classification": facility.classification or [],
+            "work_processes": facility.work_processes or {},
+            "licensed_activities": facility.licensed_activities or [],
+            "composition_structures": facility.composition_structures or [],
+            "nearby_hazardous": facility.nearby_hazardous or [],
         }
         ctx.add_provenance("facility.name", "facility", str(facility.id), "name")
         ctx.add_provenance("facility.reg_number", "facility", str(facility.id), "reg_number")
@@ -241,6 +310,19 @@ class PmlaContextBuilder:
         if pasf.get("id"):
             ctx.add_provenance("pasf", "pasf", str(pasf["id"]), "name")
 
+        # PASF documents
+        pasf_docs = raw.get("pasf_documents") or []
+        ctx.attachments = list(pasf_docs)
+        for i, doc in enumerate(pasf_docs):
+            doc_id = doc.get("id", "")
+            if doc_id:
+                ctx.add_provenance(
+                    f"pasf_documents.{i}",
+                    "directory",
+                    str(doc_id),
+                    "pasf_document",
+                )
+
         # Emergency services
         services = raw.get("emergency_services") or []
         if isinstance(services, list):
@@ -268,11 +350,19 @@ class PmlaContextBuilder:
         ctx.questionnaire = dict(qdata)
 
         # Financial reserve
-        fin = qdata.get("financial_reserve") or {}
+        fin = qdata.get("financial_reserve") or raw.get("financial_reserve") or {}
         ctx.financial_reserve = dict(fin)
 
+        fin_insurance = (
+            qdata.get("financial_reserve_insurance")
+            or raw.get("financial_reserve_insurance")
+            or fin.get("insurance")
+            or {}
+        )
+        ctx.financial_reserve_insurance = dict(fin_insurance)
+
         # Insurance
-        ins = qdata.get("insurance") or {}
+        ins = qdata.get("insurance") or raw.get("insurance") or {}
         ctx.insurance = dict(ins)
 
         # Organization resources
@@ -293,9 +383,15 @@ class PmlaContextBuilder:
         incident = qdata.get("incident_history") or raw.get("incident_history") or {}
         ctx.accident_history = dict(incident) if isinstance(incident, dict) else {}
 
-        # Attachments
-        attachments = qdata.get("attachments_checklist") or raw.get("attachments_checklist") or []
-        ctx.attachments = list(attachments)
+        # Attachments checklist (plain list of strings from the questionnaire, e.g.
+        # ["схема расположения ОПО", "договор с ПАСФ", ...]) is NOT the same as
+        # ctx.attachments (PASF document dicts). Keep it in the questionnaire dict
+        # and the raw source so downstream consumers (enhanced_generator,
+        # quality_review, v2 mapper) can read it via context["attachments_checklist"]
+        # without overwriting the PASF document list the preflight validates.
+        attachments_checklist = qdata.get("attachments_checklist") or raw.get("attachments_checklist") or []
+        ctx.questionnaire.setdefault("attachments_checklist", attachments_checklist)
+        ctx._raw_source_context.setdefault("attachments_checklist", attachments_checklist)
 
         # Recommendations from questionnaire service
         recommendations = raw.get("recommendations") or {}

@@ -1,4 +1,5 @@
 """Tests for PASF and Emergency Services directory endpoints."""
+import os
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -148,3 +149,36 @@ class TestDirectoryResponseShape:
         }
         assert item["service_type"] == "fire"
         assert item["name"] == "ПСЧ-1"
+
+
+class TestPasfDocumentPaths:
+    def test_relative_document_path_resolves_inside_upload_root(self):
+        from src.api.routers.directories_pasf import PASF_UPLOAD_ROOT, _resolve_pasf_document_path
+
+        resolved = _resolve_pasf_document_path("pasf_documents/example.pdf")
+
+        assert resolved.startswith(PASF_UPLOAD_ROOT)
+        assert resolved.endswith("pasf_documents\\example.pdf") or resolved.endswith("pasf_documents/example.pdf")
+
+    def test_document_path_cannot_escape_upload_root(self):
+        from fastapi import HTTPException
+
+        from src.api.routers.directories_pasf import _resolve_pasf_document_path
+
+        with pytest.raises(HTTPException):
+            _resolve_pasf_document_path("../escape.pdf")
+
+    def test_upload_filename_traversal_is_confined_to_pasf_documents(self):
+        from src.api.routers.directories_pasf import PASF_DOCUMENTS_UPLOAD_DIR, _build_pasf_upload_paths
+
+        safe_filename, relative_path, absolute_path = _build_pasf_upload_paths(
+            uuid4(),
+            "nested/..\\../escape.pdf",
+            timestamp="20260713_201500",
+        )
+
+        assert safe_filename == "escape.pdf"
+        assert relative_path.startswith("pasf_documents")
+        assert ".." not in relative_path
+        assert os.path.commonpath([PASF_DOCUMENTS_UPLOAD_DIR, absolute_path]) == PASF_DOCUMENTS_UPLOAD_DIR
+        assert os.path.basename(absolute_path).endswith("_escape.pdf")

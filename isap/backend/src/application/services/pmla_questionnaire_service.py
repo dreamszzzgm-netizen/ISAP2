@@ -15,11 +15,14 @@ from src.infrastructure.database.models import (
     HazardousFacilityModel,
     HazardousSubstanceModel,
     OrganizationModel,
+    PasfDocumentModel,
     PmlaQuestionnaireModel,
     ResponsiblePersonModel,
 )
+from src.application.services.pmla_context_builder import build_organization_dict
 
 DEFAULT_QUESTIONNAIRE: dict[str, Any] = {
+    "main_activity": "",
     "incident_history": {
         "has_incidents": None,
         "period": "за период эксплуатации",
@@ -35,6 +38,7 @@ DEFAULT_QUESTIONNAIRE: dict[str, Any] = {
     "selected_scenarios": [],
     "custom_scenarios": [],
     "selected_pasf_id": None,
+    "selected_pasf_document_ids": [],
     "selected_emergency_service_ids": [],
     "organization_resources": {
         "actual_items": [],
@@ -168,6 +172,13 @@ class PmlaQuestionnaireService:
                 "source": "questionnaire_manual",
             }
 
+        # Load PASF documents
+        pasf_documents = []
+        if qdata.get("selected_pasf_document_ids"):
+            pasf_documents = await self._get_pasf_documents(
+                qdata["selected_pasf_document_ids"]
+            )
+
         emergency_services = await self._get_emergency_services(qdata.get("selected_emergency_service_ids") or [])
         manual_services = qdata.get("selected_emergency_services") or []
         if isinstance(manual_services, list):
@@ -175,15 +186,7 @@ class PmlaQuestionnaireService:
         recommendations = self._build_resource_recommendations(facility, substances, qdata)
 
         return {
-            "organization": {
-                "id": str(organization.id),
-                "name": organization.name,
-                "inn": organization.inn,
-                "ogrn": organization.ogrn,
-                "address": organization.address,
-                "phone": organization.phone,
-                "email": organization.email,
-            },
+            "organization": build_organization_dict(organization),
             "facility": {
                 "id": str(facility.id),
                 "name": facility.name,
@@ -195,6 +198,7 @@ class PmlaQuestionnaireService:
                 "latitude": float(facility.latitude) if facility.latitude is not None else None,
                 "longitude": float(facility.longitude) if facility.longitude is not None else None,
                 "inventory_number": facility.inventory_number,
+                "properties": facility.properties or {},
             },
             "equipment": equipment,
             "substances": substances,
@@ -204,6 +208,7 @@ class PmlaQuestionnaireService:
             "selected_scenarios": qdata.get("selected_scenarios") or [],
             "custom_scenarios": qdata.get("custom_scenarios") or [],
             "pasf": pasf,
+            "pasf_documents": pasf_documents,
             "nearest_services": self._group_services(emergency_services),
             "emergency_services": emergency_services,
             "organization_resources": qdata.get("organization_resources"),
@@ -287,6 +292,9 @@ class PmlaQuestionnaireService:
             "id": str(item.id),
             "name": item.name,
             "short_name": item.short_name,
+            "organization_type": item.organization_type,
+            "director_name": item.director_name,
+            "director_position": item.director_position,
             "actual_address": item.actual_address,
             "dispatch_phone": item.dispatch_phone,
             "email": item.email,
@@ -294,11 +302,14 @@ class PmlaQuestionnaireService:
             "certificate_number": item.certificate_number,
             "certificate_date": item.certificate_date,
             "certificate_valid_until": item.certificate_valid_until,
+            "agreement_date": getattr(item, "agreement_date", None),
             "permitted_work_types": item.permitted_work_types or [],
             "equipment_passport": item.equipment_passport or [],
             "staff_count": item.staff_count,
             "readiness_mode": item.readiness_mode,
             "service_area": item.service_area,
+            "region": item.region,
+            "is_active": bool(item.is_active) if item.is_active is not None else True,
         }
 
     async def _get_emergency_services(self, service_ids: list[Any]) -> list[dict[str, Any]]:
@@ -314,11 +325,43 @@ class PmlaQuestionnaireService:
                 "address": item.address,
                 "phone": item.phone,
                 "dispatcher_phone": item.dispatcher_phone,
+                "additional_phone": item.additional_phone,
                 "municipality": item.municipality,
                 "settlement": item.settlement,
                 "latitude": item.latitude,
                 "longitude": item.longitude,
                 "service_area": item.service_area,
+                "region": item.region,
+                "is_active": bool(item.is_active) if item.is_active is not None else True,
+                "verified_at": item.verified_at,
+            }
+            for item in result.scalars().all()
+        ]
+
+    async def _get_pasf_documents(self, document_ids: list[Any]) -> list[dict[str, Any]]:
+        if not document_ids:
+            return []
+        ids = [UUID(str(item)) for item in document_ids]
+        result = await self.session.execute(
+            select(PasfDocumentModel).where(PasfDocumentModel.id.in_(ids))
+        )
+        return [
+            {
+                "id": str(item.id),
+                "pasf_id": str(item.pasf_id),
+                "document_type": item.document_type,
+                "document_number": item.document_number,
+                "title": item.title,
+                "issued_at": item.issued_at.isoformat() if item.issued_at else None,
+                "valid_until": item.valid_until.isoformat() if item.valid_until else None,
+                "file_path": item.file_path,
+                "file_name": item.file_name,
+                "file_size": item.file_size,
+                "mime_type": item.mime_type,
+                "checksum_sha256": item.checksum_sha256,
+                "status": item.status or "active",
+                "verified_at": item.verified_at.isoformat() if item.verified_at else None,
+                "verified_by": item.verified_by,
             }
             for item in result.scalars().all()
         ]

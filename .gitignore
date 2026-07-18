@@ -1,4 +1,4 @@
-﻿# Frontend / Next.js
+# Frontend / Next.js
 isap/frontend/.next/
 isap/frontend/node_modules/
 isap/frontend/out/
@@ -32,3 +32,12 @@ isap/backend/.pytest_tmp/
 # IDE
 .idea/
 .vscode/
+# Local agent/tooling artifacts
+.agents/
+.claude/
+.mimocode/
+graphify-out/
+
+# Windows reserved-name artifacts created by local tools
+[Nn][Uu][Ll]
+[Nn][Uu][Ll].*

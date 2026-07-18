@@ -1,5 +1,6 @@
 """Улучшенный генератор документов ПМЛА."""
 import io
+import logging
 import json
 import re
 from datetime import UTC, datetime
@@ -54,6 +55,8 @@ from src.infrastructure.repositories.regulatory_repo import RegulatoryRepository
 from src.infrastructure.repositories.scenario_matrix_repo import (
     ScenarioMatrixRepository,
 )
+
+logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates"
 CURRENT_TEMPLATE_VERSION = "1.0.0"
@@ -274,11 +277,12 @@ class EnhancedDocumentGenerator:
             enriched["rag_contexts"] = {}
 
         # Манифест приложений: если он ещё не задан явно, синтезируем из
-        # канонических записей реестра (5 приложений) и статуса наличия из
-        # attachments_checklist анкеты.
+        # канонических записей реестра (5 приложений), статуса наличия из
+        # attachments_checklist анкеты и выбранных документов ПАСФ.
         if not enriched.get("appendices_manifest"):
             enriched["appendices_manifest"] = _synthesize_appendices_manifest(
                 enriched.get("attachments_checklist") or [],
+                enriched.get("pasf_documents") or [],
             )
 
         return enriched
@@ -1168,7 +1172,7 @@ def _checklist_matches(checklist: list, keywords: list[str]) -> bool:
     return False
 
 
-def _synthesize_appendices_manifest(checklist: list) -> list[dict]:
+def _synthesize_appendices_manifest(checklist: list, pasf_documents: list | None = None) -> list[dict]:
     """Синтезирует appendices_manifest из реестра приложений + статуса наличия.
 
     Возвращает записи вида::
@@ -1176,6 +1180,10 @@ def _synthesize_appendices_manifest(checklist: list) -> list[dict]:
          "filename": "—", "present": bool, "source": "template"|"file"}
     source="template" означает, что приложение сгенерировано шаблоном и
     всегда присутствует в DOCX. source="file" — ожидается внешний файл.
+
+    Нумерация:
+    1. Канонические шаблонные приложения
+    2. Выбранные документы ПАСФ
     """
     from src.application.services.pmla_assembly_blocks import (
         get_appendix_manifest_entries,
@@ -1185,6 +1193,8 @@ def _synthesize_appendices_manifest(checklist: list) -> list[dict]:
 
     entries = get_appendix_manifest_entries()
     manifest: list[dict] = []
+    appendix_num = 1
+
     for entry in entries:
         sid = entry["section_id"]
         block_def = get_block_def(sid)
@@ -1203,10 +1213,33 @@ def _synthesize_appendices_manifest(checklist: list) -> list[dict]:
             source = "file"
 
         manifest.append({
-            "appendix_number": entry["appendix_number"],
+            "appendix_number": appendix_num,
             "title": entry["title"],
             "filename": "—",
             "present": present,
             "source": source,
         })
+        appendix_num += 1
+
+    # Add PASF documents as file appendices
+    for doc in (pasf_documents or []):
+        if not isinstance(doc, dict):
+            continue
+        doc_type = doc.get("document_type", "other")
+        title = doc.get("title") or doc.get("file_name") or f"Документ {doc_type}"
+        file_name = doc.get("file_name") or "—"
+        manifest.append({
+            "appendix_number": appendix_num,
+            "title": f"{title} ({doc_type})",
+            "filename": file_name,
+            "present": True,
+            "source": "file",
+            "document_type": doc_type,
+            "document_number": doc.get("document_number", ""),
+            "issued_at": doc.get("issued_at", ""),
+            "valid_until": doc.get("valid_until", ""),
+            "checksum": doc.get("checksum_sha256", ""),
+        })
+        appendix_num += 1
+
     return manifest

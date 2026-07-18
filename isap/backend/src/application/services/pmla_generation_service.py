@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from src.application.services.enhanced_generator import EnhancedDocumentGenerator
 from src.application.services.opo_service import OpoService
+from src.application.services.pmla_context_builder import build_organization_dict
 from src.infrastructure.database.models import (
     DocumentModel,
     DocumentVersionModel,
@@ -104,17 +105,18 @@ class PmlaGenerationService:
         facility: Any,
         source_context: dict,
     ) -> dict:
-        """v2 template-based generation path using PmlaTemplateRenderer.
+        """v2 template-based generation path using PmlaOoxmlFlatRenderer.
 
         Steps:
         1. Enrich context with runtime data (emergency services, protective eq)
         2. Map to flat v2 schema format
         3. Validate against schema
         4. Create DocumentModel
-        5. Render DOCX via PmlaTemplateRenderer
+        5. Render DOCX via PmlaOoxmlFlatRenderer (byte-for-byte OOXML copy;
+           preserves graphics, namespaces and relationships of the template)
         6. Save to DB + create version snapshot
         """
-        from src.infrastructure.export.pmla_template_renderer import PmlaTemplateRenderer
+        from src.application.services.pmla_ooxml_flat_renderer import PmlaOoxmlFlatRenderer
         from src.application.services.pmla_v2_context_mapper import (
             map_to_v2_context,
             validate_v2_context,
@@ -140,7 +142,7 @@ class PmlaGenerationService:
 
         try:
             # 5. Render DOCX via v2 template
-            renderer = PmlaTemplateRenderer()
+            renderer = PmlaOoxmlFlatRenderer()
             docx_bytes = renderer.render(v2_context)
 
             # 6. Save to DB
@@ -149,6 +151,7 @@ class PmlaGenerationService:
             doc.generation_meta = {
                 "source": "pmla_v2_template",
                 "template_version": "v2",
+                "generation_pipeline": "pmla_ooxml_flat_renderer",
                 "facility_id": str(facility.id),
                 "context_keys": list(v2_context.keys()),
             }
@@ -265,13 +268,7 @@ class PmlaGenerationService:
         persons = list(persons_result.scalars().all())
 
         return {
-            "organization": {
-                "name": org.name if org else "",
-                "inn": org.inn if org else "",
-                "address": org.address if org else "",
-                "phone": org.phone if org else "",
-                "email": org.email if org else "",
-            } if org else {},
+            "organization": build_organization_dict(org),
             "facility": {
                 "name": facility.name,
                 "facility_type": facility.facility_type,

@@ -23,6 +23,7 @@ import { PmlaQuestionnairePage } from "@/components/dashboard/pmla-questionnaire
 import { DocumentDetailPage } from "@/components/dashboard/document-detail-page"
 import { FacilityDetailPage } from "@/components/dashboard/facility-detail-page"
 import { AiPage } from "@/components/dashboard/ai-page"
+import { OrganizationPage } from "@/components/dashboard/organization-page"
 import { kpiData } from "@/lib/analytics-data"
 import { useNavStore, type PageKey } from "@/lib/nav-store"
 import { Settings, HelpCircle } from "lucide-react"
@@ -80,6 +81,7 @@ const PAGE_TITLES: Record<PageKey, { title: string; description: string }> = {
   analytics: { title: "Аналитика", description: "Детальная аналитика и отчёты" },
   expertise: { title: "Экспертизы", description: "Учёт экспертиз промышленной безопасности" },
   opo: { title: "ОПО", description: "Реестр опасных производственных объектов" },
+  organizationDetail: { title: "Карточка организации", description: "Полная информация об организации" },
   facilityDetail: { title: "Карточка объекта", description: "Детальная информация об опасном производственном объекте" },
   pmla: { title: "ПМЛА", description: "Генерация и проверка ПМЛА" },
   pmlaQuestionnaire: { title: "Анкета ПМЛА", description: "Инженерная анкета и generation context" },
@@ -112,6 +114,8 @@ export default function Home() {
         return <AnalyticsPage />
       case "expertise":
         return <ExpertisePage />
+      case "organizationDetail":
+        return <OrganizationPage />
       case "directories":
         return <DirectoriesPage />
       case "pmla":

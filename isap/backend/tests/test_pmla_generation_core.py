@@ -11,8 +11,11 @@ Covers:
 """
 from __future__ import annotations
 
+import hashlib
+import shutil
 import uuid
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
@@ -129,6 +132,8 @@ def make_full_context(**kw) -> PmlaGenerationContext:
     ctx.facility["reg_number"] = "А34-99999-0001"
     ctx.notification_scheme = {"first_receiver": "Иванов И.И.",
                                 "incident_commander": "Иванов И.И."}
+
+    ctx.questionnaire = {"main_activity": "Pipeline transport of natural gas"}
 
     # Add provenance for key fields
     ctx.add_provenance("organization.name", "organization",
@@ -334,6 +339,22 @@ class TestPreflightRules:
         codes = [e.code for e in report.errors]
         assert "EQ_EMPTY_LIST" in codes
 
+    def test_blocker_on_missing_main_activity(self):
+        ctx = make_full_context()
+        ctx.questionnaire["main_activity"] = ""
+        report = run_preflight(ctx, generation_mode="final")
+        assert "FAC_MISSING_MAIN_ACTIVITY" in [e.code for e in report.errors]
+        assert "main_activity_description" in report.missing_fields
+
+    def test_okved_satisfies_main_activity_contract(self):
+        ctx = make_full_context()
+        ctx.questionnaire["main_activity"] = ""
+        ctx.facility["properties"] = {
+            "okved": "49.50 Pipeline transport",
+        }
+        report = run_preflight(ctx, generation_mode="final")
+        assert "FAC_MISSING_MAIN_ACTIVITY" not in [e.code for e in report.errors]
+
     def test_blocker_on_missing_pasf(self):
         ctx = make_full_context()
         ctx.pasf = {}
@@ -342,11 +363,55 @@ class TestPreflightRules:
         codes = [e.code for e in report.errors]
         assert "PASF_MISSING" in codes
 
-    def test_warning_on_missing_emergency_services(self):
+    def test_blocker_on_missing_emergency_services(self):
+        """Missing emergency services creates a BLOCKER in final mode."""
         ctx = make_full_context()
         ctx.emergency_services = []
-        report = run_preflight(ctx)
+        report = run_preflight(ctx, generation_mode="final")
+        assert report.has_blockers
+        assert "SVC_EMPTY_LIST" in [e.code for e in report.errors]
+
+    def test_warning_on_missing_emergency_services_in_draft(self):
+        """Missing emergency services creates a WARNING in draft mode."""
+        ctx = make_full_context()
+        ctx.emergency_services = []
+        report = run_preflight(ctx, generation_mode="draft")
         assert "SVC_EMPTY_LIST" in [w.code for w in report.warnings]
+
+    def test_blocker_on_disabled_pasf(self):
+        """Disabled PASF creates a BLOCKER."""
+        ctx = make_full_context()
+        ctx.pasf["is_active"] = False
+        report = run_preflight(ctx)
+        assert "PASF_DISABLED" in [e.code for e in report.errors]
+
+    def test_blocker_on_missing_pasf_certificate(self):
+        """PASF without certificate creates a BLOCKER."""
+        ctx = make_full_context()
+        ctx.pasf["certificate_number"] = ""
+        report = run_preflight(ctx)
+        assert "PASF_MISSING_CERTIFICATE" in [e.code for e in report.errors]
+
+    def test_blocker_on_disabled_emergency_service(self):
+        """Disabled emergency service creates a BLOCKER."""
+        ctx = make_full_context()
+        ctx.emergency_services[0]["is_active"] = False
+        report = run_preflight(ctx)
+        assert "SVC_DISABLED" in [e.code for e in report.errors]
+
+    def test_pasf_cert_expired_blocker_in_final(self):
+        """Expired PASF certificate creates BLOCKER in final."""
+        ctx = make_full_context()
+        ctx.pasf["certificate_valid_until"] = "2023-01-01"
+        report = run_preflight(ctx, generation_mode="final")
+        assert "PASF_CERT_EXPIRED" in [e.code for e in report.errors]
+
+    def test_pasf_cert_expired_warning_in_draft(self):
+        """Expired PASF certificate creates WARNING in draft."""
+        ctx = make_full_context()
+        ctx.pasf["certificate_valid_until"] = "2023-01-01"
+        report = run_preflight(ctx, generation_mode="draft")
+        assert "PASF_CERT_EXPIRED" in [w.code for w in report.warnings]
 
     def test_warning_on_missing_resources(self):
         ctx = make_full_context()
@@ -374,6 +439,71 @@ class TestPreflightRules:
         ctx = make_full_context()
         report = run_preflight(ctx)
         assert report.passed, f"Errors: {[e.message for e in report.errors]}"
+
+    def test_relative_pasf_document_path_resolves_under_upload_root(self, monkeypatch):
+        """Uploaded PASF storage keys should not block final preflight."""
+        from src.application.services import pmla_preflight
+
+        upload_root = Path(__file__).resolve().parent / ".tmp_pasf_preflight" / str(uuid.uuid4())
+        try:
+            doc_dir = upload_root / "pasf_documents"
+            doc_dir.mkdir(parents=True)
+            doc_path = doc_dir / "certificate.pdf"
+            content = b"pasf certificate"
+            doc_path.write_bytes(content)
+            checksum = hashlib.sha256(content).hexdigest()
+            monkeypatch.setattr(pmla_preflight, "PASF_UPLOAD_ROOT", str(upload_root))
+
+            ctx = make_full_context()
+            ctx.attachments = [
+                {
+                    "id": "doc-1",
+                    "pasf_id": ctx.pasf["id"],
+                    "document_type": "certificate",
+                    "title": "Свидетельство ПАСФ",
+                    "file_path": "pasf_documents/certificate.pdf",
+                    "checksum_sha256": checksum,
+                    "status": "active",
+                }
+            ]
+
+            report = run_preflight(ctx, generation_mode="final")
+
+            assert "PASF_FILE_NOT_FOUND" not in [e.code for e in report.errors]
+            assert "PASF_FILE_CHECKSUM_MISMATCH" not in [e.code for e in report.errors]
+        finally:
+            shutil.rmtree(upload_root.parent, ignore_errors=True)
+    def test_absolute_pasf_document_path_outside_upload_root_is_rejected(self, monkeypatch):
+        """Preflight should match download policy and reject paths outside upload root."""
+        from src.application.services import pmla_preflight
+
+        test_root = Path(__file__).resolve().parent / ".tmp_pasf_preflight" / str(uuid.uuid4())
+        upload_root = test_root / "uploads"
+        outside_root = test_root / "outside"
+        try:
+            upload_root.mkdir(parents=True)
+            outside_root.mkdir(parents=True)
+            outside_file = outside_root / "certificate.pdf"
+            outside_file.write_bytes(b"outside pasf certificate")
+            monkeypatch.setattr(pmla_preflight, "PASF_UPLOAD_ROOT", str(upload_root))
+
+            ctx = make_full_context()
+            ctx.attachments = [
+                {
+                    "id": "doc-escape",
+                    "pasf_id": ctx.pasf["id"],
+                    "document_type": "certificate",
+                    "title": "Outside certificate",
+                    "file_path": str(outside_file),
+                    "status": "active",
+                }
+            ]
+
+            report = run_preflight(ctx, generation_mode="final")
+
+            assert "PASF_FILE_NOT_FOUND" in [e.code for e in report.errors]
+        finally:
+            shutil.rmtree(test_root, ignore_errors=True)
 
 
 # =========================================================================
@@ -459,10 +589,10 @@ class TestMissingFieldsPreflight:
         assert any(e.code == "PASF_MISSING" for e in report.errors)
 
     def test_missing_emergency_services_creates_warning(self):
-        """Missing emergency services creates a WARNING."""
+        """Missing emergency services creates a WARNING in draft."""
         ctx = make_full_context()
         ctx.emergency_services = []
-        report = run_preflight(ctx)
+        report = run_preflight(ctx, generation_mode="draft")
         assert any(w.code == "SVC_EMPTY_LIST" for w in report.warnings)
 
     def test_empty_forces_not_replaced_with_fake(self):

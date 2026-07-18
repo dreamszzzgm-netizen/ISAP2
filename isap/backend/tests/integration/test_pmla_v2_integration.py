@@ -328,6 +328,78 @@ class TestV2TemplateRenderer:
             doc_xml = zf.read("word/document.xml").decode("utf-8")
             assert "03" in doc_xml or "01" in doc_xml
 
+    def test_dict_emergency_service_alias_keys_map_to_notification_phones(self):
+        """Dict-form emergency services should support aliased group keys."""
+        context = {
+            **SAMPLE_CONTEXT,
+            "emergency_services": {
+                "fire_department": [{"name": "ПСЧ", "dispatcher_phone": "101"}],
+                "medical": [{"name": "Скорая помощь", "phone": "103"}],
+            },
+        }
+
+        ctx = map_to_v2_context(context)
+
+        assert ctx["notification_fire_phone"] == "101"
+        assert ctx["notification_ambulance_phone"] == "103"
+
+    def test_contract_dates_are_formatted_for_v2_schema(self):
+        """PASF contract dates should render as DD.MM.YYYY, not raw ISO."""
+        context = {
+            **SAMPLE_CONTEXT,
+            "pasf_documents": [
+                {
+                    "document_type": "contract",
+                    "document_number": "Д-1",
+                    "issued_at": "2024-06-15",
+                }
+            ],
+        }
+
+        ctx = map_to_v2_context(context)
+
+        assert ctx["contractor_agreement_date"] == "15.06.2024"
+        assert ctx["contractor_agreement_number"] == "Д-1"
+
+    def test_v2_renderer_appends_pasf_appendices_manifest(self):
+        """Selected PASF documents should appear in the rendered v2 DOCX manifest."""
+        import io
+        import zipfile
+
+        context = {
+            **SAMPLE_CONTEXT,
+            "pasf_documents": [
+                {
+                    "document_type": "certificate",
+                    "title": "Свидетельство ПАСФ",
+                    "file_name": "certificate_2024.pdf",
+                    "document_number": "CERT-001",
+                }
+            ],
+        }
+
+        ctx = map_to_v2_context(context)
+
+        assert any(
+            entry.get("filename") == "certificate_2024.pdf"
+            for entry in ctx["appendices_manifest"]
+        )
+
+        docx_bytes = PmlaTemplateRenderer().render(ctx)
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            doc_xml = zf.read("word/document.xml").decode("utf-8")
+
+        assert "Приложения" in doc_xml
+        assert "certificate_2024.pdf" in doc_xml
+        assert "Свидетельство ПАСФ" in doc_xml
+
+    def test_equipment_scenario_links_keep_fallback_without_equipment_ids(self):
+        """Matrix scenarios without equipment_ids should still fill table links."""
+        ctx = map_to_v2_context(SAMPLE_CONTEXT)
+
+        assert ctx["equipment_scenario_links"]
+        assert all(link["scenario_codes"] != "—" for link in ctx["equipment_scenario_links"])
+
     # ------------------------------------------------------------------
     # DOCX field & structure regression tests
     # ------------------------------------------------------------------
@@ -446,7 +518,7 @@ class TestV2DataIntegrity:
 # ---------------------------------------------------------------------------
 
 
-class TestRegulatoryCoverage:
+class TestRegulatoryCoverageBasic:
     """Verify PP RF No.1437 regulatory coverage for v2 context."""
 
     def test_regulatory_coverage(self):
@@ -593,7 +665,7 @@ class TestV2EdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestRegulatoryCoverage:
+class TestRegulatoryCoveragePp1437:
     """Verify regulatory coverage check against PP RF No.1437 requirements."""
 
     def test_regulatory_coverage(self):

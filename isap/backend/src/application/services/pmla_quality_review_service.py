@@ -78,11 +78,24 @@ class PmlaQualityReviewService:
     ]
 
     # Flexible key mapping: accept both canonical and demo-data keys
-    NOTIFICATION_KEY_ROLES = ["first_receiver", "incident_commander", "pasf_caller", "fire_caller"]
+    NOTIFICATION_KEY_ROLES = [
+        "first_receiver",
+        "incident_commander",
+        "pasf_caller",
+        "fire_caller",
+        "medical_caller",
+        "equipment_stopper",
+        "evacuation_responsible",
+        "services_greeter",
+    ]
     NOTIFICATION_KEY_ALIASES = {
         "incident_commander": ["responsible_manager", "incident_commander"],
         "pasf_caller": ["calls_pasf", "pasf_caller"],
         "fire_caller": ["calls_fire", "fire_caller"],
+        "medical_caller": ["calls_medical", "medical_caller"],
+        "equipment_stopper": ["stops_equipment", "equipment_stopper"],
+        "evacuation_responsible": ["evacuation_responsible"],
+        "services_greeter": ["meets_services", "services_greeter"],
         "first_receiver": ["first_receiver"],
     }
 
@@ -425,6 +438,7 @@ class PmlaQualityReviewService:
             title="Схема оповещения",
             status="ok",
             message="Все ключевые роли заполнены",
+            details={"filled": filled_roles, "missing": []},
         )
 
     def _check_financial_reserve(self, ctx: dict[str, Any]) -> CheckResult:

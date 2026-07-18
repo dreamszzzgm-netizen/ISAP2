@@ -3,7 +3,6 @@
   "$id": "https://isap.example.com/schemas/pmla-v2",
   "title": "PMLA v2 Context Schema",
   "description": "JSON Schema Draft 2020-12 for the PMLA v2 docxtpl context object. Covers 37 template scalars, 9 array loops, 11 notification phone scalars, and $defs for all reusable item types.",
-
   "type": "object",
   "properties": {
     "organization_full_name": {
@@ -106,6 +105,10 @@
       "$ref": "#/$defs/DateStr",
       "description": "Дата договора с ПАСФ"
     },
+    "contractor_agreement_number": {
+      "type": "string",
+      "description": "Номер договора с ПАСФ"
+    },
     "gas_supplier_name": {
       "type": "string",
       "description": "Наименование газоснабжающей организации"
@@ -134,7 +137,6 @@
       "type": "string",
       "description": "Наименование местной администрации"
     },
-
     "notification_chairman_phone": {
       "$ref": "#/$defs/PhoneNumber",
       "description": "Телефон председателя (таблица 17)"
@@ -179,62 +181,309 @@
       "$ref": "#/$defs/PhoneNumber",
       "description": "Телефон местной администрации (таблица 17)"
     },
-
     "equipment_list": {
       "type": "array",
-      "items": { "$ref": "#/$defs/EquipmentItem" },
+      "items": {
+        "$ref": "#/$defs/EquipmentItem"
+      },
       "minItems": 1,
       "description": "Таблица 5 — технические устройства ОПО"
     },
     "substance_params": {
       "type": "array",
-      "items": { "$ref": "#/$defs/SubstanceParam" },
+      "items": {
+        "$ref": "#/$defs/SubstanceParam"
+      },
       "description": "Таблица 6 — характеристики опасного вещества"
     },
     "equipment_scenario_links": {
       "type": "array",
-      "items": { "$ref": "#/$defs/EquipmentScenarioLink" },
+      "items": {
+        "$ref": "#/$defs/EquipmentScenarioLink"
+      },
       "description": "Таблица 7 — связь элементов оборудования со сценариями"
     },
     "equipment_defects": {
       "type": "array",
-      "items": { "$ref": "#/$defs/EquipmentDefect" },
+      "items": {
+        "$ref": "#/$defs/EquipmentDefect"
+      },
       "description": "Таблица 8 — возможные неисправности и дефекты оборудования (зарезервировано для будущего шаблона, не применена к текущему pmla_v2_template.docx)",
       "$comment": "DEPRECATED — поле сохранено в схеме как опциональное для обратной совместимости. В текущем шаблоне pmla_v2_template.docx не используется"
     },
     "accident_scenarios": {
       "type": "array",
-      "items": { "$ref": "#/$defs/AccidentScenario" },
+      "items": {
+        "$ref": "#/$defs/AccidentScenario"
+      },
       "minItems": 1,
       "description": "Таблица 9 — сценарии наиболее вероятных аварий"
     },
     "injury_history": {
       "type": "array",
-      "items": { "$ref": "#/$defs/IncidentRecord" },
+      "items": {
+        "$ref": "#/$defs/IncidentRecord"
+      },
       "description": "Таблица 10 — характеристика травматизма"
     },
     "accident_history": {
       "type": "array",
-      "items": { "$ref": "#/$defs/IncidentRecord" },
+      "items": {
+        "$ref": "#/$defs/IncidentRecord"
+      },
       "description": "Таблица 11 — произошедшие аварии и инциденты"
     },
-    "material_reserve": {
+    "material_reserve_actual": {
       "type": "array",
-      "items": { "$ref": "#/$defs/MaterialReserveItem" },
-      "description": "Таблица 13 — материально-техническое обеспечение"
+      "items": {
+        "$ref": "#/$defs/MaterialReserveItem"
+      },
+      "description": "Таблица 13 (фактические) — фактические силы и средства материального резерва"
+    },
+    "material_reserve_recommended": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MaterialReserveItem"
+      },
+      "description": "Таблица 13 (рекомендуемые) — рекомендуемые средства материального резерва"
     },
     "countermeasures": {
       "type": "array",
-      "items": { "$ref": "#/$defs/Countermeasure" },
+      "items": {
+        "$ref": "#/$defs/Countermeasure"
+      },
       "description": "Таблица 18 — противоаварийные меры"
     },
-
     "financial_reserve": {
       "$ref": "#/$defs/FinancialReserve",
       "description": "Финансовый резерв на ликвидацию аварий"
+    },
+    "development_year": {
+      "type": "string",
+      "description": "Год разработки документа (шаблон: {{ development_year }})",
+      "pattern": "^[0-9]{4}$"
+    },
+    "person": {
+      "$ref": "#/$defs/Person",
+      "description": "Ответственное лицо для оперативных разделов (person.position, person.phone)"
+    },
+    "insurance_amount": {
+      "type": "string",
+      "description": "Страховая сумма ОПО (дублирует opo_insurance_amount для обратной совместимости)"
+    },
+    "financial_reserve_order_number": {
+      "type": "string",
+      "description": "Номер приказа о финансовом резерве (flat-алиас)"
+    },
+    "financial_reserve_order_date": {
+      "$ref": "#/$defs/DateStr",
+      "description": "Дата приказа о финансовом резерве (flat-алиас)"
+    },
+    "financial_reserve_amount": {
+      "type": "string",
+      "description": "Сумма финансового резерва (flat-алиас)"
+    },
+    "director_position": {
+      "type": "string",
+      "description": "Должность руководителя организации"
+    },
+    "director_full_name": {
+      "type": "string",
+      "description": "Полное ФИО руководителя организации"
+    },
+    "director_phone": {
+      "type": "string",
+      "description": "Телефон руководителя организации"
+    },
+    "contractor_director_position": {
+      "type": "string",
+      "description": "Должность руководителя ПАСФ"
+    },
+    "contractor_director_full_name": {
+      "type": "string",
+      "description": "ФИО руководителя ПАСФ"
+    },
+    "contractor_director_initials_surname": {
+      "type": "string",
+      "description": "Инициалы и фамилия руководителя ПАСФ для подписи"
+    },
+    "contractor_dispatch_address": {
+      "type": "string",
+      "description": "Адрес вызова ПАСФ"
+    },
+    "contractor_phone": {
+      "type": "string",
+      "description": "Телефон ПАСФ"
+    },
+    "appendices_manifest": {
+      "type": "array",
+      "description": "Манифест приложений к ПМЛА"
+    },
+    "fire_department_name": {
+      "type": "string",
+      "description": "Наименование пожарной части"
+    },
+    "fire_department_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование пожарной части"
+    },
+    "fire_department_address": {
+      "type": "string",
+      "description": "Адрес пожарной части"
+    },
+    "ambulance_service_name": {
+      "type": "string",
+      "description": "Наименование станции скорой помощи"
+    },
+    "hospital_name": {
+      "type": "string",
+      "description": "Наименование ближайшей больницы"
+    },
+    "hospital_address": {
+      "type": "string",
+      "description": "Адрес ближайшей больницы"
+    },
+    "gas_service_name": {
+      "type": "string",
+      "description": "Наименование газовой службы"
+    },
+    "gas_service_address": {
+      "type": "string",
+      "description": "Адрес газовой службы"
+    },
+    "electric_network_name": {
+      "type": "string",
+      "description": "Наименование электросетевой организации"
+    },
+    "electric_network_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование электросетевой организации"
+    },
+    "electric_network_address": {
+      "type": "string",
+      "description": "Адрес электросетевой организации"
+    },
+    "edds_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование ЕДДС"
+    },
+    "edds_address": {
+      "type": "string",
+      "description": "Адрес ЕДДС"
+    },
+    "edds_additional_phone": {
+      "type": "string",
+      "description": "Дополнительный телефон ЕДДС"
+    },
+    "mchs_department_name": {
+      "type": "string",
+      "description": "Наименование подразделения МЧС"
+    },
+    "mchs_department_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование подразделения МЧС"
+    },
+    "mchs_department_address": {
+      "type": "string",
+      "description": "Адрес подразделения МЧС"
+    },
+    "rostechnadzor_department_name": {
+      "type": "string",
+      "description": "Наименование территориального органа Ростехнадзора"
+    },
+    "rostechnadzor_department_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование Ростехнадзора"
+    },
+    "rostechnadzor_department_address": {
+      "type": "string",
+      "description": "Адрес Ростехнадзора"
+    },
+    "local_administration_name": {
+      "type": "string",
+      "description": "Наименование местной администрации"
+    },
+    "local_administration_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование местной администрации"
+    },
+    "local_administration_address": {
+      "type": "string",
+      "description": "Адрес местной администрации"
+    },
+    "local_administration_additional_phone": {
+      "type": "string",
+      "description": "Дополнительный телефон местной администрации"
+    },
+    "opo_insurance_company_name": {
+      "type": "string",
+      "description": "Наименование страховой компании ОПО"
+    },
+    "opo_insurance_company_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование страховой компании ОПО"
+    },
+    "opo_insurance_policy_number": {
+      "type": "string",
+      "description": "Номер страхового полиса ОПО"
+    },
+    "opo_insurance_policy_date": {
+      "type": "string",
+      "description": "Дата страхового полиса ОПО"
+    },
+    "opo_insurance_valid_from": {
+      "type": "string",
+      "description": "Дата начала действия страхования ОПО"
+    },
+    "opo_insurance_valid_until": {
+      "type": "string",
+      "description": "Дата окончания действия страхования ОПО"
+    },
+    "opo_insurance_amount": {
+      "type": "string",
+      "description": "Страховая сумма ОПО"
+    },
+    "financial_reserve_source": {
+      "type": "string",
+      "description": "Источник формирования финансового резерва"
+    },
+    "financial_reserve_purpose": {
+      "type": "string",
+      "description": "Назначение финансового резерва"
+    },
+    "financial_reserve_insurance_company_name": {
+      "type": "string",
+      "description": "Наименование страховой компании финансового резерва"
+    },
+    "financial_reserve_insurance_company_short_name": {
+      "type": "string",
+      "description": "Сокращённое наименование страховой компании фин. резерва"
+    },
+    "financial_reserve_insurance_policy_number": {
+      "type": "string",
+      "description": "Номер полиса страхования.fin. резерва"
+    },
+    "financial_reserve_insurance_policy_date": {
+      "type": "string",
+      "description": "Дата полиса страхования.fin. резерва"
+    },
+    "financial_reserve_insurance_valid_from": {
+      "type": "string",
+      "description": "Начало действия страхования.fin. резерва"
+    },
+    "financial_reserve_insurance_valid_until": {
+      "type": "string",
+      "description": "Окончание действия страхования.fin. резерва"
+    },
+    "financial_reserve_insurance_amount": {
+      "type": "string",
+      "description": "Страховая сумма.fin. резерва"
+    },
+    "notification_administration_phone": {
+      "type": "string",
+      "description": "Телефон местной администрации (альias notification_admin_phone)"
     }
   },
-
   "required": [
     "organization_full_name",
     "inn",
@@ -247,28 +496,36 @@
     "substance_params",
     "accident_scenarios"
   ],
-
-  "additionalProperties": { "type": ["string", "number", "array", "object", "null"] },
-
+  "additionalProperties": {
+    "type": [
+      "string",
+      "number",
+      "array",
+      "object",
+      "null"
+    ]
+  },
   "$defs": {
     "HazardClass": {
       "type": "string",
-      "enum": ["I", "II", "III", "IV"],
+      "enum": [
+        "I",
+        "II",
+        "III",
+        "IV"
+      ],
       "description": "Класс опасности ОПО (римская цифра I–IV)"
     },
-
     "DateStr": {
       "type": "string",
       "pattern": "^[0-9]{2}\\.[0-9]{2}\\.[0-9]{4}$",
       "description": "Дата в формате ДД.ММ.ГГГГ"
     },
-
     "PhoneNumber": {
       "type": "string",
       "description": "Номер телефона",
       "pattern": "^[+]?[0-9()\\- /;]+$"
     },
-
     "EquipmentItem": {
       "type": "object",
       "properties": {
@@ -293,10 +550,15 @@
           "description": "Числовое обозначение процессов"
         }
       },
-      "required": ["location", "hazard_characteristic", "device_name", "specifications", "process_codes"],
+      "required": [
+        "location",
+        "hazard_characteristic",
+        "device_name",
+        "specifications",
+        "process_codes"
+      ],
       "additionalProperties": false
     },
-
     "SubstanceParam": {
       "type": "object",
       "properties": {
@@ -309,10 +571,12 @@
           "description": "Значение параметра"
         }
       },
-      "required": ["parameter", "value"],
+      "required": [
+        "parameter",
+        "value"
+      ],
       "additionalProperties": false
     },
-
     "EquipmentScenarioLink": {
       "type": "object",
       "properties": {
@@ -333,10 +597,14 @@
           "description": "Поражающие факторы"
         }
       },
-      "required": ["equipment_name", "scenario_codes", "description", "damaging_factors"],
+      "required": [
+        "equipment_name",
+        "scenario_codes",
+        "description",
+        "damaging_factors"
+      ],
       "additionalProperties": false
     },
-
     "EquipmentDefect": {
       "type": "object",
       "description": "Строка таблицы 8. DEPRECATED — не применяется в pmla_v2_template.docx, сохранено для будущей реализации",
@@ -362,10 +630,15 @@
           "description": "Соответствующий сценарий"
         }
       },
-      "required": ["equipment_name", "defect", "cause", "location", "scenario"],
+      "required": [
+        "equipment_name",
+        "defect",
+        "cause",
+        "location",
+        "scenario"
+      ],
       "additionalProperties": false
     },
-
     "AccidentScenario": {
       "type": "object",
       "properties": {
@@ -395,10 +668,16 @@
           "description": "Поражающие факторы"
         }
       },
-      "required": ["code", "name", "source", "preconditions", "signs", "damaging_factors"],
+      "required": [
+        "code",
+        "name",
+        "source",
+        "preconditions",
+        "signs",
+        "damaging_factors"
+      ],
       "additionalProperties": false
     },
-
     "IncidentRecord": {
       "type": "object",
       "description": "Общая запись для таблиц 10 (травматизм) и 11 (аварии/инциденты)",
@@ -434,25 +713,24 @@
           "description": "% выполнения мероприятий"
         }
       },
-      "required": ["year", "incident_number", "date", "character", "trauma", "consequences", "measures_percent"],
+      "required": [
+        "year",
+        "incident_number",
+        "date",
+        "character",
+        "trauma",
+        "consequences",
+        "measures_percent"
+      ],
       "additionalProperties": false
     },
-
     "MaterialReserveItem": {
       "type": "object",
-      "description": "Строка таблицы 13. Заголовки группы: is_group_header=true, group_name задано. Данные: is_group_header=false/undefined, name/quantity/location заданы.",
+      "description": "Строка таблицы 13 — материально-техническое обеспечение (без групповых заголовков)",
       "properties": {
-        "is_group_header": {
-          "type": "boolean",
-          "description": "true = заголовок группы, false/undefined = строка данных"
-        },
-        "group_name": {
-          "type": "string",
-          "description": "Название группы (только для заголовков)"
-        },
         "name": {
           "type": "string",
-          "description": "Наименование (для строк данных)"
+          "description": "Наименование средства"
         },
         "quantity": {
           "type": "string",
@@ -463,19 +741,13 @@
           "description": "Место расположения"
         }
       },
-      "required": [],
-      "additionalProperties": false,
-      "if": {
-        "properties": { "is_group_header": { "const": true } }
-      },
-      "then": {
-        "required": ["group_name"]
-      },
-      "else": {
-        "required": ["name", "quantity", "location"]
-      }
+      "required": [
+        "name",
+        "quantity",
+        "location"
+      ],
+      "additionalProperties": false
     },
-
     "Countermeasure": {
       "type": "object",
       "properties": {
@@ -500,10 +772,15 @@
           "description": "Исполнители и порядок действий"
         }
       },
-      "required": ["scenario_label", "signs", "protection", "technical_means", "executors"],
+      "required": [
+        "scenario_label",
+        "signs",
+        "protection",
+        "technical_means",
+        "executors"
+      ],
       "additionalProperties": false
     },
-
     "FinancialReserve": {
       "type": "object",
       "description": "Финансовый резерв на ликвидацию аварий",
@@ -522,12 +799,35 @@
           "description": "Номер приказа об образовании резерва"
         },
         "order_date": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Дата приказа об образовании резерва",
           "format": "date"
         }
       },
-      "required": ["amount", "currency", "order_number"],
+      "required": [
+        "amount",
+        "currency",
+        "order_number"
+      ],
+      "additionalProperties": false
+    },
+    "Person": {
+      "type": "object",
+      "description": "Ответственное лицо для оперативных разделов шаблона",
+      "properties": {
+        "position": {
+          "type": "string",
+          "description": "Должность ответственного лица"
+        },
+        "phone": {
+          "$ref": "#/$defs/PhoneNumber",
+          "description": "Телефон ответственного лица"
+        }
+      },
+      "required": ["position", "phone"],
       "additionalProperties": false
     }
   }
