@@ -197,10 +197,41 @@ class TestPmlaApiSmokeFlow:
         app.dependency_overrides[get_regulatory_repo] = lambda: make_mock_repo()
         app.dependency_overrides[get_scenario_matrix_repo] = lambda: make_mock_repo()
 
-        with patch(
-            "src.api.routers.pmla_questionnaires.PmlaGenerationFromQuestionnaireService.generate",
-            new_callable=AsyncMock,
-        ) as mock_generate:
+        with (
+            patch(
+                "src.api.routers.pmla_questionnaires.PmlaQuestionnaireService",
+            ) as MockService,
+            patch(
+                "src.api.routers.pmla_questionnaires.PmlaGenerationFromQuestionnaireService.generate",
+                new_callable=AsyncMock,
+            ) as mock_generate,
+        ):
+            mock_service = MockService.return_value
+            mock_service.build_generation_context = AsyncMock(return_value={
+                "organization": {
+                    "id": ORGANIZATION_ID,
+                    "name": FAKE_ORGANIZATION.name,
+                    "inn": FAKE_ORGANIZATION.inn,
+                    "address": FAKE_ORGANIZATION.address,
+                },
+                "facility": {
+                    "id": FACILITY_ID,
+                    "name": FAKE_FACILITY.name,
+                    "reg_number": FAKE_FACILITY.reg_number,
+                    "hazard_class": FAKE_FACILITY.hazard_class,
+                    "facility_type": FAKE_FACILITY.facility_type,
+                    "address": FAKE_FACILITY.address,
+                },
+                "questionnaire": {
+                    "id": QUESTIONNAIRE_ID,
+                    **FAKE_QUESTIONNAIRE.data,
+                },
+                "selected_scenarios": FAKE_QUESTIONNAIRE.data[
+                    "selected_scenarios"
+                ],
+                "custom_scenarios": [],
+            })
+
             # Create a mock result object with required attributes
             mock_result = MagicMock()
             mock_result.document_id = DOCUMENT_ID
@@ -220,7 +251,11 @@ class TestPmlaApiSmokeFlow:
 
             resp = await client.post(
                 f"/api/v1/pmla-questionnaires/{QUESTIONNAIRE_ID}/generate",
-                json={"regenerate_sections": None, "save_debug_artifacts": True},
+                json={
+                    "regenerate_sections": None,
+                    "save_debug_artifacts": True,
+                    "generation_mode": "draft",
+                },
             )
             if resp.status_code != 200:
                 print(f"Generate failed: {resp.status_code} {resp.text}")
