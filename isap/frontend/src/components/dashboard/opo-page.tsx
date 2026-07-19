@@ -52,15 +52,24 @@ interface OpoObject {
   address: string
 }
 
-function hazardClassToLabel(cls: string | number | null | undefined): string {
-  if (!cls && cls !== 0) return ""
-  const num = typeof cls === "string" ? parseInt(cls, 10) : cls
+function hazardClassToLabel(cls: unknown): string {
+  if (cls === null || cls === undefined || cls === "") return ""
+
+  if (typeof cls !== "string" && typeof cls !== "number") {
+    return ""
+  }
+
+  const num =
+    typeof cls === "string"
+      ? Number.parseInt(cls, 10)
+      : cls
+
   switch (num) {
     case 1: return "I"
     case 2: return "II"
     case 3: return "III"
     case 4: return "IV"
-    default: return String(cls || "")
+    default: return String(cls)
   }
 }
 
@@ -68,7 +77,7 @@ function mapFromApi(item: Record<string, unknown>): OpoObject {
   return {
     id: String(item.id || ""),
     name: String(item.name || ""),
-    orgName: String((item as any).organization_name || item.organization_id || ""),
+    orgName: String(item.organization_name ?? item.organization_id ?? ""),
     regNumber: String(item.reg_number || ""),
     dangerClass: hazardClassToLabel(item.hazard_class),
     address: String(item.address || ""),
