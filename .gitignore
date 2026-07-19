@@ -41,3 +41,5 @@ graphify-out/
 # Windows reserved-name artifacts created by local tools
 [Nn][Uu][Ll]
 [Nn][Uu][Ll].*
+.gstack/
+/isap/files/e2e_artifacts/
