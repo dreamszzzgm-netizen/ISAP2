@@ -202,35 +202,33 @@ class TestPmlaApiSmokeFlow:
                 "src.api.routers.pmla_questionnaires.PmlaQuestionnaireService",
             ) as MockService,
             patch(
+                "src.application.services.pmla_context_builder.PmlaContextBuilder.from_questionnaire",
+                new_callable=AsyncMock,
+            ) as mock_from_questionnaire,
+            patch(
+                "src.application.services.pmla_preflight.run_preflight",
+            ) as mock_run_preflight,
+            patch(
                 "src.api.routers.pmla_questionnaires.PmlaGenerationFromQuestionnaireService.generate",
                 new_callable=AsyncMock,
             ) as mock_generate,
         ):
-            mock_service = MockService.return_value
-            mock_service.build_generation_context = AsyncMock(return_value={
-                "organization": {
-                    "id": ORGANIZATION_ID,
-                    "name": FAKE_ORGANIZATION.name,
-                    "inn": FAKE_ORGANIZATION.inn,
-                    "address": FAKE_ORGANIZATION.address,
-                },
-                "facility": {
-                    "id": FACILITY_ID,
-                    "name": FAKE_FACILITY.name,
-                    "reg_number": FAKE_FACILITY.reg_number,
-                    "hazard_class": FAKE_FACILITY.hazard_class,
-                    "facility_type": FAKE_FACILITY.facility_type,
-                    "address": FAKE_FACILITY.address,
-                },
-                "questionnaire": {
-                    "id": QUESTIONNAIRE_ID,
-                    **FAKE_QUESTIONNAIRE.data,
-                },
-                "selected_scenarios": FAKE_QUESTIONNAIRE.data[
-                    "selected_scenarios"
-                ],
-                "custom_scenarios": [],
-            })
+            mock_context = MagicMock()
+            mock_context.provenance = {}
+            mock_context.facility = {"id": FACILITY_ID}
+            mock_context.generation_mode = "draft"
+            mock_context.preflight_status = "ok"
+            mock_from_questionnaire.return_value = mock_context
+
+            mock_preflight_report = MagicMock()
+            mock_preflight_report.status = "ok"
+            mock_preflight_report.has_blockers = False
+            mock_preflight_report.to_dict.return_value = {
+                "status": "ok",
+                "has_blockers": False,
+                "issues": [],
+            }
+            mock_run_preflight.return_value = mock_preflight_report
 
             # Create a mock result object with required attributes
             mock_result = MagicMock()
