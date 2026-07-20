@@ -53,6 +53,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "audit_only: tests that validate schema-template alignment (schema not finalized)",
+    "postgres: tests requiring a real PostgreSQL database",
 ]
 
 [tool.ruff]
