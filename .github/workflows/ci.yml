@@ -33,7 +33,10 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest -q
+        # PostgreSQL-marked integration tests run in the Harness CI
+        # "Backend integration" stage against a real Postgres 16 service.
+        # This job runs the unit suite only.
+        run: pytest -q -m "not postgres"
 
   frontend:
     runs-on: ubuntu-latest
